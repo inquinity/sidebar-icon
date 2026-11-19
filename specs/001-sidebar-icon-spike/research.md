@@ -81,7 +81,11 @@ in the "Findings" section at the end of this file during implementation (FR-008)
     expected to work inside the App Sandbox. Recorded in Complexity Tracking.
   - **EXPERIMENT B5**: Run probe B1 once from a sandboxed build to confirm the sandbox blocks it. If it
     works, feature 002 keeps the app sandboxed.
-  - App Group: `<TEAMID>.com.<owner>.SidebarIcons` (team-ID prefix, so no container-access prompt).
+  - Bundle identifiers (approved by the owner on 2026-11-19): app
+    `com.altmansoftwaredesign.SidebarIcons`, extension
+    `com.altmansoftwaredesign.SidebarIcons.FinderSync`, Path B registration bundle
+    `com.altmansoftwaredesign.SidebarIcons.IconRegistry`.
+  - App Group: `<TEAMID>.com.altmansoftwaredesign.SidebarIcons` (team-ID prefix, so no container-access prompt).
 - **Alternatives considered**: A separate non-sandboxed command-line helper next to a sandboxed app.
   Rejected for the spike (more moving parts); it may be reconsidered in 002 if B5 shows a sandboxed
   app is otherwise viable.

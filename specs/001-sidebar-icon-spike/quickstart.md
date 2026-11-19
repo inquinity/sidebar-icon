@@ -45,5 +45,5 @@ dark mode and accent color, non-square image) are each run once after step 9 and
 1. Run **Reset** in the spike, then **Refresh Finder**.
 2. Disable the extension in System Settings.
 3. Delete the app and its App Group container
-   (`~/Library/Group Containers/<TEAMID>.com.<owner>.SidebarIcons`).
+   (`~/Library/Group Containers/<TEAMID>.com.altmansoftwaredesign.SidebarIcons`).
 4. If an icon override is still showing: remove the Favorite and drag the folder back in.

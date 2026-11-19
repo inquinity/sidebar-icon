@@ -33,8 +33,8 @@ Paths follow plan.md: `README.md` and `PRIVATE_API.md` at the repository root,
 
 **Purpose**: Project skeleton, signing, shared container, and the public private-API register
 
-- [ ] T001 (owner) Create `spike/SidebarIconSpike.xcodeproj` in Xcode: macOS App target `SidebarIconSpike` (SwiftUI) plus Finder Sync Extension target `SpikeFinderSync`; select the Apple Developer team for both
-- [ ] T002 (owner) Add the App Group `<TEAMID>.com.<owner>.SidebarIcons` to both targets; enable App Sandbox on `spike/SpikeFinderSync/SpikeFinderSync.entitlements` only; turn off App Sandbox and keep Hardened Runtime on `spike/SidebarIconSpike/SidebarIconSpike.entitlements`
+- [ ] T001 (owner) Create `spike/SidebarIconSpike.xcodeproj` in Xcode: macOS App target `SidebarIconSpike` (SwiftUI) plus Finder Sync Extension target `SpikeFinderSync`; select the Apple Developer team for both; set bundle identifiers `com.altmansoftwaredesign.SidebarIcons` (app) and `com.altmansoftwaredesign.SidebarIcons.FinderSync` (extension)
+- [ ] T002 (owner) Add the App Group `<TEAMID>.com.altmansoftwaredesign.SidebarIcons` to both targets; enable App Sandbox on `spike/SpikeFinderSync/SpikeFinderSync.entitlements` only; turn off App Sandbox and keep Hardened Runtime on `spike/SidebarIconSpike/SidebarIconSpike.entitlements`
 - [ ] T003 Create local package `spike/SidebarIconCore/Package.swift` (swift-tools-version 6.0, platform macOS 27, library `SidebarIconCore`, test target `SidebarIconCoreTests` using Swift Testing) and link it to both Xcode targets
 - [ ] T004 [P] Add the owner-supplied test icons to the `SidebarIconSpike` target's resources by reference, without copying them: `folder-icon/macOS-dev-folder-icon.png` (for `~/dev`; full color, 1326×1098, transparent) and `folder-icon/git-repo-2-layers.png` (for `~/DevDocs`; single-color line art, 1341×1173, transparent). Commit these two files; the other images in `folder-icon/` stay untracked unless the owner says otherwise
 - [ ] T005 [P] Add `.gitignore` entries for Xcode output (`DerivedData/`, `*.xcuserstate`, `xcuserdata/`, `.build/`) at repository root
@@ -73,14 +73,14 @@ with folder icons untouched. Path A is tried first and recorded.
 
 ### Path A (public API first, FR-005)
 
-- [ ] T018 [US1] Implement `SpikeFinderSync/FinderSync.swift`: set `FIFinderSyncController.default().directoryURLs` to the two hard-coded roots at startup; log via `os.Logger` (subsystem `com.<owner>.SidebarIcons`)
+- [ ] T018 [US1] Implement `SpikeFinderSync/FinderSync.swift`: set `FIFinderSyncController.default().directoryURLs` to the two hard-coded roots at startup; log via `os.Logger` (subsystem `com.altmansoftwaredesign.SidebarIcons`)
 - [ ] T019 [US1] Implement `FinderSyncProvider` (status = extension enabled + roots watched; apply/reset are no-ops that report "no public sidebar-icon API") in `spike/SidebarIconCore/Sources/SidebarIconCore/Providers/FinderSyncProvider.swift`
 - [ ] T020 [US1] (owner) Run quickstart step 1 and record experiment A1 in `specs/001-sidebar-icon-spike/research.md` Findings
 - [ ] T021 [US1] (owner approval needed for network) Check Apple's current Finder Sync documentation for any sidebar-icon key or behavior; record A2 in `specs/001-sidebar-icon-spike/research.md`. If A1/A2 find a working public route, implement it in `FinderSyncProvider`, mark every `PRIVATE_API.md` entry "removed — not needed, public route found", and skip T022–T029
 
 ### Path B (Launch Services override, isolated adapter)
 
-- [ ] T022 [P] [US1] Write tests for the registration bundle builder in `spike/SidebarIconCore/Tests/SidebarIconCoreTests/IconRegistryBundleTests.swift`: Info.plist has one `CFBundleDocumentTypes` entry per mapping with `CFBundleTypeOSTypes` = `[osType]` and `CFBundleTypeIconFile` = `<assetID>.icns`; output is deterministic
+- [ ] T022 [P] [US1] Write tests for the registration bundle builder in `spike/SidebarIconCore/Tests/SidebarIconCoreTests/IconRegistryBundleTests.swift`: Info.plist has one `CFBundleDocumentTypes` entry per mapping with `CFBundleTypeOSTypes` = `[osType]` and `CFBundleTypeIconFile` = `<assetID>.icns`; `CFBundleIdentifier` = `com.altmansoftwaredesign.SidebarIcons.IconRegistry`; output is deterministic
 - [ ] T023 [P] [US1] Implement ICNS conversion from PDF/PNG/SVG via ImageIO `CGImageDestination` (16–1024 px, square-padded) in `spike/SidebarIconCore/Sources/SidebarIconCore/Icons/ICNSConverter.swift`
 - [ ] T024 [US1] Implement `IconRegistryBundle` builder that writes `IconRegistry.bundle` (Info.plist + Resources/*.icns) into the container in `spike/SidebarIconCore/Sources/SidebarIconCore/Icons/IconRegistryBundle.swift`
 - [ ] T025 [US1] Implement read-only `status` in `LaunchServicesOverrideProvider` (list Favorites with `LSSharedFileListCreate(kLSSharedFileListFavoriteItems)`, resolve URLs, read `com.apple.LSSharedFileList.OverrideIcon.OSType`) in `spike/SidebarIconCore/Sources/SidebarIconCore/Providers/LaunchServicesOverrideProvider.swift`; wire to List Favorites; in the same commit, set the calling file in the matching `PRIVATE_API.md` entries
