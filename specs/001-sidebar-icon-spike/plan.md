@@ -7,7 +7,7 @@
 ## Summary
 
 Build a disposable macOS app plus Finder Sync extension that hard-codes two Favorites
-(`~/dev`, `~/Cloud Shortcuts/AI`) and tries to give each its own sidebar icon. It tries the public
+(`~/dev`, `~/DevDocs`) and tries to give each its own sidebar icon. It tries the public
 Finder Sync route first (Path A). The SDK has no public per-folder sidebar-icon API (research R1), so
 the spike then tries the Launch Services override route (Path B): register an icon bundle with
 project-specific OSType codes and set `com.apple.LSSharedFileList.OverrideIcon.OSType` on each
@@ -84,7 +84,7 @@ spike/
 │   ├── SidebarIconSpikeApp.swift
 │   ├── SpikeView.swift               # buttons: List Favorites, Apply A, Apply B,
 │   │                                 # Use runtime icon, Refresh Finder, Reset; status log
-│   ├── Resources/Icons/dev.pdf, ai.pdf
+│   ├── (bundled test icons referenced from ../folder-icon/)
 │   └── SidebarIconSpike.entitlements # App Group only
 ├── SpikeFinderSync/                  # Finder Sync extension (sandboxed)
 │   ├── FinderSync.swift              # directoryURLs = two hard-coded roots

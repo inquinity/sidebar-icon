@@ -9,7 +9,7 @@ Validation guide for the spike. Record every result in the Findings table in
 
 - macOS 27 (current test machine: 27.2.1, build 26B131), Xcode 27.2.
 - Apple Developer team selected in Xcode for both targets (Signing & Capabilities).
-- `~/dev` and `~/Cloud Shortcuts/AI` exist and have been dragged into Finder's sidebar Favorites.
+- `~/dev` and `~/DevDocs` exist and have been dragged into Finder's sidebar Favorites.
 - Optional safety copy before any Path B step: a screenshot of the sidebar and the output of the
   spike's read-only "List Favorites" action saved to a text file.
 
@@ -31,8 +31,8 @@ Validation guide for the spike. Record every result in the Findings table in
 | 4 | **Refresh Finder** ×3, then log out and in | Icons still showing | US1-2, US1-3, SC-002 | B2 |
 | 5 | Check both folders in a Finder window and Get Info | Folder icons unchanged | US1-4 | — |
 | 6 | Disable the extension in System Settings, Refresh Finder | Record: do icons persist? | — | B4 |
-| 7 | **Use runtime icon for AI**, choose a file outside the project | AI icon changes within 10 s, or after Refresh Finder (record which) | US2-1, SC-003 | B3 |
-| 8 | Delete the original file chosen in step 7, Refresh Finder | Runtime icon still showing | US2-3 | B3 |
+| 7 | **Use runtime icon for DevDocs**, first copy `folder-icon/git-repo-3-layers-light-blue.png` to `~/Desktop`, then choose that copy | DevDocs icon changes within 10 s, or after Refresh Finder (record which) | US2-1, SC-003 | B3 |
+| 8 | Delete the `~/Desktop` copy chosen in step 7 (never the original in `folder-icon/`), Refresh Finder | Runtime icon still showing | US2-3 | B3 |
 | 9 | **Reset**, then Refresh Finder | Generic glyph on both; ledger empty | US3-1, SC-004 | B6 |
 | 10 | Delete the app and container; search `lsregister -dump` for the bundle path | No matches | US3-2 | B6 |
 | 11 | Repeat step 2 from a sandboxed build configuration | Record: blocked or allowed | — | B5 |

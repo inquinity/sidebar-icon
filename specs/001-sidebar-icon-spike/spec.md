@@ -16,9 +16,9 @@ override is required (Path B). Source: Finder_Sidebar_Custom_Icons_Utility.md, P
 
 ### User Story 1 - Two Favorites, two built-in custom icons (Priority: P1)
 
-The owner adds `~/dev` and `~/Cloud Shortcuts/AI` to Finder's sidebar Favorites, installs and
+The owner adds `~/dev` and `~/DevDocs` to Finder's sidebar Favorites, installs and
 enables the proof-of-concept build, and sees each Favorite show its own custom icon (one
-development icon, one AI icon) instead of the generic folder glyph. One installed component serves
+development icon, one DevDocs icon) instead of the generic folder glyph. One installed component serves
 both folders.
 
 **Why this priority**: If two different custom sidebar icons cannot be shown at all, nothing else
@@ -43,9 +43,9 @@ Finder sidebar; restart Finder; inspect again.
 
 ### User Story 2 - One icon chosen at runtime (Priority: P2)
 
-The owner replaces the AI icon with an image file that is not part of the build: it is placed in the
+The owner replaces the DevDocs icon with an image file that is not part of the build: it is placed in the
 utility's own storage area after installation. The sidebar shows that new image for
-`~/Cloud Shortcuts/AI` without rebuilding the app.
+`~/DevDocs` without rebuilding the app.
 
 **Why this priority**: The finished utility lets users pick any icon. This story proves that icons
 do not have to be compiled in, and it is the experiment that decides between Path A and Path B.
@@ -56,7 +56,7 @@ utility's refresh, and inspect the sidebar.
 **Acceptance Scenarios**:
 
 1. **Given** Story 1 passes, **When** a new image is placed in the utility's storage and a refresh is
-   triggered, **Then** the AI Favorite shows the new image and the dev Favorite is unchanged.
+   triggered, **Then** the DevDocs Favorite shows the new image and the dev Favorite is unchanged.
 2. **Given** the runtime image is showing, **When** Finder is restarted, **Then** the runtime image is
    still showing.
 3. **Given** the runtime image is showing, **When** the original source file the image was copied
@@ -143,11 +143,16 @@ registrations and properties are gone.
 ## Assumptions
 
 - The owner adds the two folders to Favorites by hand; the spike does not add sidebar items.
+- The test folders are `~/dev` and `~/DevDocs`, both in Favorites on the test machine. `~/DevDocs`
+  replaced `~/Cloud Shortcuts/AI` from the original design notes on 2026-11-18, because that folder
+  does not exist on the test machine.
 - Testing happens on the owner's macOS 27 machine. macOS 26 is tested only if a 26 machine or VM is
   already available; it is not required.
 - The owner has an Apple Developer team, so all components can be signed and share storage without
   system prompts.
 - Path B relies on undocumented behavior observed in existing sidebar-icon utilities; it is
   acceptable for this project if it is isolated and fully reversible (Constitution Principle II).
-- Simple single-color icon artwork is used for the main test; multi-color images are an edge case.
+- The main test uses the owner's artwork from `folder-icon/`: a full-color folder icon for `~/dev`
+  and a single-color line-art glyph for `~/DevDocs`. Neither is square, so the pair also shows how
+  Finder renders full-color versus glyph art and non-square images at sidebar size.
 - The spike's code is disposable. Feature 002 may reuse parts of it but is not required to.

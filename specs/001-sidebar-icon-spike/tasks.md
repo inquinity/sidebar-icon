@@ -36,7 +36,7 @@ Paths follow plan.md: `README.md` and `PRIVATE_API.md` at the repository root,
 - [ ] T001 (owner) Create `spike/SidebarIconSpike.xcodeproj` in Xcode: macOS App target `SidebarIconSpike` (SwiftUI) plus Finder Sync Extension target `SpikeFinderSync`; select the Apple Developer team for both
 - [ ] T002 (owner) Add the App Group `<TEAMID>.com.<owner>.SidebarIcons` to both targets; enable App Sandbox on `spike/SpikeFinderSync/SpikeFinderSync.entitlements` only; turn off App Sandbox and keep Hardened Runtime on `spike/SidebarIconSpike/SidebarIconSpike.entitlements`
 - [ ] T003 Create local package `spike/SidebarIconCore/Package.swift` (swift-tools-version 6.0, platform macOS 27, library `SidebarIconCore`, test target `SidebarIconCoreTests` using Swift Testing) and link it to both Xcode targets
-- [ ] T004 [P] Add bundled template-style icons `spike/SidebarIconSpike/Resources/Icons/dev.pdf` and `spike/SidebarIconSpike/Resources/Icons/ai.pdf` (single color, square, vector)
+- [ ] T004 [P] Add the owner-supplied test icons to the `SidebarIconSpike` target's resources by reference, without copying them: `folder-icon/macOS-dev-folder-icon.png` (for `~/dev`; full color, 1326×1098, transparent) and `folder-icon/git-repo-2-layers.png` (for `~/DevDocs`; single-color line art, 1341×1173, transparent). Commit these two files; the other images in `folder-icon/` stay untracked unless the owner says otherwise
 - [ ] T005 [P] Add `.gitignore` entries for Xcode output (`DerivedData/`, `*.xcuserstate`, `xcuserdata/`, `.build/`) at repository root
 - [x] T006 [P] Create `PRIVATE_API.md` at repository root (Constitution VI). One entry per planned use, each with the six required fields (symbol/key and framework; status; purpose and calling file; verified/failed macOS builds; risks; reset path and removal path), all marked "planned, unverified": `LSSharedFileListCreate` + `kLSSharedFileListFavoriteItems` + `LSSharedFileListCopySnapshot` + `LSSharedFileListItemCopyResolvedURL` (deprecated since 10.11, SharedFileList); `LSSharedFileListItemCopyProperty` / `LSSharedFileListItemSetProperty` (deprecated since 10.11); property key `com.apple.LSSharedFileList.OverrideIcon.OSType` (undocumented); Finder's lookup of a sidebar icon through a `CFBundleDocumentTypes` / `CFBundleTypeOSTypes` registration (undocumented behavior; `LSRegisterURL` itself is public); `lsregister -u` and `lsregister -dump` (undocumented system tool). Cite research.md R2, R3, R7, R8 as sources
 - [x] T007 [P] Create `README.md` at repository root: one-paragraph purpose, a notice within the first screen that the utility relies on undocumented macOS behavior with a link to `PRIVATE_API.md`, build prerequisites, and a link to `specs/001-sidebar-icon-spike/quickstart.md`
@@ -57,8 +57,8 @@ Paths follow plan.md: `README.md` and `PRIVATE_API.md` at the repository root,
 - [ ] T013 Implement `LedgerStore` (atomic JSON writes to `ledger.json`, write-before-apply API) in `spike/SidebarIconCore/Sources/SidebarIconCore/Ledger/LedgerStore.swift`
 - [ ] T014 Define `SidebarIconProvider`, `MappingStatus`, `ApplyReport`, `ResetReport`, `SidebarIconError` exactly as in `contracts/sidebar-icon-provider.md` in `spike/SidebarIconCore/Sources/SidebarIconCore/Providers/SidebarIconProvider.swift`
 - [ ] T015 Implement `FinderRestarter` (terminate `com.apple.finder` via `NSRunningApplication`, wait for relaunch, report time taken) in `spike/SidebarIconCore/Sources/SidebarIconCore/Finder/FinderRestarter.swift`
-- [ ] T016 Build the spike window shell with a scrolling status log and the buttons List Favorites, Apply (Path A), Apply (Path B), Use runtime icon for AI, Refresh Finder, Reset in `spike/SidebarIconSpike/SpikeView.swift`; buttons call stubs for now
-- [ ] T017 Hard-code the two mappings (`~/dev` → dev.pdf, `~/Cloud Shortcuts/AI` → ai.pdf) in `spike/SidebarIconSpike/SpikeMappings.swift`; log and skip folders that do not exist
+- [ ] T016 Build the spike window shell with a scrolling status log and the buttons List Favorites, Apply (Path A), Apply (Path B), Use runtime icon for DevDocs, Refresh Finder, Reset in `spike/SidebarIconSpike/SpikeView.swift`; buttons call stubs for now
+- [ ] T017 Hard-code the two mappings (`~/dev` → `macOS-dev-folder-icon.png`, `~/DevDocs` → `git-repo-2-layers.png`) in `spike/SidebarIconSpike/SpikeMappings.swift`; log and skip folders that do not exist
 
 **Checkpoint**: `swift test --package-path spike/SidebarIconCore` passes; the app launches and shows the window
 
@@ -95,13 +95,13 @@ with folder icons untouched. Path A is tried first and recorded.
 
 ## Phase 4: User Story 2 - One icon chosen at runtime (Priority: P2)
 
-**Goal**: The AI Favorite shows an image picked after the build, without rebuilding.
+**Goal**: The DevDocs Favorite shows an image picked after the build, without rebuilding.
 
 **Independent Test**: quickstart.md steps 7–8
 
 - [ ] T030 [P] [US2] Write tests for asset import in `spike/SidebarIconCore/Tests/SidebarIconCoreTests/AssetImporterTests.swift`: format detected from content type, not extension; copy lands at `Icons/<uuid>.<ext>`; original file untouched
 - [ ] T031 [US2] Implement `AssetImporter` (copy the chosen file into `Icons/`, create `IconAsset`) in `spike/SidebarIconCore/Sources/SidebarIconCore/Icons/AssetImporter.swift`
-- [ ] T032 [US2] Wire "Use runtime icon for AI": `NSOpenPanel` (PDF, PNG, SVG) → `AssetImporter` → rebuild `IconRegistry.bundle` → re-register → re-apply; time from click to visible icon in `spike/SidebarIconSpike/SpikeView.swift`
+- [ ] T032 [US2] Wire "Use runtime icon for DevDocs": `NSOpenPanel` (PDF, PNG, SVG) → `AssetImporter` → rebuild `IconRegistry.bundle` → re-register → re-apply; time from click to visible icon in `spike/SidebarIconSpike/SpikeView.swift`
 - [ ] T033 [US2] (owner) Run quickstart steps 7–8; record B3, including whether the runtime-generated unsigned bundle is accepted and whether Refresh Finder was needed (research R4 open sub-question); add the result to the icon-registration entry's risks in `PRIVATE_API.md`
 
 **Checkpoint**: SC-003 recorded

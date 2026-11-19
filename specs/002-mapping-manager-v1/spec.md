@@ -40,7 +40,7 @@ Finder sidebar.
 
 ### User Story 2 - Manage several mappings (Priority: P2)
 
-The owner keeps three mappings (`~/dev`, `~/Cloud Shortcuts/AI`, `~/Cloud Shortcuts/QEC`) in one
+The owner keeps three mappings (`~/dev`, `~/DevDocs`, and a third folder) in one
 list, turns one off temporarily, and removes another.
 
 **Why this priority**: Supporting many mappings from one utility is the stated goal; turning one off
