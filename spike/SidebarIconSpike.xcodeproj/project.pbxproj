@@ -10,6 +10,8 @@
 		AB12CD34EF56AB12CD34EF15 /* SpikeFinderSync.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB12CD34EF56AB12CD34EF05 /* SpikeFinderSync.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AB12CD34EF56AB12CD34EF16 /* SidebarIconCore in Frameworks */ = {isa = PBXBuildFile; productRef = AB12CD34EF56AB12CD34EF31 /* SidebarIconCore */; };
 		AB12CD34EF56AB12CD34EF26 /* SidebarIconCore in Frameworks */ = {isa = PBXBuildFile; productRef = AB12CD34EF56AB12CD34EF32 /* SidebarIconCore */; };
+		AB12CD34EF56AB12CD34EF52 /* macOS-dev-folder-icon.png in Resources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF56AB12CD34EF50 /* macOS-dev-folder-icon.png */; };
+		AB12CD34EF56AB12CD34EF53 /* git-repo-2-layers.png in Resources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF56AB12CD34EF51 /* git-repo-2-layers.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,6 +41,8 @@
 /* Begin PBXFileReference section */
 		AB12CD34EF56AB12CD34EF04 /* SidebarIconSpike.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SidebarIconSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB12CD34EF56AB12CD34EF05 /* SpikeFinderSync.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpikeFinderSync.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB12CD34EF56AB12CD34EF50 /* macOS-dev-folder-icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "macOS-dev-folder-icon.png"; path = "../folder-icon/macOS-dev-folder-icon.png"; sourceTree = SOURCE_ROOT; };
+		AB12CD34EF56AB12CD34EF51 /* git-repo-2-layers.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "git-repo-2-layers.png"; path = "../folder-icon/git-repo-2-layers.png"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -92,6 +96,7 @@
 			children = (
 				AB12CD34EF56AB12CD34EF06 /* SidebarIconSpike */,
 				AB12CD34EF56AB12CD34EF07 /* SpikeFinderSync */,
+				AB12CD34EF56AB12CD34EF54 /* TestIcons */,
 				AB12CD34EF56AB12CD34EF03 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -103,6 +108,15 @@
 				AB12CD34EF56AB12CD34EF05 /* SpikeFinderSync.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		AB12CD34EF56AB12CD34EF54 /* TestIcons */ = {
+			isa = PBXGroup;
+			children = (
+				AB12CD34EF56AB12CD34EF50 /* macOS-dev-folder-icon.png */,
+				AB12CD34EF56AB12CD34EF51 /* git-repo-2-layers.png */,
+			);
+			name = TestIcons;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -202,6 +216,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB12CD34EF56AB12CD34EF52 /* macOS-dev-folder-icon.png in Resources */,
+				AB12CD34EF56AB12CD34EF53 /* git-repo-2-layers.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

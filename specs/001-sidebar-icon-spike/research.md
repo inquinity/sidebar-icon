@@ -51,6 +51,9 @@ in the "Findings" section at the end of this file during implementation (FR-008)
   both Favorites; restart Finder; record the result.
 - **Risk**: The property name and behavior are undocumented and may change between macOS releases
   (Constitution II: isolate in one adapter, record the build verified on).
+- **Implementation choices to vary if B2 fails** (2026-11-19): the bundle is `IconRegistry.app`
+  (application-type, no executable) rather than a plain `.bundle`; the property value is a
+  four-character `CFString`; the `.icns` holds 1x and 2x images from 16 to 1024 px.
 
 ## R4 — Runtime-chosen icons under each path (Story 2)
 
@@ -129,6 +132,6 @@ in the "Findings" section at the end of this file during implementation (FR-008)
 | B4 | | | |
 | B5 | | | |
 | B6 | | | |
-| R7 check | | | |
+| R7 check | 26B131 | Pass | 2026-11-19, before any registration: a read-only `lsregister -dump` (289,433 lines) has no claim on `'S001'` or `'S002'` (nor on `'D001'`–`'D009'`). Claim records list codes in `bindings:` and point to their bundle by a `(0x…)` reference, matching `LSRegisterDumpParser`. Apply repeats this check every time |
 
 **Recommended path for 002**: _(A or B, with links to the rows above)_

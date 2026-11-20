@@ -43,3 +43,19 @@ public protocol SidebarIconProvider: Sendable {
 `folderMissing(path)`, `registrationFailed(OSStatus)`, `propertyRejected(path, OSStatus)`,
 `assetConversionFailed(id)`, `ledgerIOFailed(underlying)`. Each maps to a plain-language message in
 the spike UI.
+
+Added during implementation (2026-11-19):
+
+- `folderInFavoritesMoreThanOnce(path)`: the spec's duplicate-Favorite edge case; the folder is
+  reported and left unchanged.
+- `codeClaimedElsewhere(code, owners)`: research R7; another registered bundle claims a code, so
+  `apply` stops before any outside change.
+- `invalidMapping(detail)`: the mappings break a data-model rule; `apply` changes nothing.
+- `toolFailed(detail)`: `lsregister` could not run or exited with an error.
+- `foreignOverride(path, code)`: the Favorite already carries an override this utility did not
+  set; `apply` leaves it alone (independent review, 2026-11-20).
+- `unexpectedLedgerTarget(target)`: a ledger entry names something other than this utility's own
+  change (for example a registration path outside the container); `reset` leaves it alone.
+
+`underlying` in `ledgerIOFailed` is carried as a description string so the error stays
+`Sendable` and `Equatable`.

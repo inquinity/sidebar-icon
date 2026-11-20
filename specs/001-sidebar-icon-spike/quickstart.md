@@ -34,8 +34,10 @@ Validation guide for the spike. Record every result in the Findings table in
 | 7 | **Use runtime icon for DevDocs**, first copy `folder-icon/git-repo-3-layers-light-blue.png` to `~/Desktop`, then choose that copy | DevDocs icon changes within 10 s, or after Refresh Finder (record which) | US2-1, SC-003 | B3 |
 | 8 | Delete the `~/Desktop` copy chosen in step 7 (never the original in `folder-icon/`), Refresh Finder | Runtime icon still showing | US2-3 | B3 |
 | 9 | **Reset**, then Refresh Finder | Generic glyph on both; ledger empty | US3-1, SC-004 | B6 |
-| 10 | Delete the app and container; search `lsregister -dump` for the bundle path | No matches | US3-2 | B6 |
+| 10 | Read the Reset log line "lsregister -dump lists IconRegistry.app"; then delete the app and container | "no" | US3-2 | B6 |
 | 11 | Repeat step 2 from a sandboxed build configuration | Record: blocked or allowed | — | B5 |
+
+Use **Copy Log** after each step and paste the relevant lines into the Findings notes.
 
 Edge cases from the spec (another extension watching a folder, nested folders, missing folder,
 dark mode and accent color, non-square image) are each run once after step 9 and recorded.

@@ -7,7 +7,9 @@ import SwiftUI
 @main
 struct SidebarIconSpikeApp: App {
     var body: some Scene {
-        WindowGroup("Sidebar Icon Spike") {
+        // One window only: each window would have its own model, and two models could write the
+        // ledger at the same time.
+        Window("Sidebar Icon Spike", id: "spike") {
             SpikeView()
         }
     }

@@ -25,7 +25,7 @@ Platform and Toolchain Constraints).
 | `id` | UUID | File name stem in the container |
 | `sourceFormat` | enum `pdf`, `png`, `svg`, `icns` | Taken from the chosen file's type, not its extension |
 | `fileName` | String | `<id>.<ext>`, stored in `Icons/` inside the App Group container |
-| `icnsFileName` | String? | `<id>.icns`, generated for Path B only |
+| `icnsFileName` | String? | `<id>.icns` in `Icons/`, generated for Path B on first use |
 
 ## OutsideChange (ledger entry)
 
@@ -53,12 +53,21 @@ OutsideChange:    pending (written) ──apply ok──▶ active ──undo ok
                        └─apply failed─▶ (deleted)        └─undo failed─▶ active (reported)
 ```
 
+Re-applying an effect that is already **active** writes no second entry. If that re-apply fails,
+the existing entry stays **active**, because the earlier change is still in place.
+
+Reset clears an override only where the Favorite still carries the code the entry recorded, and it
+unregisters or deletes a registration only at the container's own `IconRegistry.app` path; any
+other target is reported and left alone.
+
 ## Container layout
 
 ```text
 <App Group container>/Library/Application Support/SidebarIcons/
 ├── config.json            # schemaVersion + mappings (002; hard-coded in 001)
 ├── ledger.json            # OutsideChange entries
-├── Icons/<uuid>.<ext>     # copied originals
-└── IconRegistry.bundle/   # Path B registration bundle (Info.plist + Resources/*.icns)
+├── Icons/<uuid>.<ext>     # copied originals, plus <uuid>.icns generated for Path B
+└── IconRegistry.app/      # Path B registration bundle (Contents/Info.plist + Resources/*.icns);
+                           # application-type because Launch Services binds document types to apps
+                           # (rebuilt next to itself as .IconRegistry.app.staging-<uuid>, then swapped in)
 ```

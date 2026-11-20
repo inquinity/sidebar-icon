@@ -12,11 +12,11 @@ generic folder glyph. One app can manage any number of folders.
 
 ## Status
 
-**Planning and feasibility spike. There is no working build yet.**
+**Feasibility spike in progress. The spike app builds; its experiments have not been run yet.**
 
 | Feature | State |
 |---------|-------|
-| [001 Sidebar icon spike](specs/001-sidebar-icon-spike/spec.md) | Planned (43 tasks). Proves whether custom sidebar icons work on macOS 27, and how |
+| [001 Sidebar icon spike](specs/001-sidebar-icon-spike/spec.md) | Code written and unit-tested; owner experiments next. Proves whether custom sidebar icons work on macOS 27, and how |
 | [002 Mapping manager v1](specs/002-mapping-manager-v1/spec.md) | Specified. Planning waits on the 001 findings |
 
 ## Design principles
