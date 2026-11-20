@@ -1,0 +1,441 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AB12CD34EF56AB12CD34EF15 /* SpikeFinderSync.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB12CD34EF56AB12CD34EF05 /* SpikeFinderSync.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AB12CD34EF56AB12CD34EF16 /* SidebarIconCore in Frameworks */ = {isa = PBXBuildFile; productRef = AB12CD34EF56AB12CD34EF31 /* SidebarIconCore */; };
+		AB12CD34EF56AB12CD34EF26 /* SidebarIconCore in Frameworks */ = {isa = PBXBuildFile; productRef = AB12CD34EF56AB12CD34EF32 /* SidebarIconCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AB12CD34EF56AB12CD34EF18 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB12CD34EF56AB12CD34EF01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB12CD34EF56AB12CD34EF20;
+			remoteInfo = SpikeFinderSync;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AB12CD34EF56AB12CD34EF14 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AB12CD34EF56AB12CD34EF15 /* SpikeFinderSync.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		AB12CD34EF56AB12CD34EF04 /* SidebarIconSpike.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SidebarIconSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB12CD34EF56AB12CD34EF05 /* SpikeFinderSync.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpikeFinderSync.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AB12CD34EF56AB12CD34EF08 /* Exceptions for "SpikeFinderSync" folder in "SpikeFinderSync" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AB12CD34EF56AB12CD34EF20 /* SpikeFinderSync */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		AB12CD34EF56AB12CD34EF06 /* SidebarIconSpike */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SidebarIconSpike;
+			sourceTree = "<group>";
+		};
+		AB12CD34EF56AB12CD34EF07 /* SpikeFinderSync */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AB12CD34EF56AB12CD34EF08 /* Exceptions for "SpikeFinderSync" folder in "SpikeFinderSync" target */,
+			);
+			path = SpikeFinderSync;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AB12CD34EF56AB12CD34EF12 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB12CD34EF56AB12CD34EF16 /* SidebarIconCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB12CD34EF56AB12CD34EF22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB12CD34EF56AB12CD34EF26 /* SidebarIconCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AB12CD34EF56AB12CD34EF02 = {
+			isa = PBXGroup;
+			children = (
+				AB12CD34EF56AB12CD34EF06 /* SidebarIconSpike */,
+				AB12CD34EF56AB12CD34EF07 /* SpikeFinderSync */,
+				AB12CD34EF56AB12CD34EF03 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AB12CD34EF56AB12CD34EF03 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AB12CD34EF56AB12CD34EF04 /* SidebarIconSpike.app */,
+				AB12CD34EF56AB12CD34EF05 /* SpikeFinderSync.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AB12CD34EF56AB12CD34EF10 /* SidebarIconSpike */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB12CD34EF56AB12CD34EF43 /* Build configuration list for PBXNativeTarget "SidebarIconSpike" */;
+			buildPhases = (
+				AB12CD34EF56AB12CD34EF11 /* Sources */,
+				AB12CD34EF56AB12CD34EF12 /* Frameworks */,
+				AB12CD34EF56AB12CD34EF13 /* Resources */,
+				AB12CD34EF56AB12CD34EF14 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB12CD34EF56AB12CD34EF17 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AB12CD34EF56AB12CD34EF06 /* SidebarIconSpike */,
+			);
+			name = SidebarIconSpike;
+			packageProductDependencies = (
+				AB12CD34EF56AB12CD34EF31 /* SidebarIconCore */,
+			);
+			productName = SidebarIconSpike;
+			productReference = AB12CD34EF56AB12CD34EF04 /* SidebarIconSpike.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AB12CD34EF56AB12CD34EF20 /* SpikeFinderSync */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB12CD34EF56AB12CD34EF46 /* Build configuration list for PBXNativeTarget "SpikeFinderSync" */;
+			buildPhases = (
+				AB12CD34EF56AB12CD34EF21 /* Sources */,
+				AB12CD34EF56AB12CD34EF22 /* Frameworks */,
+				AB12CD34EF56AB12CD34EF23 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AB12CD34EF56AB12CD34EF07 /* SpikeFinderSync */,
+			);
+			name = SpikeFinderSync;
+			packageProductDependencies = (
+				AB12CD34EF56AB12CD34EF32 /* SidebarIconCore */,
+			);
+			productName = SpikeFinderSync;
+			productReference = AB12CD34EF56AB12CD34EF05 /* SpikeFinderSync.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AB12CD34EF56AB12CD34EF01 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2720;
+				LastUpgradeCheck = 2720;
+				TargetAttributes = {
+					AB12CD34EF56AB12CD34EF10 = {
+						CreatedOnToolsVersion = 27.2;
+					};
+					AB12CD34EF56AB12CD34EF20 = {
+						CreatedOnToolsVersion = 27.2;
+					};
+				};
+			};
+			buildConfigurationList = AB12CD34EF56AB12CD34EF40 /* Build configuration list for PBXProject "SidebarIconSpike" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AB12CD34EF56AB12CD34EF02;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AB12CD34EF56AB12CD34EF30 /* XCLocalSwiftPackageReference "SidebarIconCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AB12CD34EF56AB12CD34EF03 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AB12CD34EF56AB12CD34EF10 /* SidebarIconSpike */,
+				AB12CD34EF56AB12CD34EF20 /* SpikeFinderSync */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AB12CD34EF56AB12CD34EF13 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB12CD34EF56AB12CD34EF23 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AB12CD34EF56AB12CD34EF11 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB12CD34EF56AB12CD34EF21 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AB12CD34EF56AB12CD34EF17 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB12CD34EF56AB12CD34EF20 /* SpikeFinderSync */;
+			targetProxy = AB12CD34EF56AB12CD34EF18 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AB12CD34EF56AB12CD34EF41 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		AB12CD34EF56AB12CD34EF42 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		AB12CD34EF56AB12CD34EF44 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SidebarIconSpike/SidebarIconSpike.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Sidebar Icon Spike";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.SidebarIcons;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		AB12CD34EF56AB12CD34EF45 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SidebarIconSpike/SidebarIconSpike.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Sidebar Icon Spike";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.SidebarIcons;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+		AB12CD34EF56AB12CD34EF47 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SpikeFinderSync/SpikeFinderSync.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpikeFinderSync/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SpikeFinderSync;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.SidebarIcons.FinderSync;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		AB12CD34EF56AB12CD34EF48 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SpikeFinderSync/SpikeFinderSync.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpikeFinderSync/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SpikeFinderSync;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.SidebarIcons.FinderSync;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AB12CD34EF56AB12CD34EF40 /* Build configuration list for PBXProject "SidebarIconSpike" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB12CD34EF56AB12CD34EF41 /* Debug */,
+				AB12CD34EF56AB12CD34EF42 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB12CD34EF56AB12CD34EF43 /* Build configuration list for PBXNativeTarget "SidebarIconSpike" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB12CD34EF56AB12CD34EF44 /* Debug */,
+				AB12CD34EF56AB12CD34EF45 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB12CD34EF56AB12CD34EF46 /* Build configuration list for PBXNativeTarget "SpikeFinderSync" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB12CD34EF56AB12CD34EF47 /* Debug */,
+				AB12CD34EF56AB12CD34EF48 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AB12CD34EF56AB12CD34EF30 /* XCLocalSwiftPackageReference "SidebarIconCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SidebarIconCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AB12CD34EF56AB12CD34EF31 /* SidebarIconCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AB12CD34EF56AB12CD34EF30 /* XCLocalSwiftPackageReference "SidebarIconCore" */;
+			productName = SidebarIconCore;
+		};
+		AB12CD34EF56AB12CD34EF32 /* SidebarIconCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AB12CD34EF56AB12CD34EF30 /* XCLocalSwiftPackageReference "SidebarIconCore" */;
+			productName = SidebarIconCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = AB12CD34EF56AB12CD34EF01 /* Project object */;
+}
