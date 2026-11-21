@@ -16,6 +16,8 @@ final class AppModel {
     private(set) var busy = false
     private(set) var statusLine = ""
     var alert: Alert?
+    /// A picked image shown in the preview sheet until Apply or Cancel (Story 3).
+    var pendingIcon: PendingIcon?
     /// Set when `config.json` can't be read (research D3).
     private(set) var readOnlyReason: String?
     private(set) var favoritesUnavailable = false
@@ -76,7 +78,27 @@ final class AppModel {
 
     func changeIcon(for row: MappingRow) {
         guard let image = AddMappingFlow.chooseImage(for: row.displayName) else { return }
-        run { try await $0.changeIcon(for: row.id, image: image) }
+        preview(image, for: .change(row))
+    }
+
+    /// Shows the preview sheet for a picked image. Nothing is copied or saved yet.
+    func preview(_ image: URL, for purpose: PendingIcon.Purpose) {
+        pendingIcon = PendingIcon(purpose: purpose, image: image, advice: PreviewAdvice.evaluate(imageAt: image))
+    }
+
+    func applyPendingIcon() {
+        guard let pending = pendingIcon else { return }
+        pendingIcon = nil
+        switch pending.purpose {
+        case .add(let folder):
+            add(folder: folder, image: pending.image)
+        case .change(let row):
+            run { try await $0.changeIcon(for: row.id, image: pending.image) }
+        }
+    }
+
+    func cancelPendingIcon() {
+        pendingIcon = nil
     }
 
     func repoint(_ row: MappingRow) {

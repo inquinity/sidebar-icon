@@ -180,12 +180,12 @@ These are needed by every story.
 
 **Independent Test**: quickstart check 10.
 
-- [ ] T032 [P] [US3] Write tests in `Tests/PreviewHeuristicsTests.swift` for `PreviewAdvice.evaluate(imageAt:)`:
+- [X] T032 [P] [US3] Write tests in `Tests/PreviewHeuristicsTests.swift` for `PreviewAdvice.evaluate(imageAt:)`:
   - it warns when the aspect ratio is outside 0.8–1.25;
   - it warns on high detail at 16 px (more than about 64 distinct colour clusters);
   - it never blocks (returns warnings only).
-- [ ] T033 [US3] Implement `Core/Icons/PreviewAdvice.swift` (ImageIO plus a 16×16 downsample; no new dependencies)
-- [ ] T034 [US3] Create `app/SidebarIcons/PreviewSheet.swift`, shown after the image pick in Add and Change Icon:
+- [X] T033 [US3] Implement `Core/Icons/PreviewAdvice.swift` (ImageIO plus a 16×16 downsample; no new dependencies)
+- [X] T034 [US3] Create `app/SidebarIcons/PreviewSheet.swift`, shown after the image pick in Add and Change Icon:
   - 16 pt and 20 pt previews on light and dark sidebar swatches;
   - the warnings from `PreviewAdvice`;
   - Apply and Cancel buttons (Cancel saves nothing).
@@ -216,6 +216,10 @@ Reviewed at each checkpoint; the owner decides whether to schedule them.
 - [ ] F005 Offer Re-point… on Off rows and on "now resolves to" error rows, not only Folder missing, in `app/SidebarIcons/MappingListView.swift` (review #8)
 - [ ] F006 Narrow the check-then-use window between `refuseSymbolicLink` and `lsregister -u` (open the bundle directory with `O_NOFOLLOW` or re-check right before), `Core/Providers/LaunchServicesOverrideProvider.swift` (review, security)
 - [ ] F007 Remove the redundant `await`s in the `exclusive` closures (about ten compiler warnings), `Core/Manager/MappingManager.swift`
+- [ ] F008 Decode the picked image once into `PendingIcon` and run `PreviewAdvice.evaluate` off the main thread; a very large PDF freezes the window for about 0.5 s, `app/SidebarIcons/AppModel.swift`, `PreviewSheet.swift` (Story 3 review #2)
+- [ ] F009 Apply in the preview sheet clears it before checking `busy`; unreachable today, but guard or alert in `app/SidebarIcons/AppModel.swift` (review #4)
+- [ ] F010 Thin, faint line art (few pixels at least 80 % opaque at 16 px) is never flagged; consider a low-coverage warning in `Core/Icons/PreviewAdvice.swift` (review question; not in the spec)
+- [ ] F011 Decide whether the image picker should accept `.icns` (the converter supports it) in `app/SidebarIcons/AddMappingFlow.swift` (review question)
 
 ---
 

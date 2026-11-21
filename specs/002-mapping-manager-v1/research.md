@@ -129,9 +129,10 @@ There are no open NEEDS CLARIFICATION items.
 ## D9 — Preview (FR-007, Story 3; starter shows a basic version)
 
 - **Decision**:
-  - Render the copied asset at the sidebar's sizes (16 pt and 20 pt, at 1x and 2x) on two
-    swatches whose backgrounds use the light and dark sidebar colours, with
-    `.environment(\.colorScheme)`.
+  - Render the image at the sidebar's sizes (16 pt and 20 pt) on two swatches with fixed light
+    and dark sidebar colours, at the screen's own scale. (As built: fixed colours instead of
+    `.environment(\.colorScheme)`, because `NSColor`-based colours don't follow that environment
+    reliably; no separate 1x/2x rows.)
   - The starter list shows the 20 pt light/dark pair per row. Story 3 adds the pre-apply sheet and
     the non-square/detail warning (aspect ratio outside 0.8–1.25, or more than about 64 distinct
     colour clusters at 16 px).
@@ -252,4 +253,20 @@ setting new ones.
 
 Regression tests: `Story2ReviewFixTests`. 147 tests pass. Fixes #1, #2 reorder adapter calls
 already exercised by the Finder checks above (clear, register, set); not re-run in Finder.
+
+## Story 3 checkpoint (2026-11-21)
+
+`PreviewAdvice` warns, never blocks: aspect ratio in points outside 0.8–1.25, or more than 64
+colour clusters at 16 px (3 bits per channel, pixels at least about 80 % opaque). The preview
+sheet appears after the image pick in Add Folder… and Change Icon….
+
+**Review** (independent): no important findings. The reviewer checked the pixel decoding with a
+scratch program and surveyed false positives: none of the six images in `folder-icon/` warn;
+across 505 system icons and wallpapers the median is 12 clusters and only photos and 2 app icons
+exceed 64. Fixed: a decoding test that pins exactly 4 clusters (#1); the aspect ratio now uses the
+point size the renderer fits (#3); contract and D9 updated (#5). Logged: F008–F011.
+
+**App check (T035)**: not run. The Mac's display was asleep or locked (a full-screen capture was
+black, and the app could open no window), so live control could not drive it. Quickstart check 10
+now also covers Cancel and the error alerts after Apply.
 

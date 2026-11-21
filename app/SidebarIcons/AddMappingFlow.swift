@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 enum AddMappingFlow {
     static func run(model: AppModel) {
         guard let folder = chooseFolder(), let image = chooseImage(for: folder.lastPathComponent) else { return }
-        model.add(folder: folder, image: image)
+        model.preview(image, for: .add(folder: folder))
     }
 
     static func chooseFolder(title: String = "Choose a Folder",

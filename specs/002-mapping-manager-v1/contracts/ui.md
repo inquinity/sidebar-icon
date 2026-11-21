@@ -30,7 +30,8 @@ plus the standard About window.
 
 | Control | Flow | Confirmation |
 |---------|------|--------------|
-| Add Folder… | Open panel (folders only), then open panel (PDF, PNG, SVG) titled "Choose an icon for <folder>". Then `add`. On error, an alert with the message; nothing saved. | none (the action itself is explicit) |
+| Add Folder… | Open panel (folders only), then open panel (PDF, PNG, SVG) titled "Choose an icon for <folder>", then the **preview sheet** (Story 3). Apply → `add`; Cancel saves nothing. On error, an alert with the message; nothing saved. | none (the action itself is explicit) |
+| Change Icon… (Story 2) | Open panel for the image, then the preview sheet; Apply → `changeIcon` | none |
 | Apply Now | `applyNow` | none |
 | Refresh Finder… | `refreshFinder` | "Restart Finder? Finder windows close and reopen; a copy in progress may be interrupted." |
 | Reset All… | `resetAll` | "Remove all custom sidebar icons and delete this app's mappings and copied images? Your folders are not changed." (destructive style) |
@@ -55,3 +56,12 @@ App name and version, then:
 > Sidebar Icons relies on undocumented macOS behavior to show custom icons in Finder's sidebar.
 > Every such use is listed in PRIVATE_API.md in the project's source repository. Reset All removes
 > every change the app made.
+
+## Preview sheet (Story 3)
+
+Shown after an image is picked in Add Folder… or Change Icon…. The image beside the folder name,
+as a sidebar row, at 16 pt and 20 pt on a light and a dark sidebar swatch (fixed colours, at the
+screen's own scale). Warnings from `PreviewAdvice` (not square: aspect ratio in points outside
+0.8–1.25; too detailed: more than 64 colour clusters at 16 px) are shown but never block Apply.
+Cancel (or Escape) saves nothing.
+

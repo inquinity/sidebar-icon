@@ -57,7 +57,11 @@ Record each result (pass/fail, macOS build, notes) in the build log, and fold fa
 **Story 3**
 
 10. **Preview**: pick a non-square, detailed image. The preview shows light and dark versions with
-    a warning, and doesn't block the choice.
+    a warning, and doesn't block the choice. Also:
+    - Cancel: nothing is saved and no Favorite changes.
+    - Apply with a file that isn't an image (renamed `.png`): the error alert appears after the
+      sheet closes.
+    - Apply for a folder that is already mapped: the duplicate alert appears after the sheet closes.
 
 **Verification**
 
