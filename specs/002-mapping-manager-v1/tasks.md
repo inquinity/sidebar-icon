@@ -220,6 +220,7 @@ Reviewed at each checkpoint; the owner decides whether to schedule them.
 - [ ] F009 Apply in the preview sheet clears it before checking `busy`; unreachable today, but guard or alert in `app/SidebarIcons/AppModel.swift` (review #4)
 - [ ] F010 Thin, faint line art (few pixels at least 80 % opaque at 16 px) is never flagged; consider a low-coverage warning in `Core/Icons/PreviewAdvice.swift` (review question; not in the spec)
 - [ ] F011 Decide whether the image picker should accept `.icns` (the converter supports it) in `app/SidebarIcons/AddMappingFlow.swift` (review question)
+- [ ] F012 Busy art whose detail blends away at 16 px (photos, noise, small colour blocks) gets no detail warning; decide whether the 64-cluster rule is enough, `Core/Icons/PreviewAdvice.swift` (Story 3 app check)
 
 ---
 

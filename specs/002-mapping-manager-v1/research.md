@@ -266,7 +266,19 @@ across 505 system icons and wallpapers the median is 12 clusters and only photos
 exceed 64. Fixed: a decoding test that pins exactly 4 clusters (#1); the aspect ratio now uses the
 point size the renderer fits (#3); contract and D9 updated (#5). Logged: F008–F011.
 
-**App check (T035)**: not run. The Mac's display was asleep or locked (a full-screen capture was
-black, and the app could open no window), so live control could not drive it. Quickstart check 10
-now also covers Cancel and the error alerts after Apply.
+**App check (T035)**: partly run with live control (26B131); the display locked twice, which
+stops live control (the app then has no window and a full-screen capture is black).
+
+| Step | Result | Notes |
+|------|--------|-------|
+| Preview, light and dark | Pass | Sheet shows the image beside the folder name at 16 and 20 pt on both swatches |
+| Non-square warning | Pass | 300 × 200 block image: "This image isn't square…"; Apply enabled |
+| Detail warning | Pass | 256 × 256 image of 16 × 16 colour blocks: "This image has a lot of detail…"; Apply enabled |
+| Cancel saves nothing | Pass | Sheet closed, no row added, no override on `~/dev` |
+| Apply despite a warning | Not run | Screen locked before the keypress reached the app |
+| Alerts after Apply (bad file, duplicate) | Not run | Same |
+
+Observation: the busy 300 × 200 block image got only the non-square warning. Shrunk to 16 px its
+12-px blocks blend into fewer than 64 colour clusters, so it doesn't count as detailed (the
+reviewer predicted this for busy art). Logged as F012 for the owner to judge.
 
