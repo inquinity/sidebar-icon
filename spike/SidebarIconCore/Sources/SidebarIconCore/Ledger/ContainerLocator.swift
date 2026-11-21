@@ -22,8 +22,8 @@ public struct ContainerLocator: Sendable {
     public var iconsDirectory: URL { root.appending(path: "Icons", directoryHint: .isDirectory) }
     public var ledgerURL: URL { root.appending(path: "ledger.json", directoryHint: .notDirectory) }
     public var configURL: URL { root.appending(path: "config.json", directoryHint: .notDirectory) }
-    /// Path B registration bundle. It is an application-type bundle because Launch Services binds
-    /// document-type claims to applications (see `IconRegistryBundle`).
+    /// Path B registration bundle, an application-type bundle that declares the icon types (see
+    /// `IconRegistryBundle`).
     public var registryBundleURL: URL { root.appending(path: "IconRegistry.app", directoryHint: .isDirectory) }
 
     /// Creates the root and `Icons/` if they are missing.

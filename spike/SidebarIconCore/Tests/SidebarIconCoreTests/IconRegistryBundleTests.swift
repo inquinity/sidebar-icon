@@ -36,15 +36,57 @@ func writeTestPNG(in directory: URL, name: String = "art.png", width: Int = 300,
         try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
     }
 
-    @Test func declaresOneDocumentTypePerMapping() throws {
+    /// The shape the Finder sidebar draws in full colour on 26B131 (research R3, 2026-11-20).
+    @Test func exportsOneTypeTaggedWithEachCode() throws {
         let info = try plist(IconRegistryBundle.infoPlist(for: entries()))
-        let types = try #require(info["CFBundleDocumentTypes"] as? [[String: Any]])
-        #expect(types.count == 2)
-        #expect(types.map { $0["CFBundleTypeOSTypes"] as? [String] } == [["S001"], ["S002"]])
-        #expect(types.map { $0["CFBundleTypeIconFile"] as? String } == [
+        #expect(info["CFBundleDocumentTypes"] == nil)
+        let types = try #require(info["UTExportedTypeDeclarations"] as? [[String: Any]])
+        #expect(types.map { $0["UTTypeIdentifier"] as? String } == [
+            "com.altmansoftwaredesign.sidebaricons.icon.s001.00000000-0000-0000-0000-000000000001",
+            "com.altmansoftwaredesign.sidebaricons.icon.s002.00000000-0000-0000-0000-000000000002",
+        ])
+        #expect(types.map { ($0["UTTypeTagSpecification"] as? [String: [String]])?["com.apple.ostype"] } == [["S001"], ["S002"]])
+        let icons = types.map { $0["UTTypeIcons"] as? [String: String] }
+        #expect(icons.map { $0?["UTTypeIconFile"] } == [
             "00000000-0000-0000-0000-000000000001.icns",
             "00000000-0000-0000-0000-000000000002.icns",
         ])
+        #expect(icons.allSatisfy { $0?["UTTypeSymbolName"] == IconRegistryBundle.missingSymbolName })
+        #expect(types.allSatisfy { $0["UTTypeIconFile"] == nil })
+        #expect(types.allSatisfy { $0["UTTypeConformsTo"] as? [String] == ["public.data"] })
+    }
+
+    @Test func rejectsInvalidOrDuplicateCodes() {
+        let icns = dir.url.appending(path: "x.icns")
+        #expect(throws: SidebarIconError.self) {
+            try IconRegistryBundle.infoPlist(for: [.init(osType: "PDF ", assetID: UUID(), icnsSource: icns)])
+        }
+        #expect(throws: SidebarIconError.self) {
+            try IconRegistryBundle.infoPlist(for: [
+                .init(osType: "S001", assetID: UUID(), icnsSource: icns),
+                .init(osType: "S001", assetID: UUID(), icnsSource: icns),
+            ])
+        }
+    }
+
+    /// Icons are cached per type, so a new icon for the same code must get a new type.
+    @Test func typeIdentifierChangesWithTheIcon() {
+        let first = IconRegistryBundle.typeIdentifier(for: "S001", assetID: UUID())
+        let second = IconRegistryBundle.typeIdentifier(for: "S001", assetID: UUID())
+        #expect(first != second)
+        #expect(first.hasPrefix("com.altmansoftwaredesign.sidebaricons.icon.s001."))
+        #expect(first == first.lowercased())
+    }
+
+    @Test func versionChangesWithTheMapping() throws {
+        let original = try plist(IconRegistryBundle.infoPlist(for: entries()))["CFBundleVersion"] as? String
+        var changed = entries()
+        changed[0].assetID = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+        let updated = try plist(IconRegistryBundle.infoPlist(for: changed))["CFBundleVersion"] as? String
+        let dropped = try plist(IconRegistryBundle.infoPlist(for: [entries()[1]]))["CFBundleVersion"] as? String
+        let version = try #require(original)
+        #expect(UInt32(version) != nil)
+        #expect(Set([original, updated, dropped]).count == 3)
     }
 
     @Test func usesTheApprovedIdentifierAndNeverLaunches() throws {

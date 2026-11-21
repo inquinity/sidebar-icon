@@ -88,6 +88,8 @@ public enum SidebarIconError: Error, Sendable, Equatable {
     case folderMissing(String)
     case registrationFailed(Int32)
     case propertyRejected(String, Int32)
+    /// The clear call succeeded but the Favorite still carries the code when read back.
+    case overrideNotCleared(path: String, code: String)
     case assetConversionFailed(UUID)
     case ledgerIOFailed(String)
     /// Research R7: another registered bundle already claims one of the codes.
@@ -114,6 +116,8 @@ public enum SidebarIconError: Error, Sendable, Equatable {
             "Launch Services did not accept the icon registration bundle (OSStatus \(status))."
         case .propertyRejected(let path, let status):
             "The sidebar refused the icon override for \(path) (OSStatus \(status))."
+        case .overrideNotCleared(let path, let code):
+            "The sidebar override \(code) on \(path) could not be removed; it is still recorded."
         case .assetConversionFailed(let id):
             "The image for asset \(id) could not be converted to an icon."
         case .ledgerIOFailed(let detail):

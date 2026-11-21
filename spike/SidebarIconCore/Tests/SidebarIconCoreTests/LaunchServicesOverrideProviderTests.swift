@@ -248,7 +248,8 @@ struct ProviderFixture {
 
         let info = try Data(contentsOf: fixture.container.registryBundleURL.appending(path: "Contents/Info.plist"))
         let plist = try #require(PropertyListSerialization.propertyList(from: info, format: nil) as? [String: Any])
-        let codes = (plist["CFBundleDocumentTypes"] as? [[String: Any]])?.compactMap { ($0["CFBundleTypeOSTypes"] as? [String])?.first }
+        let codes = (plist["UTExportedTypeDeclarations"] as? [[String: Any]])?
+            .compactMap { ($0["UTTypeTagSpecification"] as? [String: [String]])?["com.apple.ostype"]?.first }
         #expect(codes == ["S001", "S002"])
     }
 
@@ -276,6 +277,65 @@ struct ProviderFixture {
         #expect(report.cleared == [fixture.docs])
         #expect(system.calls.last == "clear S002")
         #expect(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.map(\.target) == [fixture.dev])
+    }
+
+    /// Review T042 #1: a mapping that keeps its code but moves to another folder must keep the
+    /// override it was just given.
+    @Test func movingAMappingToAnotherFolderKeepsItsOverride() async throws {
+        let fixture = try ProviderFixture()
+        let system = FakeLaunchServices(favoritePaths: [fixture.dev, fixture.docs])
+        let provider = LaunchServicesOverrideProvider(container: fixture.container, system: system)
+        let original = SidebarMapping(folderPath: fixture.dev, iconAssetID: fixture.asset.id, osType: "S001")
+        _ = try await provider.apply([original], assets: [fixture.asset])
+
+        var moved = original
+        moved.folderPath = fixture.docs
+        let report = try await provider.apply([moved], assets: [fixture.asset])
+
+        #expect(report.applied == [moved.id])
+        #expect(try system.listFavorites().first { $0.path == fixture.docs }?.overrideIcon == "S001")
+        let overrides = try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }
+        #expect(overrides.map(\.target) == [fixture.docs])
+    }
+
+    /// Review T042 #2: stored file names must stay inside `Icons/`.
+    @Test func rejectsAssetFileNamesThatLeaveTheIconsFolder() async throws {
+        let fixture = try ProviderFixture()
+        let system = FakeLaunchServices(favoritePaths: [fixture.dev])
+        let provider = LaunchServicesOverrideProvider(container: fixture.container, system: system)
+        let bad = IconAsset(id: fixture.asset.id, sourceFormat: .png, fileName: "../../escape.png")
+        let report = try await provider.apply([fixture.mappings()[0]], assets: [bad])
+        #expect(report.applied.isEmpty)
+        #expect(report.skipped.map(\.reason) == [.assetConversionFailed(fixture.asset.id)])
+    }
+
+    /// Review T042 #3: a symbolic link in place of the registry bundle is never registered.
+    @Test func refusesASymlinkedRegistryBundle() async throws {
+        let fixture = try ProviderFixture()
+        let system = FakeLaunchServices(favoritePaths: [fixture.dev, fixture.docs])
+        let elsewhere = fixture.dir.url.appending(path: "Other.app", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: fixture.container.registryBundleURL, withDestinationURL: elsewhere)
+        let provider = LaunchServicesOverrideProvider(container: fixture.container, system: system)
+        await #expect(throws: SidebarIconError.self) {
+            try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+        }
+        #expect(!system.calls.contains { $0.hasPrefix("register") })
+    }
+
+    @Test func failedClearForADisabledMappingIsNotedAndKept() async throws {
+        let fixture = try ProviderFixture()
+        let system = FakeLaunchServices(favoritePaths: [fixture.dev, fixture.docs])
+        let provider = LaunchServicesOverrideProvider(container: fixture.container, system: system)
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+        system.state.withLock { $0.failClearing = ["S002"] }
+
+        let report = try await provider.apply(fixture.mappings(docsEnabled: false), assets: [fixture.asset])
+
+        #expect(report.applied.count == 1)
+        #expect(report.cleared.isEmpty)
+        #expect(report.notes.contains { $0.contains("S002") && $0.contains(fixture.docs) })
+        #expect(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.map(\.target).sorted() == [fixture.dev, fixture.docs].sorted())
     }
 
     @Test func changingACodeReplacesTheLedgerEntry() async throws {
@@ -351,6 +411,46 @@ struct ProviderFixture {
                                     'S009'
         """
         #expect(LSRegisterDumpParser.claims(on: ["S009"], in: dump)["S009"]?.first?.name == "Other")
+    }
+
+    @Test func typeDeclarationsTaggedWithACodeCountAsClaims() {
+        let dump = Self.dump + "\n" + """
+        --------------------------------------------------------------------------------
+        type id:                    com.example.other.s005 (0x7000)
+        bundle:                     Other (0x2244)
+        uti:                        com.example.other.s005
+        icons:                      1 values (1 (0x1))
+                                    {
+                                        'S006' = x;
+                                    }
+        conforms to:                public.data
+        tags:                       .s5, 'AAAA',
+                                    'S005'
+        --------------------------------------------------------------------------------
+        claim id:                   Also (0x7004)
+        bundle:                     Other (0x2244)
+        bindings:                   'S005'
+        """
+        let claims = LSRegisterDumpParser.claims(on: ["S005", "S006"], in: dump)
+        #expect(claims["S005"] == [LSClaimOwner(name: "Other", identifier: "com.example.other", path: "/Applications/Other.app")])
+        #expect(claims["S006"] == nil)
+    }
+
+    /// The registry bundle declares only exported types, so our type record is the one that tags
+    /// the code; it must resolve to our bundle's path so the provider exempts it.
+    @Test func ownTypeDeclarationResolvesToOurBundle() {
+        let dump = Self.dump + "\n" + """
+        --------------------------------------------------------------------------------
+        type id:                    com.altmansoftwaredesign.sidebaricons.icon.s001.5b1c0de0-0001-4000-8000-0000000000a1 (0x7100)
+        bundle:                     IconRegistry (0x3000)
+        uti:                        com.altmansoftwaredesign.sidebaricons.icon.s001.5b1c0de0-0001-4000-8000-0000000000a1
+        tags:                       'S001'
+        """
+        #expect(LSRegisterDumpParser.claims(on: ["S001"], in: dump)["S001"] == [LSClaimOwner(
+            name: "IconRegistry",
+            identifier: IconRegistryBundle.bundleIdentifier,
+            path: "/Users/someone/Library/Group Containers/X/IconRegistry.app"
+        )])
     }
 
     @Test func listsRegisteredBundlePaths() {

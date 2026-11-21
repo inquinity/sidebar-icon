@@ -12,12 +12,14 @@ generic folder glyph. One app can manage any number of folders.
 
 ## Status
 
-**Feasibility spike in progress. The spike app builds; its experiments have not been run yet.**
+**Feasibility spike done on macOS 27.2.1 (26B131): custom per-folder sidebar icons work through
+Path B (Launch Services override) without a Finder Sync extension.** See the
+[Findings](specs/001-sidebar-icon-spike/research.md#findings).
 
 | Feature | State |
 |---------|-------|
-| [001 Sidebar icon spike](specs/001-sidebar-icon-spike/spec.md) | Code written and unit-tested; owner experiments next. Proves whether custom sidebar icons work on macOS 27, and how |
-| [002 Mapping manager v1](specs/002-mapping-manager-v1/spec.md) | Specified. Planning waits on the 001 findings |
+| [001 Sidebar icon spike](specs/001-sidebar-icon-spike/spec.md) | Experiments run; recommends Path B, no extension, app not sandboxed |
+| [002 Mapping manager v1](specs/002-mapping-manager-v1/spec.md) | Specified; assumptions updated from 001; ready for planning |
 
 ## Design principles
 

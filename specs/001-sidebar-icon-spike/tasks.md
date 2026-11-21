@@ -76,19 +76,19 @@ with folder icons untouched. Path A is tried first and recorded.
 
 - [x] T018 [US1] Implement `SpikeFinderSync/FinderSync.swift`: set `FIFinderSyncController.default().directoryURLs` to the two hard-coded roots at startup; log via `os.Logger` (subsystem `com.altmansoftwaredesign.SidebarIcons`)
 - [x] T019 [US1] Implement `FinderSyncProvider` (status = extension enabled + roots watched; apply/reset are no-ops that report "no public sidebar-icon API") in `spike/SidebarIconCore/Sources/SidebarIconCore/Providers/FinderSyncProvider.swift`
-- [ ] T020 [US1] (owner) Run quickstart step 1 and record experiment A1 in `specs/001-sidebar-icon-spike/research.md` Findings
-- [ ] T021 [US1] (owner approval needed for network) Check Apple's current Finder Sync documentation for any sidebar-icon key or behavior; record A2 in `specs/001-sidebar-icon-spike/research.md`. If A1/A2 find a working public route, implement it in `FinderSyncProvider`, mark every `PRIVATE_API.md` entry "removed — not needed, public route found", and skip T022–T029
+- [x] T020 [US1] (owner) Run quickstart step 1 and record experiment A1 in `specs/001-sidebar-icon-spike/research.md` Findings
+- [ ] T021 (not run: needs network approval; A1 settled the question) [US1] (owner approval needed for network) Check Apple's current Finder Sync documentation for any sidebar-icon key or behavior; record A2 in `specs/001-sidebar-icon-spike/research.md`. If A1/A2 find a working public route, implement it in `FinderSyncProvider`, mark every `PRIVATE_API.md` entry "removed — not needed, public route found", and skip T022–T029
 
 ### Path B (Launch Services override, isolated adapter)
 
-- [x] T022 [P] [US1] Write tests for the registration bundle builder in `spike/SidebarIconCore/Tests/SidebarIconCoreTests/IconRegistryBundleTests.swift`: Info.plist has one `CFBundleDocumentTypes` entry per mapping with `CFBundleTypeOSTypes` = `[osType]` and `CFBundleTypeIconFile` = `<assetID>.icns`; `CFBundleIdentifier` = `com.altmansoftwaredesign.SidebarIcons.IconRegistry`; output is deterministic
+- [x] T022 [P] [US1] Write tests for the registration bundle builder in `spike/SidebarIconCore/Tests/SidebarIconCoreTests/IconRegistryBundleTests.swift`: Info.plist has one `CFBundleDocumentTypes` entry per mapping with `CFBundleTypeOSTypes` = `[osType]` and `CFBundleTypeIconFile` = `<assetID>.icns` (revised 2026-11-20 after B2: one exported type per code with a `com.apple.ostype` tag and `UTTypeIconFile`, document types use `LSItemContentTypes`, and `CFBundleVersion` follows the mapping); `CFBundleIdentifier` = `com.altmansoftwaredesign.SidebarIcons.IconRegistry`; output is deterministic
 - [x] T023 [P] [US1] Implement ICNS conversion from PDF/PNG/SVG via ImageIO `CGImageDestination` (16–1024 px, square-padded) in `spike/SidebarIconCore/Sources/SidebarIconCore/Icons/ICNSConverter.swift`
 - [x] T024 [US1] Implement `IconRegistryBundle` builder that writes `IconRegistry.app` (Info.plist + Resources/*.icns) into the container in `spike/SidebarIconCore/Sources/SidebarIconCore/Icons/IconRegistryBundle.swift`
 - [x] T025 [US1] Implement read-only `status` in `LaunchServicesOverrideProvider` (list Favorites with `LSSharedFileListCreate(kLSSharedFileListFavoriteItems)`, resolve URLs, read `com.apple.LSSharedFileList.OverrideIcon.OSType`) in `spike/SidebarIconCore/Sources/SidebarIconCore/Providers/LaunchServicesOverrideProvider.swift`; wire to List Favorites; in the same commit, set the calling file in the matching `PRIVATE_API.md` entries
-- [ ] T026 [US1] (owner) Run quickstart step 2 and record B1. If Favorites are unavailable, stop: record "no-go", mark the affected `PRIVATE_API.md` entries "removed — failed on <build>", and skip to T039
+- [x] T026 [US1] (owner) Run quickstart step 2 and record B1. If Favorites are unavailable, stop: record "no-go", mark the affected `PRIVATE_API.md` entries "removed — failed on <build>", and skip to T039
 - [x] T027 [US1] Implement `apply` in `LaunchServicesOverrideProvider`: ledger entry → `LSRegisterURL(bundle, true)`; for each enabled mapping, ledger entry → `LSSharedFileListItemSetProperty(item, "com.apple.LSSharedFileList.OverrideIcon.OSType", osType)`; skip and report folders not in Favorites; update the matching `PRIVATE_API.md` entries in the same commit
 - [x] T028 [US1] Before registering, check `lsregister -dump` (read-only) for other claims on the allocated codes; record in research.md (R7 check)
-- [ ] T029 [US1] (owner) Run quickstart steps 3–6 and record B2, B4, and the folder-icon check in `specs/001-sidebar-icon-spike/research.md`
+- [x] T029 [US1] (owner) Run quickstart steps 3–6 and record B2, B4, and the folder-icon check in `specs/001-sidebar-icon-spike/research.md`
 
 **Checkpoint**: SC-001 and SC-002 recorded as pass or fail
 
@@ -103,7 +103,7 @@ with folder icons untouched. Path A is tried first and recorded.
 - [x] T030 [P] [US2] Write tests for asset import in `spike/SidebarIconCore/Tests/SidebarIconCoreTests/AssetImporterTests.swift`: format detected from content type, not extension; copy lands at `Icons/<uuid>.<ext>`; original file untouched
 - [x] T031 [US2] Implement `AssetImporter` (copy the chosen file into `Icons/`, create `IconAsset`) in `spike/SidebarIconCore/Sources/SidebarIconCore/Icons/AssetImporter.swift`
 - [x] T032 [US2] Wire "Use runtime icon for DevDocs": `NSOpenPanel` (PDF, PNG, SVG) → `AssetImporter` → rebuild `IconRegistry.app` → re-register → re-apply; time from click to visible icon in `spike/SidebarIconSpike/SpikeView.swift`
-- [ ] T033 [US2] (owner) Run quickstart steps 7–8; record B3, including whether the runtime-generated unsigned bundle is accepted and whether Refresh Finder was needed (research R4 open sub-question); add the result to the icon-registration entry's risks in `PRIVATE_API.md`
+- [x] T033 [US2] (owner) Run quickstart steps 7–8; record B3, including whether the runtime-generated unsigned bundle is accepted and whether Refresh Finder was needed (research R4 open sub-question); add the result to the icon-registration entry's risks in `PRIVATE_API.md`
 
 **Checkpoint**: SC-003 recorded
 
@@ -118,7 +118,7 @@ with folder icons untouched. Path A is tried first and recorded.
 - [x] T034 [P] [US3] Write tests for reset ordering in `spike/SidebarIconCore/Tests/SidebarIconCoreTests/ResetTests.swift`: overrides cleared before unregistration; reset twice is a no-op; partial failure leaves the failed entries in the ledger
 - [x] T035 [US3] Implement `reset` in `LaunchServicesOverrideProvider`: clear the property on every `sidebarOverride` ledger entry, then `lsregister -u` and delete `IconRegistry.app`, removing each ledger entry after success; fill in the reset path of each `PRIVATE_API.md` entry in the same commit
 - [x] T036 [US3] Wire Reset and Refresh Finder buttons in `spike/SidebarIconSpike/SpikeView.swift`; Refresh Finder asks for confirmation first
-- [ ] T037 [US3] (owner) Run quickstart steps 9–10; record B6
+- [x] T037 [US3] (owner) Run quickstart steps 9–10; record B6
 
 **Checkpoint**: SC-004 recorded
 
@@ -126,12 +126,12 @@ with folder icons untouched. Path A is tried first and recorded.
 
 ## Phase 6: Polish & Findings
 
-- [ ] T038 (owner) Run quickstart step 11 with a sandboxed build configuration; record B5
-- [ ] T039 (owner) Run the spec's edge cases once each (another extension watching a folder, nested roots, missing folder, light/dark and accent color, non-square image); record in research.md
-- [ ] T040 Bring `PRIVATE_API.md` up to date with the Findings: set verified and failed macOS builds for every entry, replace "planned, unverified" with the observed status, and mark any use that was tried and abandoned "removed" with the reason (Constitution VI)
-- [ ] T041 Complete the Findings table and the "Recommended path for 002" line in `specs/001-sidebar-icon-spike/research.md` (SC-005)
-- [ ] T042 Independent code review plus security review of `LaunchServicesOverrideProvider.swift`, `FinderRestarter.swift`, and both entitlements files (constitution: private adapter and sandbox changes); the review fails if any private call in the code has no matching `PRIVATE_API.md` entry, or any entry names a call not in the code
-- [ ] T043 Update `specs/002-mapping-manager-v1/spec.md` assumptions with the chosen path, then unblock its `/speckit-plan`
+- [x] T038 (owner) Run quickstart step 11 with a sandboxed build configuration; record B5
+- [ ] T039 (2026-11-20, partly run: an extension watching a folder replaces the Path B icon; missing folders are skipped; a non-square image converts. Left: light/dark and accent colour) (owner) Run the spec's edge cases once each (another extension watching a folder, nested roots, missing folder, light/dark and accent color, non-square image); record in research.md
+- [x] T040 Bring `PRIVATE_API.md` up to date with the Findings: set verified and failed macOS builds for every entry, replace "planned, unverified" with the observed status, and mark any use that was tried and abandoned "removed" with the reason (Constitution VI)
+- [x] T041 Complete the Findings table and the "Recommended path for 002" line in `specs/001-sidebar-icon-spike/research.md` (SC-005)
+- [x] T042 (2026-11-20: code and security review done; fixed a moved mapping losing its override, file names leaving Icons/, symlinked registry bundle, Finder found by bundle ID, failed registration leaving the bundle, lsregister environment, PA-05 text. Open: `.icns` cache is not refreshed when a source is replaced under the same ID) Independent code review plus security review of `LaunchServicesOverrideProvider.swift`, `FinderRestarter.swift`, and both entitlements files (constitution: private adapter and sandbox changes); the review fails if any private call in the code has no matching `PRIVATE_API.md` entry, or any entry names a call not in the code
+- [x] T043 Update `specs/002-mapping-manager-v1/spec.md` assumptions with the chosen path, then unblock its `/speckit-plan`
 
 ---
 

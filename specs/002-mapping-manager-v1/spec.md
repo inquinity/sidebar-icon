@@ -166,9 +166,15 @@ sidebar and the system for leftovers.
 
 ## Assumptions
 
-- **Depends on 001**: which sidebar mechanism is used (Path A or B), whether a Finder Sync extension
-  is needed (research R5), and whether the app can be sandboxed (research B5) all come from 001's
-  findings. This spec does not change between paths; the plan does.
+- **Decided by 001** (2026-11-20, macOS 27.2.1, 26B131; see 001 research Findings):
+  - Mechanism: **Path B**. The sidebar override code (PA-03) plus a runtime-generated registry
+    bundle that exports one type per icon, drawn in full colour (PA-04).
+  - **No Finder Sync extension**: a watching extension replaces the Favorite's glyph with its
+    app's icon (A1), and Path B needs no running code (B4).
+  - The app **cannot be sandboxed**: a sandboxed build lists no Favorites (B5).
+  - A changed icon must get a new type identifier (icon cache); Reset clears overrides with
+    `kCFNull` (B6).
+  - Optional variant: a monochrome SF Symbol glyph per folder instead of the image.
 - The owner adds folders to Favorites in Finder; v1 does not add sidebar items itself.
 - macOS 27 or later; Apple Developer team signing; local builds from source only, no distribution.
 - Single user, single Mac; no import/export, presets, drag-and-drop, or automatic template

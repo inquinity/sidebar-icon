@@ -42,9 +42,11 @@ in the "Findings" section at the end of this file during implementation (FR-008)
 
 - **Decision**: Two parts, based on how existing sidebar-icon utilities behave (doc section "Private
   Launch Services mechanism"):
-  1. An **icon registration bundle** (a small, non-launching `.app`-style bundle) declares
-     `CFBundleDocumentTypes` entries, each with one `CFBundleTypeOSTypes` code and a
-     `CFBundleTypeIconFile` `.icns`. It is registered with `LSRegisterURL` (public, in `LSInfo.h`).
+  1. An **icon registration bundle** (a small, non-launching `.app`-style bundle) declares, per
+     code, an exported type tagged with the code (`UTExportedTypeDeclarations`, `UTTypeIconFile`)
+     and a `CFBundleDocumentTypes` entry for it (revised 2026-11-20; the first design used only
+     `CFBundleTypeOSTypes`, see the revision below). It is registered with `LSRegisterURL`
+     (public, in `LSInfo.h`).
   2. The Favorites item gets the property `com.apple.LSSharedFileList.OverrideIcon.OSType` set to
      that code.
 - **EXPERIMENT B2**: Register a bundle with two codes and two bundled `.icns`; set the property on
@@ -54,6 +56,30 @@ in the "Findings" section at the end of this file during implementation (FR-008)
 - **Implementation choices to vary if B2 fails** (2026-11-19): the bundle is `IconRegistry.app`
   (application-type, no executable) rather than a plain `.bundle`; the property value is a
   four-character `CFString`; the `.icns` holds 1x and 2x images from 16 to 1024 px.
+- **Revision after the first B2 run** (2026-11-20): with document types that list only
+  `CFBundleTypeOSTypes`, each code maps to a dynamic `dyn.…` type and icon lookups return the
+  generic document icon. The bundle now also exports one type per code
+  (`UTExportedTypeDeclarations`, `com.apple.ostype` tag, `UTTypeIconFile`), and the document types
+  point to it with `LSItemContentTypes`. A scratch-bundle control test confirmed the icon then
+  resolves, with no executable. Next variable if B2 still fails: move the bundle out of the
+  protected App Group container.
+- **Final design after the B2 experiments** (2026-11-20, 26B131; see the B2 row): the sidebar
+  draws a type's *symbol*, not its `.icns`.
+  - A type with no symbol shows the generic document glyph. This includes `com.adobe.pdf`, so
+    built-in types are no different.
+  - A type whose `UTTypeIcons` dictionary names an SF Symbol (`UTTypeSymbolName`, as CoreTypes
+    does for the Trash) shows that symbol, tinted like the other sidebar glyphs. A custom symbol
+    compiled into the bundle's `Assets.car` also works. `UTTypeSymbolName` at the top level of the
+    declaration is ignored.
+  - A type whose `UTTypeIcons` names a symbol that does not exist falls back to the type's
+    `UTTypeIconFile` and draws it **in full colour**. The registry bundle uses this: per code, one
+    exported type with `UTTypeIcons = {UTTypeIconFile, UTTypeSymbolName: <missing name>}`, no
+    document types.
+  - Icons are cached per type: changing the `.icns` behind an existing type identifier keeps
+    showing the old art. The type identifier therefore includes the asset ID, so a new icon is a
+    new type; the code (override value) can stay the same.
+  - A custom folder icon set with the public `NSWorkspace.setIcon` is not shown in the sidebar
+    (folder glyph), so it is no alternative.
 
 ## R4 — Runtime-chosen icons under each path (Story 2)
 
@@ -70,7 +96,10 @@ in the "Findings" section at the end of this file during implementation (FR-008)
 
 ## R5 — Is the Finder Sync extension needed at all under Path B?
 
-- **Decision**: Decide from the spike results. If B2 shows that the property plus registration
+- **Result** (2026-11-20): drop the extension. Path B icons persist with the app quit and across
+  Finder restarts, with no running code. Worse, a Finder Sync extension that watches a folder
+  replaces that Favorite's glyph with the containing app's icon, which hides the Path B icon (A1).
+- **Decision (original)**: Decide from the spike results. If B2 shows that the property plus registration
   persist across Finder restarts and logout with no running code, feature 002 drops the extension.
   It would add an enablement step and a sandbox boundary with no benefit (Constitution I).
 - **EXPERIMENT B4**: With the extension disabled, confirm Path B icons persist (SC-002).
@@ -124,14 +153,24 @@ in the "Findings" section at the end of this file during implementation (FR-008)
 
 | ID | macOS build | Result | Notes |
 |----|-------------|--------|-------|
-| A1 | | | |
-| A2 | | | |
-| B1 | | | |
-| B2 | | | |
-| B3 | | | |
-| B4 | | | |
-| B5 | | | |
-| B6 | | | |
-| R7 check | 26B131 | Pass | 2026-11-19, before any registration: a read-only `lsregister -dump` (289,433 lines) has no claim on `'S001'` or `'S002'` (nor on `'D001'`–`'D009'`). Claim records list codes in `bindings:` and point to their bundle by a `(0x…)` reference, matching `LSRegisterDumpParser`. Apply repeats this check every time |
+| A1 | 26B131 | Pass for one icon — public route draws full-colour art | 2026-11-20: with the Finder Sync extension enabled and monitoring `~/dev` and `~/DevDocs` (`directoryURLs`), both Favorites show the containing app's icon in the sidebar. With no app icon this is the generic application glyph (the "A" seen during B2); after adding an `AppIcon` asset to the app (`macOS-dev-folder-icon.png`) both show that full-colour art after a Finder restart. Turning the extension off brings the folder glyphs back. Giving the extension its own, different icon (`git-repo-2-layers.png`) changed nothing: the app's icon is used. Limit: every monitored folder gets the same icon, so per-folder icons would need one app per icon. Not yet tried: changing the app's icon at runtime (`NSWorkspace.setIcon`) |
+| A2 | | Not run | Needs network approval; not needed for the decision because A1 settled what Finder Sync does |
+| B1 | 26B131 | Pass | 2026-11-20: List Favorites returned all 7 Favorites with resolved paths and display names, plus each mapping's count and override |
+| B2 | 26B131 | Pass (final design) | 2026-11-20, extension off, registry types as in R3 "Final design": after Apply, dev shows the dev-folder art and DevDocs the git-repo art, each in full colour, after Apply plus a Finder restart. Applying twice is harmless. Steps that led there, all on DevDocs/dev with the extension off: no symbol → generic document glyph (also for `'PDF '`); `trsh` → Trash glyph; `UTTypeIcons.UTTypeSymbolName` = `hammer` / `books.vertical` → those glyphs; a custom symbol in the bundle's `Assets.car` → that glyph; a missing symbol name → the `.icns` in full colour; a changed `.icns` behind the same type → old art (cache). History of the first design: 2026-11-20, first design (document types with only `CFBundleTypeOSTypes`): after `killall Finder`, dev and DevDocs showed the generic Applications glyph instead of the folder glyph; `NSWorkspace.icon(forFileType:)` returned the generic document icon for S001/S002. A control test showed an exported type (`UTExportedTypeDeclarations` with the ostype tag) makes the lookup resolve. Second design (exported types): the lookup now returns the custom icon for S001/S002 from the App Group container, but the sidebar still shows the Applications glyph. Diagnostics on DevDocs (owner approved, restored afterwards): override `'PDF '` as a `CFString` also showed the Applications glyph, so Finder does not draw a type icon even for a system type; the same code as a `CFNumber` made Finder show no Favorites section at all until the value was restored. Conclusion so far: on 26B131 Finder reads the property, but these runs are confounded: the Finder Sync extension was enabled and monitoring both folders, and A1 later showed the extension alone produces the same glyph. B2 must be re-run with the extension off |
+| B3 | 26B131 | Pass | 2026-11-20: Use runtime icon for DevDocs with `git-repo-3-layers-light-blue.png` (chosen through the open panel): the runtime-generated, unsigned bundle was accepted, and the sidebar showed the new art about 3 s after choosing, without a Finder restart. Works because the new asset gets a new type identifier (icon cache, R3) |
+| B4 | 26B131 | Pass | 2026-11-20: with the extension off, icons stayed after quitting the app and restarting Finder. Logout/login not tried (owner's session). With the extension on, its app-icon glyph replaces the Path B icon on watched folders (A1), so Path B must not be combined with a Finder Sync extension watching the same folders |
+| B5 | 26B131 | Pass (sandbox blocks Path B, as expected) | 2026-11-20: a sandboxed build (App Sandbox plus the App Group) listed 0 Favorites. Feature 002's app (or the helper that does Path B) cannot be sandboxed |
+| B6 | 26B131 | Pass (after fix) | 2026-11-20: as first built, Reset reported success but left both overrides, because `LSSharedFileListItemSetProperty(…, NULL)` returns `noErr` without removing the property. Reset now writes `kCFNull` and reads back. Re-run (extension off): Reset removed both overrides (read back as absent), `lsregister -dump` no longer lists the bundle or its types, and after Refresh Finder both Favorites show the folder glyph again (screen capture). Final design re-run: Reset restored both folder glyphs without a Finder restart |
+| R7 check | 26B131 | Pass | 2026-11-19, before any registration: a read-only `lsregister -dump` (289,433 lines) has no claim on `'S001'` or `'S002'` (nor on `'D001'`–`'D009'`). Claim records list codes in `bindings:` and point to their bundle by a `(0x…)` reference, matching `LSRegisterDumpParser`. Apply repeats this check every time. 2026-11-20: the check now also reads type declarations (`type id:` records, `tags:` field); on 26B131 system types already tag `'SDIR'`, `'SIDX'`, `'SIT5'`, `'SITX'`, `'SLD8'`, `'SLKX'` but not `'S001'`/`'S002'` |
 
-**Recommended path for 002**: _(A or B, with links to the rows above)_
+**Recommended path for 002**: **Path B** (B1–B4, B6 Pass on 26B131), without a Finder Sync
+extension (R5, A1).
+- **Why B**: it is the only route that gives each Favorite its own icon, chosen at runtime, in full
+  colour. It also offers a monochrome SF Symbol glyph per folder as an option (R3).
+- **Why not A**: Path A draws the containing app's icon on every watched folder (one icon for all
+  folders), and only while the extension is enabled.
+- **Costs**:
+  - Path B depends on private or undocumented behavior (`PRIVATE_API.md` PA-01–PA-05), including
+    the missing-symbol fallback, so each macOS release needs a re-check.
+  - The app cannot be sandboxed (B5).
+  - Changing an icon needs a new type (icon cache).

@@ -10,6 +10,9 @@ public enum FinderRestartError: Error, Sendable, Equatable {
 @MainActor
 public enum FinderRestarter {
     public static let finderBundleID = "com.apple.finder"
+    /// Finder's fixed location. Used instead of a bundle-ID lookup, which another bundle claiming
+    /// `com.apple.finder` could answer.
+    static let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
 
     /// Asks Finder to quit, then sends SIGTERM (what `killall Finder` sends) if it is still running
     /// after `quitTimeout`. It never sends SIGKILL. Waits for Finder to come back and launches it if
@@ -21,7 +24,9 @@ public enum FinderRestarter {
     ) async throws -> Duration {
         let clock = ContinuousClock()
         let start = clock.now
+        // Only the real Finder, by executable location, is asked to quit or sent SIGTERM.
         let old = NSRunningApplication.runningApplications(withBundleIdentifier: finderBundleID)
+            .filter { $0.bundleURL?.standardizedFileURL.path == finderURL.path }
         let oldPIDs = Set(old.map(\.processIdentifier))
 
         for app in old { app.terminate() }
@@ -34,17 +39,18 @@ public enum FinderRestarter {
 
         func newFinder() -> NSRunningApplication? {
             NSRunningApplication.runningApplications(withBundleIdentifier: finderBundleID)
-                .first { !oldPIDs.contains($0.processIdentifier) && $0.isFinishedLaunching }
+                .first {
+                    !oldPIDs.contains($0.processIdentifier) && $0.isFinishedLaunching
+                        && $0.bundleURL?.standardizedFileURL.path == finderURL.path
+                }
         }
 
         // A Finder that quits normally is not always relaunched by the system; launch it after a
         // short grace period if it has not reappeared.
         if !(await waitUntil(timeout: .seconds(3)) { newFinder() != nil }) {
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: finderBundleID) {
-                let configuration = NSWorkspace.OpenConfiguration()
-                configuration.activates = false
-                _ = try? await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-            }
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = false
+            _ = try? await NSWorkspace.shared.openApplication(at: finderURL, configuration: configuration)
         }
         guard await waitUntil(timeout: relaunchTimeout, { newFinder() != nil }) else {
             throw FinderRestartError.finderDidNotRelaunch

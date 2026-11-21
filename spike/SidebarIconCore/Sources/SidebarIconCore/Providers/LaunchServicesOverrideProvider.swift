@@ -50,6 +50,8 @@ public protocol LaunchServicesSystem: Sendable {
     func setOverrideIcon(_ code: String, forFavoriteAt path: String) throws
     /// Clears the override on every Favorite whose current value is `code`, wherever its folder now
     /// lives. Favorites carrying any other value are left alone. Returns how many were cleared.
+    /// Throws `propertyRejected` if a write fails and `overrideNotCleared` if the code is still
+    /// there when read back.
     func clearOverrideIcon(_ code: String) throws -> Int
     func register(bundleAt url: URL) throws
     func unregister(bundleAt url: URL) throws
@@ -161,9 +163,18 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             }
             report.notes.append("R7: no other registered bundle claims \(codes.sorted().joined(separator: ", ")).")
 
+            try Self.refuseSymbolicLink(bundleURL)
             try IconRegistryBundle.write(bundleEntries, to: bundleURL)
-            try ledger.record(OutsideChange(kind: .iconRegistration, target: bundleURL.path)) {
-                try system.register(bundleAt: bundleURL)
+            do {
+                try ledger.record(OutsideChange(kind: .iconRegistration, target: bundleURL.path)) {
+                    try system.register(bundleAt: bundleURL)
+                }
+            } catch {
+                // The ledger entry was rolled back, so nothing would ever remove the bundle: undo
+                // a possible partial registration and delete it now.
+                try? system.unregister(bundleAt: bundleURL)
+                try? FileManager.default.removeItem(at: bundleURL)
+                throw error
             }
         }
 
@@ -187,12 +198,28 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
 
         // 4. Clear overrides whose mapping is disabled or gone (data-model.md, `enabled`).
         let enabledPaths = Set(mappings.filter(\.enabled).map(\.folderPath))
+        // A failure keeps that ledger entry, is noted, and does not stop the other entries or lose
+        // the report for the steps above.
+        // Overrides are cleared by code, so an entry whose code was just applied to another folder
+        // (a mapping moved to a new folder) is only dropped from the ledger; clearing it would
+        // remove the override that was just set.
+        let appliedIDs = Set(report.applied)
+        let appliedCodes = Set(mappings.filter { appliedIDs.contains($0.id) }.map(\.osType))
         for entry in try ledger.entries() where entry.kind == .sidebarOverride && !enabledPaths.contains(entry.target) {
-            try ledger.undo(entry) {
-                guard let code = entry.osType else { return }
-                _ = try system.clearOverrideIcon(code)
+            if let code = entry.osType, appliedCodes.contains(code) {
+                try ledger.undo(entry) {}
+                report.notes.append("\(code) moved from \(entry.target) to its new folder.")
+                continue
             }
-            report.cleared.append(entry.target)
+            do {
+                try ledger.undo(entry) {
+                    guard let code = entry.osType else { return }
+                    _ = try system.clearOverrideIcon(code)
+                }
+                report.cleared.append(entry.target)
+            } catch {
+                report.notes.append("Could not clear \(entry.osType ?? "?") on \(entry.target): \(Self.sidebarError(error).message)")
+            }
         }
         return report
     }
@@ -237,6 +264,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
                 guard PathStandardizer.standardize(entry.target) == PathStandardizer.standardize(ownBundle.path) else {
                     throw SidebarIconError.unexpectedLedgerTarget(entry.target)
                 }
+                try Self.refuseSymbolicLink(ownBundle)
                 try ledger.undo(entry) {
                     do {
                         try system.unregister(bundleAt: ownBundle)
@@ -266,6 +294,10 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
 
     /// The `.icns` for `asset` in `Icons/`, converted on first use.
     func icnsFile(for asset: IconAsset) throws -> URL {
+        // File names come from stored data; only plain names inside `Icons/` are accepted.
+        guard Self.isPlainFileName(asset.fileName), asset.icnsFileName.map(Self.isPlainFileName) ?? true else {
+            throw SidebarIconError.assetConversionFailed(asset.id)
+        }
         let source = container.iconsDirectory.appending(path: asset.fileName)
         if asset.sourceFormat == .icns { return source }
         let icns = container.iconsDirectory.appending(path: asset.icnsFileName ?? "\(asset.id.uuidString).icns")
@@ -273,6 +305,21 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             try ICNSConverter.convert(source, to: icns)
         }
         return icns
+    }
+
+    /// A single path component: no `/`, not `.` or `..`, not hidden, not empty.
+    static func isPlainFileName(_ name: String) -> Bool {
+        !name.isEmpty && !name.contains("/") && !name.hasPrefix(".") && name != ".."
+    }
+
+    /// The registry bundle must be a real directory in the container. A symbolic link there (for
+    /// example planted in the shared App Group container) could make `LSRegisterURL` or
+    /// `lsregister -u` act on another app, so it is refused.
+    static func refuseSymbolicLink(_ url: URL) throws {
+        let values = try? url.resourceValues(forKeys: [.isSymbolicLinkKey])
+        if values?.isSymbolicLink == true {
+            throw SidebarIconError.unexpectedLedgerTarget(url.path)
+        }
     }
 
     /// Compares paths the way `lsregister -dump` and Foundation may spell them differently:
@@ -336,6 +383,8 @@ public struct SystemLaunchServices: LaunchServicesSystem {
         guard let value = LSSharedFileListItemCopyProperty(item, Self.overrideIconKey)?.takeRetainedValue() else {
             return nil
         }
+        // A property stored as `kCFNull` (rather than removed) means no override.
+        if CFGetTypeID(value) == CFNullGetTypeID() { return nil }
         switch value {
         case let string as String:
             return string
@@ -363,33 +412,28 @@ public struct SystemLaunchServices: LaunchServicesSystem {
         let matches = try favoritesSnapshot().filter { resolvedPath(of: $0) == path }
         guard !matches.isEmpty else { throw SidebarIconError.folderNotInFavorites(path) }
         guard matches.count == 1 else { throw SidebarIconError.folderInFavoritesMoreThanOnce(path) }
-        let status = Self.setProperty(matches[0], Self.overrideIconKey, code as CFString)
+        let status = LSSharedFileListItemSetProperty(matches[0], Self.overrideIconKey, code as CFString)
         guard status == noErr else { throw SidebarIconError.propertyRejected(path, status) }
     }
 
-    /// PA-02 (read, then write `NULL`) with the PA-03 key.
+    /// PA-02 (read, then write `kCFNull`) with the PA-03 key.
+    ///
+    /// Writing `kCFNull` removes the property. Writing `NULL` returns `noErr` but leaves the
+    /// property in place (experiment B6, 26B131), so the result is read back from a fresh snapshot
+    /// and a Favorite that still carries the code is reported as `overrideNotCleared`.
     public func clearOverrideIcon(_ code: String) throws -> Int {
         var cleared = 0
         for item in try favoritesSnapshot() where overrideIcon(of: item) == code {
-            let status = Self.setProperty(item, Self.overrideIconKey, nil)
+            let status = LSSharedFileListItemSetProperty(item, Self.overrideIconKey, kCFNull)
             guard status == noErr else {
                 throw SidebarIconError.propertyRejected(resolvedPath(of: item) ?? code, status)
             }
             cleared += 1
         }
+        if cleared > 0, let remaining = try favoritesSnapshot().first(where: { overrideIcon(of: $0) == code }) {
+            throw SidebarIconError.overrideNotCleared(path: resolvedPath(of: remaining) ?? "?", code: code)
+        }
         return cleared
-    }
-
-    private typealias SetPropertyNonnull = @convention(c) (LSSharedFileListItem, CFString, CFTypeRef) -> OSStatus
-    private typealias SetPropertyNullable = @convention(c) (LSSharedFileListItem, CFString, CFTypeRef?) -> OSStatus
-
-    /// PA-02. The SDK header sits inside `CF_ASSUME_NONNULL`, so Swift imports the value as
-    /// non-optional and cannot pass `NULL`, which is how a property is removed. This calls the same
-    /// C function through a pointer type whose last parameter is nullable; the C ABI is identical
-    /// (a nullable object pointer). Whether `NULL` removes the property is checked by experiment B6.
-    private static func setProperty(_ item: LSSharedFileListItem, _ name: CFString, _ value: CFTypeRef?) -> OSStatus {
-        let function: SetPropertyNonnull = LSSharedFileListItemSetProperty
-        return unsafeBitCast(function, to: SetPropertyNullable.self)(item, name, value)
     }
 
     /// PA-04. `LSRegisterURL` itself is public; Finder using the registration for sidebar icons is not.
@@ -418,6 +462,7 @@ public struct SystemLaunchServices: LaunchServicesSystem {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: Self.lsregisterPath)
         process.arguments = arguments
+        process.environment = [:]
         let output = Pipe()
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
@@ -441,11 +486,15 @@ public struct SystemLaunchServices: LaunchServicesSystem {
 }
 
 /// Reads the parts of `lsregister -dump` output this project needs. The format is not stable
-/// (PA-05), so only two record shapes are used:
+/// (PA-05), so only three record shapes are used:
 ///
 ///     bundle id:   Name (0x2244)        claim id:   20784 (0x5130)
 ///     path:        /Applications/…      bundle:     Name (0x2244)
 ///     identifier:  com.example.app      bindings:   .*, 'fold', 'S001'
+///
+///     type id:     com.example.type (0x7000)
+///     bundle:      Name (0x2244)
+///     tags:        .ext, 'S001', application/x-example
 ///
 /// Records are separated by lines of dashes.
 enum LSRegisterDumpParser {
@@ -465,8 +514,8 @@ enum LSRegisterDumpParser {
             }
             guard let first = line.first else { continue }
             if first.isWhitespace {
-                // A wrapped `bindings:` list continues on indented lines.
-                if let last = current.fields.last, last.key == "bindings" {
+                // A wrapped `bindings:` or `tags:` list continues on indented lines.
+                if let last = current.fields.last, last.key == "bindings" || last.key == "tags" {
                     current.fields[current.fields.count - 1].value += " " + line.trimmingCharacters(in: .whitespaces)
                 }
                 continue
@@ -501,14 +550,24 @@ enum LSRegisterDumpParser {
             )
         }
         var result: [String: [LSClaimOwner]] = [:]
+        // A code is taken by a document-type claim that binds it (`claim id` … `bindings:`) or by a
+        // type declaration that tags it (`type id` … `tags:`); either can win the icon lookup.
         for record in all {
-            guard record.first("claim id") != nil else { continue }
-            let bindings = record.fields.filter { $0.key == "bindings" }.map(\.value).joined(separator: ", ")
-            let claimed = codes.filter { bindings.contains("'\($0)'") }
+            let listKey: String
+            if record.first("claim id") != nil {
+                listKey = "bindings"
+            } else if record.first("type id") != nil {
+                listKey = "tags"
+            } else {
+                continue
+            }
+            let list = record.fields.filter { $0.key == listKey }.map(\.value).joined(separator: ", ")
+            let claimed = codes.filter { list.contains("'\($0)'") }
             guard !claimed.isEmpty else { continue }
             let (name, ref) = splitReference(record.first("bundle") ?? "unknown")
             let owner = ref.flatMap { bundles[$0] } ?? LSClaimOwner(name: name)
-            for code in claimed {
+            // A bundle that both declares and claims a code is listed once.
+            for code in claimed where !(result[code]?.contains(owner) ?? false) {
                 result[code, default: []].append(owner)
             }
         }

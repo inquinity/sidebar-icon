@@ -46,6 +46,9 @@ the spike UI.
 
 Added during implementation (2026-11-19):
 
+- `overrideNotCleared(path, code)` (2026-11-20, after B6): the clear call returned `noErr` but the
+  Favorite still carries the code when read back; the ledger entry is kept.
+
 - `folderInFavoritesMoreThanOnce(path)`: the spec's duplicate-Favorite edge case; the folder is
   reported and left unchanged.
 - `codeClaimedElsewhere(code, owners)`: research R7; another registered bundle claims a code, so
