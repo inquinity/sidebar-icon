@@ -65,7 +65,7 @@ finds a working public route instead, every entry will be marked **removed**.
   `CoreServices.tbd` and `SharedFileList.tbd`, so code still links.
 - **Purpose and calling file**: Read-only listing of the Finder sidebar Favorites to find the
   item that matches each mapped folder. Called only from `SystemLaunchServices` in
-  `spike/SidebarIconCore/Sources/SidebarIconCore/Providers/LaunchServicesOverrideProvider.swift`
+  `Packages/SidebarIconCore/Sources/SidebarIconCore/Providers/LaunchServicesOverrideProvider.swift`
   (tasks T025, T027, T035). Runs when the owner presses List Favorites, Apply (Path B), Use
   runtime icon, or Reset.
 - **macOS builds**: Verified on 27.2.1 (26B131), 2026-11-20 (B1: all 7 Favorites listed). From a
@@ -153,7 +153,7 @@ finds a working public route instead, every entry will be marked **removed**.
     document glyph.
 - **Purpose and calling file**: Maps each type code to the icon chosen for a folder. The bundle
   is written to the utility's own App Group container as `IconRegistry.app`. Built by
-  `spike/SidebarIconCore/Sources/SidebarIconCore/Icons/IconRegistryBundle.swift` (public file
+  `Packages/SidebarIconCore/Sources/SidebarIconCore/Icons/IconRegistryBundle.swift` (public file
   writes only) and registered by `SystemLaunchServices` in `LaunchServicesOverrideProvider.swift`
   (tasks T024, T027).
 - **macOS builds**: Verified on 27.2.1 (26B131), 2026-11-20:
@@ -174,21 +174,27 @@ finds a working public route instead, every entry will be marked **removed**.
   - Icons are cached per type identifier; a changed icon must get a new identifier.
   - A Finder Sync extension watching the same folder replaces the glyph with its app's icon (A1),
     so the utility must not ship one for these folders.
-  - Another app could register the same type code; the spike checks for this before
-    registering (R7) and stops without changing anything if one does.
+  - Another app could register the same type code; apply checks for this before registering
+    (R7) and leaves that code out of the bundle, skipping only its mapping
+    (`codeClaimedElsewhere`); the other mappings are still applied.
   - A `.app` with no executable is flagged `launch-disabled` and `unsupported-format` by Launch
     Services; the control test showed icon lookup still works for it.
+  - `FileManager.replaceItemAt` registers an `.app` as a side effect, so the bundle is rewritten
+    with an atomic `renamex_np(RENAME_SWAP)` instead, and the only registration is the explicit
+    `LSRegisterURL` after the ledger entry (002 research, Verification).
   - The bundle lives in the App Group container, which macOS protects from other processes
     (a shell read gets "Operation not permitted"); the icon service still reads the `.icns` there
     (B2).
   - System types already use codes in this project's `S` range (`SDIR`, `SIDX`, `SIT5`, `SITX`,
     `SLD8`, `SLKX` on 26B131); the R7 check now also catches type declarations, so such a code
-    is refused rather than overridden. The allocator does not skip these codes yet; sequential
-    allocation from `S001` will not reach them in practice, and if it did, apply stops with
-    `codeClaimedElsewhere` (to revisit in 002).
+    is refused rather than overridden. Since 002 the allocator skips claimed codes when a mapping
+    is added (research D4).
 - **Reset and removal**: Reset unregisters the bundle (PA-05) and deletes it from the container.
   Reset only ever unregisters or deletes the bundle at the utility's own container path; a ledger
-  entry naming any other path is reported and left untouched.
+  entry naming any other path is reported and left untouched. Since 002, after a successful reset
+  the app also removes registry staging folders left by a crash and a bundle at its own path
+  that the ledger never recorded (unregistered first; a symbolic link is removed as a link and
+  never unregistered).
 
 ## PA-05: lsregister command-line tool
 

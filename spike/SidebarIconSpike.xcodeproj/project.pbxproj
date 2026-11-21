@@ -444,7 +444,7 @@
 /* Begin XCLocalSwiftPackageReference section */
 		AB12CD34EF56AB12CD34EF30 /* XCLocalSwiftPackageReference "SidebarIconCore" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = SidebarIconCore;
+			relativePath = ../Packages/SidebarIconCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 

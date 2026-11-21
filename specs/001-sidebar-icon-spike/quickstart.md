@@ -17,7 +17,7 @@ Validation guide for the spike. Record every result in the Findings table in
 
 1. Open `spike/SidebarIconSpike.xcodeproj` and build the `SidebarIconSpike` scheme.
 2. Run the core tests from the command line:
-   `swift test --package-path spike/SidebarIconCore`
+   `swift test --package-path Packages/SidebarIconCore`
 3. Launch the app from Xcode. Enable the extension when prompted, or open
    System Settings → General → Login Items & Extensions → File Providers / Finder extensions.
 

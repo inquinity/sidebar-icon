@@ -104,6 +104,9 @@ spike/
     └── Tests/SidebarIconCoreTests/
 ```
 
+> **Note (feature 002)**: the package moved to `Packages/SidebarIconCore` so the app and the spike
+> share it (002 research D1). The paths above, and in the historical tasks, are the spike-time paths.
+
 **Structure Decision**: Core logic lives in a local Swift package so it can be tested with
 `swift test` without Finder, and so feature 002 can reuse it. `PRIVATE_API.md` sits at the repository root, not under
 `spike/`, because it outlives the spike and also covers feature 002. The Xcode project is created in Xcode's

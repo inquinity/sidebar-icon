@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-17
 
-**Status**: Draft — planning blocked until 001's findings name a path (Constitution IV)
+**Status**: Planned (2026-11-20) — 001 chose Path B; see [plan.md](plan.md)
 
 **Input**: User description: "A small macOS utility to manage any number of folder → sidebar icon
 mappings: Add Folder, Pick Icon, Enable/Disable, Remove, Preview, Refresh Finder. Settings persist,

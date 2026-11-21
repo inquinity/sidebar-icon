@@ -1,0 +1,402 @@
+import Foundation
+
+/// One row of the mapping list (contracts/mapping-manager.md).
+public struct MappingRow: Sendable, Equatable, Identifiable {
+    public var id: UUID
+    public var folderPath: String
+    /// The folder's name.
+    public var displayName: String
+    /// The copied image in `Icons/`, for the preview.
+    public var iconFile: URL
+    public var enabled: Bool
+    public var osType: String
+    public var state: MappingState
+}
+
+/// What an action did, for the window (contracts/mapping-manager.md).
+public struct ActionResult: Sendable, Equatable {
+    /// Fresh status after the action.
+    public var rows: [MappingRow]
+    /// Plain-language notes for the status line.
+    public var messages: [String]
+    /// True when the owner may need to click Refresh Finder to see the change.
+    public var needsRefresh: Bool
+
+    public init(rows: [MappingRow], messages: [String] = [], needsRefresh: Bool = false) {
+        self.rows = rows
+        self.messages = messages
+        self.needsRefresh = needsRefresh
+    }
+}
+
+/// The only engine object the app talks to. It owns the configuration and drives the Path B
+/// adapter. Every method that changes something outside the container is named for an explicit
+/// owner action (research D6); `load()` and `rows()` only read.
+///
+/// An actor, so the slow system calls run off the main thread. The adapter's methods suspend, so
+/// actor isolation alone would let a second action start while one is waiting; every action
+/// therefore runs through `exclusive`, which refuses to start one while another is in progress
+/// (the ledger is rewritten whole and must have one writer).
+public actor MappingManager {
+    public nonisolated let container: ContainerLocator
+    let store: ConfigStore
+    let provider: LaunchServicesOverrideProvider
+    let restartFinder: @Sendable () async throws -> Void
+
+    private var config = AppConfiguration()
+    /// Set when `config.json` can't be read (D3). No method writes the config then, except
+    /// `resetAll`, which deletes it.
+    public private(set) var readOnlyReason: String?
+    /// False when the last read of the Favorites list failed (B1, D8).
+    public private(set) var favoritesReadable = true
+    /// Why the last apply failed, per mapping, for the status column.
+    private var lastFailures: [UUID: String] = [:]
+    /// True while an action runs (see `exclusive`).
+    private var actionInProgress = false
+
+    public init(
+        container: ContainerLocator,
+        system: any LaunchServicesSystem = SystemLaunchServices(),
+        restartFinder: @escaping @Sendable () async throws -> Void = { _ = try await FinderRestarter.restart() }
+    ) {
+        self.container = container
+        self.store = ConfigStore(container: container)
+        self.provider = LaunchServicesOverrideProvider(container: container, system: system)
+        self.restartFinder = restartFinder
+    }
+
+    /// Whether this macOS build is one the mechanism was verified on (D8).
+    public nonisolated var macOSBuildVerified: Bool {
+        SidebarIconCoreInfo.isVerified(build: SystemInfo.macOSBuild)
+    }
+
+    // MARK: - Reading
+
+    /// Reads `config.json`. On `configUnreadable` the manager becomes read-only and rethrows.
+    public func load() throws {
+        do {
+            config = try store.load()
+            readOnlyReason = nil
+        } catch let error as ManagerError {
+            config = AppConfiguration()
+            readOnlyReason = error.message
+            throw error
+        }
+    }
+
+    /// Read-only status of every mapping (research D7). Makes no outside changes.
+    public func rows() async -> [MappingRow] {
+        let mappings = config.mappings
+        guard !mappings.isEmpty else {
+            favoritesReadable = (try? provider.listFavorites()) != nil
+            return []
+        }
+        var statuses: [UUID: MappingStatus] = [:]
+        do {
+            for status in try await provider.status(for: mappings) {
+                statuses[status.mappingID] = status
+            }
+            favoritesReadable = true
+        } catch {
+            favoritesReadable = false
+        }
+        // `lsregister -dump` is slow, so it runs only when some override is in place.
+        let anyOverrideSet = mappings.contains { statuses[$0.id]?.activeOverride == $0.osType }
+        let registered = anyOverrideSet && ((try? provider.registrationStillListed()) ?? false)
+
+        return mappings.map { mapping in
+            let status = statuses[mapping.id] ?? MappingStatus(
+                mappingID: mapping.id,
+                folderPath: mapping.folderPath,
+                folderExists: FileManager.default.fileExists(atPath: mapping.folderPath),
+                favoriteCount: nil
+            )
+            var state = MappingState.state(
+                for: mapping, status: status, bundleRegistered: registered, lastFailure: lastFailures[mapping.id]
+            )
+            // The folder was renamed (case), or replaced by a link, since it was added: the stored
+            // path no longer names the folder the sidebar shows. Reported, never rewritten.
+            if mapping.enabled, status.folderExists {
+                let now = PathStandardizer.standardize(mapping.folderPath)
+                if now != mapping.folderPath {
+                    state = .error(
+                        "\(PathStandardizer.abbreviatingHome(mapping.folderPath)) now resolves to \(PathStandardizer.abbreviatingHome(now)), so this mapping no longer matches its folder."
+                    )
+                }
+            }
+            return MappingRow(
+                id: mapping.id,
+                folderPath: mapping.folderPath,
+                displayName: URL(fileURLWithPath: mapping.folderPath).lastPathComponent,
+                iconFile: iconFile(for: mapping),
+                enabled: mapping.enabled,
+                osType: mapping.osType,
+                state: state
+            )
+        }
+    }
+
+    // MARK: - Story 1
+
+    /// Adds a mapping for `folder` with a copy of `image`, then applies every enabled mapping
+    /// (contracts/mapping-manager.md). If the image can't be read or converted, nothing is saved.
+    public func add(folder: URL, image: URL) async throws -> ActionResult {
+        try await exclusive { try await self.performAdd(folder: folder, image: image) }
+    }
+
+    private func performAdd(folder: URL, image: URL) async throws -> ActionResult {
+        try requireWritable()
+        guard (try? provider.listFavorites()) != nil else {
+            favoritesReadable = false
+            throw ManagerError.favoritesUnavailable
+        }
+
+        // 1. The folder: an existing directory, not already mapped by any spelling (FR-004).
+        let path = PathStandardizer.standardize(folder.path)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw ManagerError.notAFolder(path)
+        }
+        if let existing = config.mappings.first(where: { PathStandardizer.standardize($0.folderPath) == path }) {
+            throw ManagerError.duplicateFolder(existing: existing.folderPath)
+        }
+
+        // 2. Copy and convert the image.
+        let asset = try importAsset(image)
+
+        // 3–4. Allocate a code and save; on failure the copied files are removed again.
+        do {
+            let code = try allocateCode()
+            var next = config
+            next.mappings.append(SidebarMapping(folderPath: path, iconAssetID: asset.id, osType: code))
+            next.assets.append(asset)
+            config = try store.save(next)
+        } catch {
+            store.deleteFiles(of: asset)
+            throw Self.managerError(error)
+        }
+
+        // 5. Apply. The mapping is already saved, so a failure here is reported, not thrown.
+        var result: ActionResult
+        do {
+            result = try await applyAll()
+        } catch {
+            result = ActionResult(rows: await rows(), messages: ["Saved, but not applied: \(Self.managerError(error).message)"])
+            return result
+        }
+        if result.rows.first(where: { $0.folderPath == path })?.state == .notInSidebar {
+            let shown = PathStandardizer.abbreviatingHome(path)
+            result.messages.removeAll { $0 == SidebarIconError.folderNotInFavorites(path).message }
+            result.messages.insert(
+                "Saved. \(shown) isn't in Finder's sidebar Favorites yet; drag it there, then click Apply Now.", at: 0
+            )
+        }
+        return result
+    }
+
+    /// Applies every enabled mapping again (Apply Now).
+    public func applyNow() async throws -> ActionResult {
+        try await exclusive {
+            try await self.requireWritable()
+            return try await self.applyAll()
+        }
+    }
+
+    // MARK: - Story 4
+
+    /// Applies, then restarts Finder (Refresh Finder). A Finder that fails to restart is reported,
+    /// not thrown.
+    public func refreshFinder() async throws -> ActionResult {
+        try await exclusive { try await self.performRefreshFinder() }
+    }
+
+    private func performRefreshFinder() async throws -> ActionResult {
+        var messages: [String] = []
+        if readOnlyReason == nil, !config.mappings.isEmpty {
+            do {
+                messages += try await applyAll().messages
+            } catch let error as ManagerError {
+                messages.append(error.message)
+            }
+        }
+        do {
+            try await restartFinder()
+            messages.append("Finder restarted.")
+        } catch {
+            messages.append("Finder could not be restarted: \(error)")
+        }
+        return ActionResult(rows: await rows(), messages: messages)
+    }
+
+    /// Undoes every recorded change, then deletes the mappings and copied images (Reset All).
+    /// Works in read-only mode and with unreadable Favorites (FR-010). If some changes can't be
+    /// undone, only the mappings whose changes are still recorded are kept.
+    public func resetAll() async throws -> ActionResult {
+        try await exclusive { try await self.performResetAll() }
+    }
+
+    private func performResetAll() async throws -> ActionResult {
+        let report: ResetReport
+        do {
+            report = try await provider.reset()
+        } catch {
+            throw Self.managerError(error)
+        }
+        lastFailures = [:]
+        var messages: [String] = []
+
+        if report.succeeded {
+            messages += provider.removeUnrecordedRegistryFiles()
+            try store.remove()
+            if FileManager.default.fileExists(atPath: container.iconsDirectory.path) {
+                do {
+                    try FileManager.default.removeItem(at: container.iconsDirectory)
+                } catch {
+                    messages.append("The copied images could not all be deleted: \(error.localizedDescription)")
+                }
+            }
+            config = AppConfiguration()
+            readOnlyReason = nil
+            messages.insert(
+                report.undone.isEmpty
+                    ? "Nothing to reset; your mappings and copied images were removed."
+                    : "Removed every custom sidebar icon, mapping and copied image.",
+                at: 0
+            )
+        } else {
+            messages += report.failed.map(\.reason.message)
+            if readOnlyReason == nil {
+                // Errors here are added to the messages so the list of failures above is kept.
+                do {
+                    let recorded = Set(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+                    var next = config
+                    next.mappings = config.mappings.filter { recorded.contains($0.osType) }
+                    config = try store.save(next)
+                } catch {
+                    messages.append(Self.managerError(error).message)
+                }
+            }
+            messages.append("Some changes could not be undone and are still recorded. Fix the cause, then click Reset All again.")
+        }
+        return ActionResult(rows: await rows(), messages: messages, needsRefresh: report.succeeded && !report.undone.isEmpty)
+    }
+
+    // MARK: - Helpers
+
+    /// Runs one action at a time; a second action while one is running is refused.
+    private func exclusive<T: Sendable>(_ action: () async throws -> T) async throws -> T {
+        guard !actionInProgress else { throw ManagerError.busy }
+        actionInProgress = true
+        defer { actionInProgress = false }
+        return try await action()
+    }
+
+    private func requireWritable() throws {
+        if readOnlyReason != nil { throw ManagerError.readOnly }
+    }
+
+    private func iconFile(for mapping: SidebarMapping) -> URL {
+        let name = config.asset(for: mapping)?.fileName ?? ""
+        return container.iconsDirectory.appending(path: LaunchServicesOverrideProvider.isPlainFileName(name) ? name : "missing")
+    }
+
+    /// Copies `image` into `Icons/` under a new asset id and converts it (research D5).
+    private func importAsset(_ image: URL) throws -> IconAsset {
+        guard !container.iconsDirectoryIsSymbolicLink else {
+            throw ManagerError.sidebar(.unexpectedLedgerTarget(container.iconsDirectory.path))
+        }
+        let id = UUID()
+        var asset: IconAsset
+        do {
+            asset = try AssetImporter.importFile(at: image, into: container.iconsDirectory, id: id)
+        } catch {
+            throw ManagerError.imageUnreadable(image.lastPathComponent)
+        }
+        if asset.sourceFormat == .icns {
+            guard ICNSConverter.isUsableICNS(at: container.iconsDirectory.appending(path: asset.fileName)) else {
+                store.deleteFiles(of: asset)
+                throw ManagerError.imageUnreadable(image.lastPathComponent)
+            }
+            return asset
+        }
+        asset.icnsFileName = "\(id.uuidString).icns"
+        do {
+            _ = try provider.icnsFile(for: asset)
+        } catch {
+            store.deleteFiles(of: asset)
+            throw ManagerError.imageUnreadable(image.lastPathComponent)
+        }
+        return asset
+    }
+
+    /// The next code not used by a mapping or the ledger and not claimed by another registered
+    /// bundle or type (research D4). One `lsregister -dump` checks a window of 32 candidates; if
+    /// every one is claimed, the next window is checked. Only checked codes are handed out.
+    private func allocateCode() throws -> String {
+        var excluded = Set(config.mappings.map(\.osType)).union(try provider.ledgerEntries().compactMap(\.osType))
+        while true {
+            let candidates = try OSTypeAllocator.allocate(32, excluding: excluded)
+            let claimed = try provider.codesClaimedElsewhere(among: Set(candidates))
+            if let code = candidates.first(where: { !claimed.contains($0) }) {
+                return code
+            }
+            excluded.formUnion(candidates)
+        }
+    }
+
+    /// Applies every enabled mapping and records per-mapping failures for the status column.
+    private func applyAll() async throws -> ActionResult {
+        var messages: [String] = []
+        var needsRefresh = false
+        // Which overrides are already in place, so the refresh hint only follows a real change.
+        let before = (try? provider.listFavorites()) ?? []
+        do {
+            let report = try await provider.apply(config.mappings, assets: config.assets)
+            for id in report.applied {
+                lastFailures[id] = nil
+            }
+            for skip in report.skipped {
+                switch skip.reason {
+                case .folderNotInFavorites, .folderMissing:
+                    lastFailures[skip.mappingID] = nil
+                default:
+                    lastFailures[skip.mappingID] = skip.reason.message
+                }
+                messages.append(skip.reason.message)
+            }
+            // The R7 note is a diagnostic for the spike's log, not for the owner.
+            messages += report.notes.filter { !$0.hasPrefix("R7:") }
+            let applied = Set(report.applied)
+            needsRefresh = config.mappings.contains { mapping in
+                applied.contains(mapping.id)
+                    && !before.contains { $0.path == mapping.folderPath && $0.overrideIcon == mapping.osType }
+            }
+        } catch {
+            let error = LaunchServicesOverrideProvider.sidebarError(error)
+            if error == .favoritesUnavailable {
+                favoritesReadable = false
+                throw ManagerError.favoritesUnavailable
+            }
+            let affected: [SidebarMapping]
+            if case .codeClaimedElsewhere(let code, _) = error {
+                affected = config.mappings.filter { $0.osType == code }
+            } else {
+                affected = config.mappings.filter(\.enabled)
+            }
+            for mapping in affected {
+                lastFailures[mapping.id] = error.message
+            }
+            messages.append(error.message)
+        }
+        return ActionResult(rows: await rows(), messages: messages, needsRefresh: needsRefresh)
+    }
+
+    static func managerError(_ error: any Error) -> ManagerError {
+        switch error {
+        case let error as ManagerError: error
+        case let error as SidebarIconError: .sidebar(error)
+        case OSTypeAllocationError.exhausted: .sidebar(.invalidMapping("no unused type code is left"))
+        default: .sidebar(.toolFailed(String(describing: error)))
+        }
+    }
+}

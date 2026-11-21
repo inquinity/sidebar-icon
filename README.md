@@ -44,7 +44,8 @@ The full rules are in the [constitution](.specify/memory/constitution.md). In sh
 
 ## Building and testing the spike
 
-The spike is not implemented yet. When it is, follow the
+The engine is the Swift package in `Packages/SidebarIconCore` (`swift test` runs its tests). The
+spike app in `spike/` builds against it; follow the
 [spike quickstart](specs/001-sidebar-icon-spike/quickstart.md) for build steps, the manual test
 checklist, and full rollback instructions.
 

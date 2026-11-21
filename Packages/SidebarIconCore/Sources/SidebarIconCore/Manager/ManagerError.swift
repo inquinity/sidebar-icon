@@ -1,0 +1,46 @@
+import Foundation
+
+/// Errors `MappingManager` and `ConfigStore` report to the app (contracts/mapping-manager.md).
+public enum ManagerError: Error, Sendable, Equatable {
+    /// D3: the app opens read-only, with Reset All available.
+    case configUnreadable(String)
+    case saveFailed(String)
+    /// FR-004; names the existing mapping's folder.
+    case duplicateFolder(existing: String)
+    case notAFolder(String)
+    /// The image could not be copied or converted; nothing was saved.
+    case imageUnreadable(String)
+    /// B1 fails: Add and Apply are disabled, Reset All is allowed.
+    case favoritesUnavailable
+    case readOnly
+    /// Another action is still running.
+    case busy
+    case unknownMapping
+    /// The adapter's error, passed through with its message.
+    case sidebar(SidebarIconError)
+
+    public var message: String {
+        switch self {
+        case .configUnreadable(let detail):
+            "Your mappings can't be loaded, so nothing will be changed. \(detail) Reset All still works."
+        case .saveFailed(let detail):
+            "Your mappings could not be saved: \(detail)"
+        case .duplicateFolder(let existing):
+            "\(PathStandardizer.abbreviatingHome(existing)) is already mapped. Change its icon instead."
+        case .notAFolder(let path):
+            "\(PathStandardizer.abbreviatingHome(path)) is not a folder."
+        case .imageUnreadable(let name):
+            "\(name) could not be read as an image (PDF, PNG or SVG). Nothing was saved."
+        case .favoritesUnavailable:
+            SidebarIconError.favoritesUnavailable.message
+        case .readOnly:
+            "Your mappings can't be loaded, so nothing will be changed. Reset All still works."
+        case .busy:
+            "Another action is still running; try again when it finishes."
+        case .unknownMapping:
+            "That mapping no longer exists."
+        case .sidebar(let error):
+            error.message
+        }
+    }
+}
