@@ -158,19 +158,19 @@ These are needed by every story.
 
 **Independent Test**: quickstart checks 7–9.
 
-- [ ] T027 [P] [US2] Write tests in `Tests/MappingManagerManageTests.swift`:
+- [X] T027 [P] [US2] Write tests in `Tests/MappingManagerManageTests.swift`:
   - `setEnabled(false)` clears only that override and keeps the mapping;
   - `setEnabled(true)` restores it;
   - `remove` clears the override, deletes that asset's files and leaves other mappings;
   - removing the last enabled mapping unregisters and deletes `IconRegistry.app`;
   - `changeIcon` keeps the code, creates a new asset (new type id) and deletes the old asset files after apply;
   - two mappings using the same source image each get their own asset.
-- [ ] T028 [US2] In `Core/Providers/LaunchServicesOverrideProvider.swift`, when `apply` is called with no enabled mapping and a registration exists in the ledger, unregister and delete the bundle (the same path as reset's registration step) and record it in `ApplyReport.cleared`. Update `PRIVATE_API.md` PA-04 "Reset and removal" in the same commit (Constitution VI)
-- [ ] T029 [US2] Add `setEnabled(_:for:)`, `remove(_:)`, `changeIcon(for:image:)` and `repoint(_:to:)` to `Core/Manager/MappingManager.swift`. `repoint` updates `folderPath` after the duplicate check and re-applies. Makes T027 pass
-- [ ] T030 [US2] In `app/SidebarIcons/MappingListView.swift`, add:
+- [X] T028 [US2] In `Core/Providers/LaunchServicesOverrideProvider.swift`, when `apply` is called with no enabled mapping and a registration exists in the ledger, unregister and delete the bundle (the same path as reset's registration step) and record it in `ApplyReport.cleared`. Update `PRIVATE_API.md` PA-04 "Reset and removal" in the same commit (Constitution VI)
+- [X] T029 [US2] Add `setEnabled(_:for:)`, `remove(_:)`, `changeIcon(for:image:)` and `repoint(_:to:)` to `Core/Manager/MappingManager.swift`. `repoint` updates `folderPath` after the duplicate check and re-applies. Makes T027 pass
+- [X] T030 [US2] In `app/SidebarIcons/MappingListView.swift`, add:
   - a row toggle (On/Off);
   - a context menu with Change Icon…, Remove… (confirmation from `contracts/ui.md`) and Re-point… (for `folderMissing`).
-- [ ] T031 [US2] (owner) Run quickstart checks 7–9 and record the results
+- [X] T031 [US2] (owner) Run quickstart checks 7–9 and record the results
 
 ---
 
@@ -202,6 +202,20 @@ These are needed by every story.
 - [ ] T040 (owner) Run quickstart check 12 (20 mappings; logout; reboot; FR-011, FR-013, SC-002)
 - [ ] T041 (owner) Run quickstart checks 13–14 (leftovers after Reset All and deletion; folders untouched; SC-004, SC-005)
 - [ ] T042 Mark the spec Status "Done" with the verified macOS build and merge to `main` on the owner's go-ahead (no PR; branch workflow)
+
+---
+
+## Follow-ups (found during the work; not blocking a story)
+
+Reviewed at each checkpoint; the owner decides whether to schedule them.
+
+- [ ] F001 Add Folder refuses an already-mapped folder only after the image is picked; check right after the folder pick in `app/SidebarIcons/AddMappingFlow.swift` (quickstart check 4)
+- [ ] F002 Refresh Finder takes about 15–20 s, mostly repeated `lsregister -dump` runs (claims, apply, status); share one dump per action in `Core/Manager/MappingManager.swift` and the adapter (quickstart check 5)
+- [ ] F003 After removing the last mapping with a failed clear, only Reset All retries; let Refresh Finder apply when the ledger still has entries in `Core/Manager/MappingManager.swift` (Story 2 review #3)
+- [ ] F004 Rare: two ledger entries with one code (after a re-point whose old clear failed) can clear an icon an enabled mapping still needs; skip that clear in `Core/Providers/LaunchServicesOverrideProvider.swift` (review #6)
+- [ ] F005 Offer Re-point… on Off rows and on "now resolves to" error rows, not only Folder missing, in `app/SidebarIcons/MappingListView.swift` (review #8)
+- [ ] F006 Narrow the check-then-use window between `refuseSymbolicLink` and `lsregister -u` (open the bundle directory with `O_NOFOLLOW` or re-check right before), `Core/Providers/LaunchServicesOverrideProvider.swift` (review, security)
+- [ ] F007 Remove the redundant `await`s in the `exclusive` closures (about ten compiler warnings), `Core/Manager/MappingManager.swift`
 
 ---
 

@@ -152,14 +152,7 @@ public actor MappingManager {
         }
 
         // 1. The folder: an existing directory, not already mapped by any spelling (FR-004).
-        let path = PathStandardizer.standardize(folder.path)
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            throw ManagerError.notAFolder(path)
-        }
-        if let existing = config.mappings.first(where: { PathStandardizer.standardize($0.folderPath) == path }) {
-            throw ManagerError.duplicateFolder(existing: existing.folderPath)
-        }
+        let path = try validatedNewFolder(folder, excluding: nil)
 
         // 2. Copy and convert the image.
         let asset = try importAsset(image)
@@ -177,14 +170,8 @@ public actor MappingManager {
         }
 
         // 5. Apply. The mapping is already saved, so a failure here is reported, not thrown.
-        var result: ActionResult
-        do {
-            result = try await applyAll()
-        } catch {
-            result = ActionResult(rows: await rows(), messages: ["Saved, but not applied: \(Self.managerError(error).message)"])
-            return result
-        }
-        if result.rows.first(where: { $0.folderPath == path })?.state == .notInSidebar {
+        var result = await applyAfterSave()
+        if result.rows.first(where: { $0.folderPath == path })?.state == .notInSidebar, !result.messages.contains(where: { $0.hasPrefix("Saved, but") }) {
             let shown = PathStandardizer.abbreviatingHome(path)
             result.messages.removeAll { $0 == SidebarIconError.folderNotInFavorites(path).message }
             result.messages.insert(
@@ -199,6 +186,73 @@ public actor MappingManager {
         try await exclusive {
             try await self.requireWritable()
             return try await self.applyAll()
+        }
+    }
+
+    // MARK: - Story 2
+
+    /// Turns a mapping on or off. Off clears its override and keeps the mapping (FR-005).
+    public func setEnabled(_ enabled: Bool, for id: UUID) async throws -> ActionResult {
+        try await exclusive {
+            try await self.change(id) { $0.mappings[$1].enabled = enabled }
+            return await self.applyAfterSave()
+        }
+    }
+
+    /// Removes a mapping: its override is cleared and its copied image deleted. The folder is not
+    /// changed. Removing the last enabled mapping also unregisters the registry bundle.
+    public func remove(_ id: UUID) async throws -> ActionResult {
+        try await exclusive {
+            try await self.change(id) { config, index in
+                let mapping = config.mappings.remove(at: index)
+                self.lastFailures[mapping.id] = nil
+            }
+            return await self.applyAfterSave()
+        }
+    }
+
+    /// Gives a mapping a new image. The code is kept; the image gets a new asset id, so the type id
+    /// changes and Finder's icon cache can't show the old art (research D5). The old asset's files
+    /// are deleted when the config is saved; the registry bundle holds its own copy until rewritten.
+    public func changeIcon(for id: UUID, image: URL) async throws -> ActionResult {
+        try await exclusive {
+            try await self.requireWritable()
+            guard await self.config.mappings.contains(where: { $0.id == id }) else { throw ManagerError.unknownMapping }
+            let asset = try await self.importAsset(image)
+            do {
+                try await self.change(id) { config, index in
+                    config.mappings[index].iconAssetID = asset.id
+                    config.assets.append(asset)
+                }
+            } catch {
+                await self.store.deleteFiles(of: asset)
+                throw error
+            }
+            return await self.applyAfterSave(iconChangedFor: id)
+        }
+    }
+
+    /// Points a mapping at another folder (for example after the folder moved). Same folder checks
+    /// as Add (FR-004); the mapping keeps its code and icon.
+    public func repoint(_ id: UUID, to folder: URL) async throws -> ActionResult {
+        try await exclusive {
+            try await self.requireWritable()
+            let path = try await self.validatedNewFolder(folder, excluding: id)
+            try await self.change(id) { $0.mappings[$1].folderPath = path }
+            return await self.applyAfterSave()
+        }
+    }
+
+    /// Applies `edit` to a copy of the config for mapping `id` and saves it.
+    private func change(_ id: UUID, _ edit: (inout AppConfiguration, Int) -> Void) throws {
+        try requireWritable()
+        guard let index = config.mappings.firstIndex(where: { $0.id == id }) else { throw ManagerError.unknownMapping }
+        var next = config
+        edit(&next, index)
+        do {
+            config = try store.save(next)
+        } catch {
+            throw Self.managerError(error)
         }
     }
 
@@ -291,6 +345,20 @@ public actor MappingManager {
         return try await action()
     }
 
+    /// The standardized path of `folder` if it is an existing directory that no other mapping
+    /// (other than `excluding`) already uses, by any spelling (FR-004).
+    private func validatedNewFolder(_ folder: URL, excluding id: UUID?) throws -> String {
+        let path = PathStandardizer.standardize(folder.path)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw ManagerError.notAFolder(path)
+        }
+        if let existing = config.mappings.first(where: { $0.id != id && PathStandardizer.standardize($0.folderPath) == path }) {
+            throw ManagerError.duplicateFolder(existing: existing.folderPath)
+        }
+        return path
+    }
+
     private func requireWritable() throws {
         if readOnlyReason != nil { throw ManagerError.readOnly }
     }
@@ -345,7 +413,20 @@ public actor MappingManager {
     }
 
     /// Applies every enabled mapping and records per-mapping failures for the status column.
-    private func applyAll() async throws -> ActionResult {
+    /// Applies after a change was saved. The change stands, so an apply failure is returned as a
+    /// message ("Saved, but not applied: …"), never thrown (the row would otherwise vanish while
+    /// the alert says the action failed).
+    private func applyAfterSave(iconChangedFor changed: UUID? = nil) async -> ActionResult {
+        do {
+            return try await applyAll(iconChangedFor: changed)
+        } catch {
+            return ActionResult(rows: await rows(), messages: ["Saved, but not applied: \(Self.managerError(error).message)"])
+        }
+    }
+
+    /// `iconChangedFor` asks for the refresh hint when that mapping was applied even though its
+    /// override didn't change (Change Icon keeps the code; the new art arrives through a new type).
+    private func applyAll(iconChangedFor changed: UUID? = nil) async throws -> ActionResult {
         var messages: [String] = []
         var needsRefresh = false
         // Which overrides are already in place, so the refresh hint only follows a real change.
@@ -364,10 +445,17 @@ public actor MappingManager {
                 }
                 messages.append(skip.reason.message)
             }
+            // A mapping turned off whose override is still recorded could not be cleared (#2).
+            let recordedCodes = Set(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+            for mapping in config.mappings where !mapping.enabled {
+                lastFailures[mapping.id] = recordedCodes.contains(mapping.osType)
+                    ? "Its sidebar icon could not be removed. Try again, or use Reset All."
+                    : nil
+            }
             // The R7 note is a diagnostic for the spike's log, not for the owner.
             messages += report.notes.filter { !$0.hasPrefix("R7:") }
             let applied = Set(report.applied)
-            needsRefresh = config.mappings.contains { mapping in
+            needsRefresh = changed.map(applied.contains) == true || config.mappings.contains { mapping in
                 applied.contains(mapping.id)
                     && !before.contains { $0.path == mapping.folderPath && $0.overrideIcon == mapping.osType }
             }

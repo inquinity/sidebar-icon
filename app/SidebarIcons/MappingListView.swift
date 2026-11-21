@@ -5,6 +5,7 @@ import SwiftUI
 /// The list of mappings with a light and dark preview, the folder, and its status.
 struct MappingListView: View {
     let model: AppModel
+    @State private var pendingRemoval: MappingRow?
 
     var body: some View {
         if model.rows.isEmpty, model.readOnlyReason != nil {
@@ -23,7 +24,26 @@ struct MappingListView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List(model.rows) { row in
-                MappingRowView(row: row, canApply: model.canChange, apply: model.applyNow)
+                MappingRowView(row: row, model: model)
+                    .contextMenu {
+                        Button("Change Icon…") { model.changeIcon(for: row) }
+                        if row.state == .folderMissing {
+                            Button("Re-point…") { model.repoint(row) }
+                        }
+                        Divider()
+                        Button("Remove…", role: .destructive) { pendingRemoval = row }
+                    }
+                    .disabled(!model.canChange)
+            }
+            .confirmationDialog(
+                "Remove mapping?",
+                isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
+                presenting: pendingRemoval
+            ) { row in
+                Button("Remove", role: .destructive) { model.remove(row) }
+                Button("Cancel", role: .cancel) {}
+            } message: { row in
+                Text("Remove the mapping for \(row.displayName)? The folder itself is not changed.")
             }
         }
     }
@@ -31,8 +51,7 @@ struct MappingListView: View {
 
 struct MappingRowView: View {
     let row: MappingRow
-    let canApply: Bool
-    let apply: () -> Void
+    let model: AppModel
 
     var body: some View {
         HStack(spacing: 10) {
@@ -48,10 +67,20 @@ struct MappingRowView: View {
             }
             Spacer()
             StateBadge(state: row.state)
-            if row.state.offersApplyNow {
-                Button("Apply Now", action: apply)
-                    .disabled(!canApply)
+            if row.state == .folderMissing {
+                Button("Re-point…") { model.repoint(row) }
+                    .disabled(!model.canChange)
+            } else if row.state.offersApplyNow {
+                Button("Apply Now", action: model.applyNow)
+                    .disabled(!model.canChange)
             }
+            Toggle("On", isOn: Binding(get: { row.enabled }, set: { model.setEnabled($0, for: row) }))
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .controlSize(.small)
+                .disabled(!model.canChange)
+                .help(row.enabled ? "Turn off: the folder shows its normal icon; the mapping is kept." : "Turn on")
+                .accessibilityLabel("Use this icon")
         }
         .padding(.vertical, 2)
     }

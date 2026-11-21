@@ -31,7 +31,8 @@ public enum MappingState: Sendable, Equatable {
         bundleRegistered: Bool,
         lastFailure: String?
     ) -> MappingState {
-        guard mapping.enabled else { return .off }
+        // A mapping turned off whose override could not be cleared is not really off.
+        guard mapping.enabled else { return lastFailure.map { .error($0) } ?? .off }
         guard status.folderExists else { return .folderMissing }
         guard let count = status.favoriteCount else {
             return .error(SidebarIconError.favoritesUnavailable.message)

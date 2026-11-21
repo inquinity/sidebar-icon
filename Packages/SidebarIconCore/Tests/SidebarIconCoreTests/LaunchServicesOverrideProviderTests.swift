@@ -188,7 +188,10 @@ import Testing
         let report = try await provider.apply(fixture.mappings(docsEnabled: false), assets: [fixture.asset])
 
         #expect(report.cleared == [fixture.docs])
-        #expect(system.calls.last == "clear S002")
+        // Unwanted overrides are cleared first, before registration and before any override is set.
+        let second = Array(system.calls.dropFirst(4))
+        #expect(second == ["clear S002", "claims", "register", "set S001 \(fixture.dev)"])
+        #expect(try system.listFavorites().first { $0.path == fixture.docs }?.overrideIcon == nil)
         #expect(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.map(\.target) == [fixture.dev])
     }
 
@@ -209,6 +212,8 @@ import Testing
         #expect(try system.listFavorites().first { $0.path == fixture.docs }?.overrideIcon == "S001")
         let overrides = try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }
         #expect(overrides.map(\.target) == [fixture.docs])
+        // The old Favorite no longer carries the code, so the ledger matches the sidebar.
+        #expect(try system.listFavorites().first { $0.path == fixture.dev }?.overrideIcon == nil)
     }
 
     /// Review T042 #2: stored file names must stay inside `Icons/`.

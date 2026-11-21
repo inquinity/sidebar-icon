@@ -31,6 +31,7 @@ final class FakeLaunchServices: LaunchServicesSystem {
         var unregisterFailsWhenMissing = false
         var claims: [String: [LSClaimOwner]] = [:]
         var favoritesUnavailable = false
+        var failClaims = false
     }
 
     let state = Mutex(State())
@@ -93,8 +94,9 @@ final class FakeLaunchServices: LaunchServicesSystem {
     }
 
     func claims(on codes: Set<String>) throws -> [String: [LSClaimOwner]] {
-        state.withLock { state in
+        try state.withLock { state in
             state.calls.append("claims")
+            if state.failClaims { throw SidebarIconError.toolFailed("lsregister -dump exited with 1") }
             return state.claims.filter { codes.contains($0.key) }
         }
     }

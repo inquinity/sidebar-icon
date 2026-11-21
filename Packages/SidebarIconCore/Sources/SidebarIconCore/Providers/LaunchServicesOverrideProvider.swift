@@ -137,16 +137,37 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             eligible.append((mapping, entry))
         }
 
-        // 2. Register the icons (research R3 part 1), after checking no one else claims the codes (R7).
-        // The bundle keeps every code an override in the ledger still points at, so a Favorite that
-        // was skipped this time is not left pointing at an unregistered code.
+        // 2. Clear overrides whose mapping is disabled, gone, or moved to another folder
+        // (data-model.md, `enabled`). This runs before registration, so a failure there can't stop
+        // Off or Remove from clearing, and before any override is set: overrides are cleared
+        // by code, so clearing after a moved mapping's code was set on its new Favorite would
+        // remove the new one, and skipping the clear would leave the old Favorite carrying an
+        // override that no ledger entry records. A failure keeps that ledger entry, is noted, and
+        // does not stop the other entries or lose the report.
+        let enabledPaths = Set(mappings.filter(\.enabled).map(\.folderPath))
+        for entry in try ledger.entries() where entry.kind == .sidebarOverride && !enabledPaths.contains(entry.target) {
+            do {
+                try ledger.undo(entry) {
+                    guard let code = entry.osType else { return }
+                    _ = try system.clearOverrideIcon(code)
+                }
+                report.cleared.append(entry.target)
+            } catch {
+                report.notes.append("Could not clear \(entry.osType ?? "?") on \(entry.target): \(Self.sidebarError(error).message)")
+            }
+        }
+
+        // 3. Register the icons (research R3 part 1), after checking no one else claims the codes (R7).
+        // The bundle keeps every code an override in the ledger still points at (after the clears
+        // above), so a Favorite that was skipped, or whose clear failed, is not left pointing at an
+        // unregistered code.
         let bundleURL = container.registryBundleURL
         var bundleEntries: [IconRegistryBundle.Entry] = []
         if !eligible.isEmpty {
             bundleEntries = eligible.map(\.entry)
             let eligibleIDs = Set(eligible.map(\.mapping.id))
-            for mapping in mappings where mapping.enabled && !eligibleIDs.contains(mapping.id)
-                && recordedOverrides.contains(where: { $0.osType == mapping.osType }) {
+            let stillRecorded = Set(try ledger.entries().filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+            for mapping in mappings where !eligibleIDs.contains(mapping.id) && stillRecorded.contains(mapping.osType) {
                 if let entry = registryEntry(for: mapping) { bundleEntries.append(entry) }
             }
             // A code another bundle claims is left out, and only its mapping is skipped; the
@@ -185,7 +206,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             }
         }
 
-        // 3. Point each Favorite at its code (research R3 part 2).
+        // 4. Point each Favorite at its code (research R3 part 2).
         for (mapping, _) in eligible {
             let change = OutsideChange(kind: .sidebarOverride, target: mapping.folderPath, osType: mapping.osType)
             do {
@@ -203,29 +224,17 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             }
         }
 
-        // 4. Clear overrides whose mapping is disabled or gone (data-model.md, `enabled`).
-        let enabledPaths = Set(mappings.filter(\.enabled).map(\.folderPath))
-        // A failure keeps that ledger entry, is noted, and does not stop the other entries or lose
-        // the report for the steps above.
-        // Overrides are cleared by code, so an entry whose code was just applied to another folder
-        // (a mapping moved to a new folder) is only dropped from the ledger; clearing it would
-        // remove the override that was just set.
-        let appliedIDs = Set(report.applied)
-        let appliedCodes = Set(mappings.filter { appliedIDs.contains($0.id) }.map(\.osType))
-        for entry in try ledger.entries() where entry.kind == .sidebarOverride && !enabledPaths.contains(entry.target) {
-            if let code = entry.osType, appliedCodes.contains(code) {
-                try ledger.undo(entry) {}
-                report.notes.append("\(code) moved from \(entry.target) to its new folder.")
-                continue
-            }
-            do {
-                try ledger.undo(entry) {
-                    guard let code = entry.osType else { return }
-                    _ = try system.clearOverrideIcon(code)
+        // 5. With no enabled mapping left and no override still recorded, the registry bundle is
+        // no longer needed: unregister and delete it, the same way Reset does (Story 2, PA-04).
+        let entriesNow = try ledger.entries()
+        if !mappings.contains(where: \.enabled), !entriesNow.contains(where: { $0.kind == .sidebarOverride }) {
+            for entry in entriesNow where entry.kind == .iconRegistration {
+                do {
+                    try undoRegistration(entry)
+                    report.cleared.append(entry.target)
+                } catch {
+                    report.notes.append("Could not remove the icon registration: \(Self.sidebarError(error).message)")
                 }
-                report.cleared.append(entry.target)
-            } catch {
-                report.notes.append("Could not clear \(entry.osType ?? "?") on \(entry.target): \(Self.sidebarError(error).message)")
             }
         }
         return report
@@ -264,34 +273,40 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             }
             return report
         }
-        let ownBundle = container.registryBundleURL
         for entry in registrations {
             do {
-                // Only ever unregister or delete this utility's own bundle, whatever the ledger says.
-                guard PathStandardizer.standardize(entry.target) == PathStandardizer.standardize(ownBundle.path) else {
-                    throw SidebarIconError.unexpectedLedgerTarget(entry.target)
-                }
-                try Self.refuseSymbolicLink(ownBundle)
-                try ledger.undo(entry) {
-                    do {
-                        try system.unregister(bundleAt: ownBundle)
-                    } catch {
-                        // `lsregister -u` may fail for a bundle that was already deleted; that is
-                        // fine only if Launch Services no longer lists it.
-                        guard !FileManager.default.fileExists(atPath: ownBundle.path),
-                              try !system.isRegistered(bundleAt: ownBundle)
-                        else { throw error }
-                    }
-                    if FileManager.default.fileExists(atPath: ownBundle.path) {
-                        try FileManager.default.removeItem(at: ownBundle)
-                    }
-                }
+                try undoRegistration(entry)
                 report.undone.append(entry)
             } catch {
                 report.failed.append(.init(change: entry, reason: Self.sidebarError(error)))
             }
         }
         return report
+    }
+
+    /// Unregisters (PA-05) and deletes the registry bundle for a registration ledger entry, then
+    /// removes the entry. Only ever acts on this utility's own bundle path, never a symbolic link,
+    /// whatever the ledger says.
+    func undoRegistration(_ entry: OutsideChange) throws {
+        let ownBundle = container.registryBundleURL
+        guard PathStandardizer.standardize(entry.target) == PathStandardizer.standardize(ownBundle.path) else {
+            throw SidebarIconError.unexpectedLedgerTarget(entry.target)
+        }
+        try Self.refuseSymbolicLink(ownBundle)
+        try ledger.undo(entry) {
+            do {
+                try system.unregister(bundleAt: ownBundle)
+            } catch {
+                // `lsregister -u` may fail for a bundle that was already deleted; that is fine only
+                // if Launch Services no longer lists it.
+                guard !FileManager.default.fileExists(atPath: ownBundle.path),
+                      try !system.isRegistered(bundleAt: ownBundle)
+                else { throw error }
+            }
+            if FileManager.default.fileExists(atPath: ownBundle.path) {
+                try FileManager.default.removeItem(at: ownBundle)
+            }
+        }
     }
 
     /// The codes among `codes` that another registered bundle or type claims (R7, PA-05 read-only).

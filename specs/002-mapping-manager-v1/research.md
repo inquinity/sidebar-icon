@@ -219,3 +219,37 @@ and `S002`. The app treated those codes as claimed elsewhere and allocated past 
   icons in full colour with no Finder restart; `lsregister -dump` listed one registry bundle
   declaring both types. Reset All then cleared both and left no `IconRegistry.app` in the dump.
 
+## Story 2 checkpoint (2026-11-21)
+
+**Finder checks** (live control, 26B131, Debug build; quickstart 7–9 plus Change Icon). Third
+test folder: `~/Documents`.
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| 7 Three mappings | Pass | `dev`, `DevDocs`, `Documents` each showed its own icon |
+| 8 Off/On | Pass | Off: `DevDocs` back to the folder glyph, row kept as Off; On: icon back. No Finder restart |
+| 9 Remove | Pass | Confirmation per ui.md; `Documents` back to its glyph and gone from the list; others unchanged; no folder's modification time changed. Deleted asset files verified by unit tests only (the container is not readable from the shell) |
+| Change Icon | Pass | `dev` switched art in the sidebar, kept `S001`, no Finder restart |
+| Cleanup | Pass | Reset All: no overrides, no `IconRegistry.app` in `lsregister -dump` |
+
+Found while writing tests: a mapping moved to another Favorite left its code on the old one, with
+no ledger record (Reset All could not undo it). Fixed by clearing unwanted overrides before
+setting new ones.
+
+**Review** (independent): 1 important, 7 minor.
+
+| # | Finding | Outcome |
+|---|---------|---------|
+| 1 | A registration failure stopped Off/Remove from clearing, while the row said Off | Fixed: clearing runs before registration |
+| 2 | A failed clear dropped the code from the bundle and the row said Off | Fixed: codes still recorded stay declared; the row shows an error |
+| 3 | No retry after removing the last mapping with a failed clear (Reset All works) | Follow-up F003 |
+| 4 | Story 2 actions threw after saving | Fixed: "Saved, but not applied: …" |
+| 5 | Change Icon asked for a refresh when another mapping applied | Fixed |
+| 6 | Rare double ledger entry could clear a needed icon | Follow-up F004 |
+| 7 | Contract drift | Fixed |
+| 8 | Re-point only on Folder missing | Follow-up F005 |
+| — | Check-then-use window before `lsregister -u` (not new) | Follow-up F006 |
+
+Regression tests: `Story2ReviewFixTests`. 147 tests pass. Fixes #1, #2 reorder adapter calls
+already exercised by the Finder checks above (clear, register, set); not re-run in Finder.
+

@@ -1,29 +1,35 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Add Folder…: choose a folder, then an image. Cancelling either step does nothing.
+/// The open panels for Add Folder…, Change Icon… and Re-point…. Cancelling any step does nothing.
 @MainActor
 enum AddMappingFlow {
     static func run(model: AppModel) {
-        let folderPanel = NSOpenPanel()
-        folderPanel.title = "Choose a Folder"
-        folderPanel.message = "Choose a folder that is in Finder's sidebar Favorites."
-        folderPanel.prompt = "Choose Folder"
-        folderPanel.canChooseDirectories = true
-        folderPanel.canChooseFiles = false
-        folderPanel.allowsMultipleSelection = false
-        guard folderPanel.runModal() == .OK, let folder = folderPanel.url else { return }
-
-        let imagePanel = NSOpenPanel()
-        imagePanel.title = "Choose an icon for \(folder.lastPathComponent)"
-        imagePanel.message = "Choose a PDF, PNG or SVG image. Sidebar Icons keeps its own copy."
-        imagePanel.prompt = "Choose Icon"
-        imagePanel.canChooseDirectories = false
-        imagePanel.canChooseFiles = true
-        imagePanel.allowsMultipleSelection = false
-        imagePanel.allowedContentTypes = [.pdf, .png, .svg]
-        guard imagePanel.runModal() == .OK, let image = imagePanel.url else { return }
-
+        guard let folder = chooseFolder(), let image = chooseImage(for: folder.lastPathComponent) else { return }
         model.add(folder: folder, image: image)
+    }
+
+    static func chooseFolder(title: String = "Choose a Folder",
+                             message: String = "Choose a folder that is in Finder's sidebar Favorites.") -> URL? {
+        let panel = NSOpenPanel()
+        panel.title = title
+        panel.message = message
+        panel.prompt = "Choose Folder"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    static func chooseImage(for folderName: String) -> URL? {
+        let panel = NSOpenPanel()
+        panel.title = "Choose an icon for \(folderName)"
+        panel.message = "Choose a PDF, PNG or SVG image. Sidebar Icons keeps its own copy."
+        panel.prompt = "Choose Icon"
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.pdf, .png, .svg]
+        return panel.runModal() == .OK ? panel.url : nil
     }
 }

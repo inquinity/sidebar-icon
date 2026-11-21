@@ -66,6 +66,27 @@ final class AppModel {
         run { try await $0.applyNow() }
     }
 
+    func setEnabled(_ enabled: Bool, for row: MappingRow) {
+        run { try await $0.setEnabled(enabled, for: row.id) }
+    }
+
+    func remove(_ row: MappingRow) {
+        run { try await $0.remove(row.id) }
+    }
+
+    func changeIcon(for row: MappingRow) {
+        guard let image = AddMappingFlow.chooseImage(for: row.displayName) else { return }
+        run { try await $0.changeIcon(for: row.id, image: image) }
+    }
+
+    func repoint(_ row: MappingRow) {
+        guard let folder = AddMappingFlow.chooseFolder(
+            title: "Re-point \(row.displayName)",
+            message: "Choose the folder this mapping should use now. Its icon stays the same."
+        ) else { return }
+        run { try await $0.repoint(row.id, to: folder) }
+    }
+
     func refreshFinder() {
         run { try await $0.refreshFinder() }
     }

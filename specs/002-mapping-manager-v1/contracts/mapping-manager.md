@@ -53,9 +53,10 @@ public enum ManagerError: Error, Sendable, Equatable {
 | `applyNow() async throws -> ActionResult` | 1 | yes | apply all enabled (registers, sets overrides) |
 | `refreshFinder() async throws -> ActionResult` | 4 | yes | `applyNow` (skipped in read-only mode), then `FinderRestarter.restart()`; a failed restart is a message |
 | `resetAll() async throws -> ActionResult` | 4 | yes | `provider.reset()`; on success delete `config.json` (even unreadable), `Icons/`, registry staging folders and an unrecorded `IconRegistry.app` (unregistered first); partial failure keeps the config entries whose changes are still recorded |
-| `setEnabled(_:for:) async throws -> ActionResult` | 2 | yes | save, then apply all |
-| `changeIcon(for:image:) async throws -> ActionResult` | 2 | yes | new asset (D5), save, apply, then delete the old asset files |
-| `remove(_:) async throws -> ActionResult` | 2 | yes | drop the mapping from the config, apply (clears its override), delete its asset files; if no enabled mapping is left, unregister the bundle |
+| `setEnabled(_:for:) async throws -> ActionResult` | 2 | yes | save, then apply all. An Off mapping whose override could not be cleared shows `error`, not `off` |
+| `changeIcon(for:image:) async throws -> ActionResult` | 2 | yes | new asset (D5; unreadable image → nothing changes), save (the old asset's files are deleted here; the registry bundle keeps its own copy until rewritten), then apply. Refresh hint only if this mapping was applied |
+| `remove(_:) async throws -> ActionResult` | 2 | yes | drop the mapping and delete its asset files (save), then apply, which clears its override; when no enabled mapping and no recorded override is left, apply unregisters and deletes the bundle |
+| `repoint(_:to:) async throws -> ActionResult` | 2 | yes | same folder checks as `add` (FR-004, excluding itself); keeps code and icon; save, then apply (the old Favorite's override is cleared first) |
 | `macOSBuildVerified: Bool`, `readOnlyReason`, `favoritesReadable` | all | none | D3/D8 banners |
 
 ## Guarantees (tested)
@@ -68,6 +69,9 @@ public enum ManagerError: Error, Sendable, Equatable {
 - A code claimed by another bundle at apply time skips only its mapping (`codeClaimedElsewhere`);
   the others are applied.
 - A second action while one runs throws `busy` and changes nothing.
+- Once a Story 2 action has saved, an apply failure is returned as "Saved, but not applied: …",
+  never thrown.
+- Off and Remove clear the override even if registering the remaining icons fails.
 - `resetAll` on an empty ledger and config succeeds and changes nothing.
 - No method writes outside the container except through the provider; the provider is the only
   caller of private API (Constitution II).

@@ -190,6 +190,11 @@ finds a working public route instead, every entry will be marked **removed**.
     is refused rather than overridden. Since 002 the allocator skips claimed codes when a mapping
     is added (research D4).
 - **Reset and removal**: Reset unregisters the bundle (PA-05) and deletes it from the container.
+  Since 002, apply does the same when no enabled mapping is left and no override is still
+  recorded (for example after removing or turning off the last mapping). Apply clears unwanted
+  overrides first, before registering and before setting new ones, so a mapping moved to another
+  Favorite never leaves its code on the old one, and a failed registration can't stop Off or
+  Remove. A code whose clear failed stays declared in the bundle until it is cleared.
   Reset only ever unregisters or deletes the bundle at the utility's own container path; a ledger
   entry naming any other path is reported and left untouched. Since 002, after a successful reset
   the app also removes registry staging folders left by a crash and a bundle at its own path

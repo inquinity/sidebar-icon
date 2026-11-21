@@ -56,7 +56,8 @@ public struct ApplyReport: Sendable, Equatable {
     public var applied: [UUID] = []
     /// Mappings left unchanged, with the reason.
     public var skipped: [Skip] = []
-    /// Overrides removed because their mapping is disabled or gone.
+    /// Folder paths whose override was removed (mapping disabled, gone or moved), plus the registry
+    /// bundle's path when apply unregistered it because no mapping needs it.
     public var cleared: [String] = []
     public var notes: [String] = []
 
