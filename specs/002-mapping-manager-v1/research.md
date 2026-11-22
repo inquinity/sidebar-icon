@@ -266,8 +266,9 @@ across 505 system icons and wallpapers the median is 12 clusters and only photos
 exceed 64. Fixed: a decoding test that pins exactly 4 clusters (#1); the aspect ratio now uses the
 point size the renderer fits (#3); contract and D9 updated (#5). Logged: F008–F011.
 
-**App check (T035)**: partly run with live control (26B131); the display locked twice, which
-stops live control (the app then has no window and a full-screen capture is black).
+**App check (T035)**: run with live control (26B131). The display locked twice during the first
+attempt, which stops live control (the app then has no window and a full-screen capture is
+black); the remaining steps were run later with `caffeinate -d` keeping the display on.
 
 | Step | Result | Notes |
 |------|--------|-------|
@@ -275,8 +276,13 @@ stops live control (the app then has no window and a full-screen capture is blac
 | Non-square warning | Pass | 300 × 200 block image: "This image isn't square…"; Apply enabled |
 | Detail warning | Pass | 256 × 256 image of 16 × 16 colour blocks: "This image has a lot of detail…"; Apply enabled |
 | Cancel saves nothing | Pass | Sheet closed, no row added, no override on `~/dev` |
-| Apply despite a warning | Not run | Screen locked before the keypress reached the app |
-| Alerts after Apply (bad file, duplicate) | Not run | Same |
+| Apply despite a warning | Pass | Detailed image applied to `~/dev` (`S001`); the sidebar showed the same block art as the preview |
+| Alert after Apply: not an image | Pass | Preview already said "This file can't be shown as an image; adding it will fail."; after Apply the alert appeared once the sheet closed; nothing saved |
+| Alert after Apply: duplicate | Pass | "~/dev is already mapped. Change its icon instead." appeared after the sheet closed; existing mapping unchanged |
+| Cleanup | Pass | Reset All: no overrides, no `IconRegistry.app` in the dump |
+
+Note: Finder stopped accepting Apple events from this session ("Not authorized", -1743); sidebar
+captures now open the window with `open <folder>` and locate it through Accessibility.
 
 Observation: the busy 300 × 200 block image got only the non-square warning. Shrunk to 16 px its
 12-px blocks blend into fewer than 64 colour clusters, so it doesn't count as detailed (the

@@ -189,7 +189,7 @@ These are needed by every story.
   - 16 pt and 20 pt previews on light and dark sidebar swatches;
   - the warnings from `PreviewAdvice`;
   - Apply and Cancel buttons (Cancel saves nothing).
-- [ ] T035 [US3] (owner) Run quickstart check 10 and record the result
+- [X] T035 [US3] (owner) Run quickstart check 10 and record the result
 
 ---
 
