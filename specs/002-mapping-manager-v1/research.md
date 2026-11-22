@@ -288,3 +288,28 @@ Observation: the busy 300 × 200 block image got only the non-square warning. Sh
 12-px blocks blend into fewer than 64 colour clusters, so it doesn't count as detailed (the
 reviewer predicted this for busy art). Logged as F012 for the owner to judge.
 
+## Final review (T038, 2026-11-21)
+
+Independent code and security review of everything 002 changed (`210fe9e..HEAD`). Verdict: no
+blocking defects; not done until the owner checks T039–T041 pass. 153 tests passed; the app
+builds and signs with hardened runtime and only the App Group entitlement (plus Xcode's Debug
+`get-task-allow`).
+
+| # | Finding | Outcome |
+|---|---------|---------|
+| I-1 | `ledger.json` not flushed before the rename; an empty ledger read as "nothing recorded", so Reset All could "succeed" after a crash while overrides stay set | Fixed: temp file, `F_FULLFSYNC`, rename; an empty ledger is an error |
+| I-2 | The data model's complete list of files missed what macOS writes for the app | Fixed: listed what exists on 26B131 (preferences plist, Application Scripts folders, cache folder) and what may exist (privacy records, icon cache); README undo steps and quickstart 13 updated |
+| I-3 | A mapped folder in a privacy-protected location may prompt, and show Folder missing if denied (untested) | Quickstart 13 step added; code change F013 after the live check |
+| M-1 | A link above `Icons/` (container path) would redirect Reset All's deletes | Follow-up F014 |
+| M-2 | A failed Off showed plain Off after a relaunch | Fixed: derived from the ledger |
+| M-3 | The bundle can keep a removed icon's type until the next rewrite (recorded; Reset All cleans it) | Follow-up F015 |
+| M-4 | A symlinked image was copied as a link | Fixed: the link's target is copied |
+| M-5 | `PRIVATE_API.md` still had spike-era text (PA-01, PA-02, PA-05) | Fixed |
+| M-6 | Running the spike after the app clears the app's icons | README: Reset All in the app before running the spike |
+| M-7 | Debug build for daily use; Developer ID wording | Follow-up F016 |
+| M-8 | `load()` not guarded by `exclusive` (unreachable from the app) | Follow-up F017 |
+| Questions | Finder quit via Apple Event; Recent Items/xattrs; remote resources in SVG/PDF; Finder-extension conflict edge case | Follow-ups F018–F020 |
+
+FR/SC status from the review: FR-011, FR-013 and SC-002 need T040; SC-004 and SC-005 need T041;
+SC-001 is likely but unproven (icon seen at 12 s, override set at 6 s); SC-003 has no timing yet.
+

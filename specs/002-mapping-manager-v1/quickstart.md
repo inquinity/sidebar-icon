@@ -69,10 +69,15 @@ Record each result (pass/fail, macOS build, notes) in the build log, and fold fa
     drawn in full colour, and the preview matches the sidebar.
 12. **Scale and persistence** (FR-011, FR-013, SC-002): with 20 mappings, log out and back in,
     then reboot. All 20 Favorites still show their icons.
-13. **Leftovers** (SC-004): Reset All, quit, delete the app and the container. Then:
+13. **Leftovers** (SC-004): Reset All, quit, delete the app and the container, and the macOS
+    leftovers in the README's "Undoing everything" step 3. Then:
     - `lsregister -dump` has no `IconRegistry` and no `sidebaricons.icon` type;
     - no Favorite carries an override (List Favorites in the spike, or the app before deletion);
-    - no file of this utility remains.
+    - no file of this utility remains (check each path in data-model.md "Files the utility
+      writes").
+    - **Protected folder** (final review I-3): before the Reset, map a subfolder of `~/Documents`,
+      relaunch, and answer the privacy prompt with Don't Allow. Note whether the row says Folder
+      missing (it should not mislead), and whether a privacy record remains.
 14. **Folders untouched** (SC-005): across the whole pass, no mapped folder's name, location,
     contents, permissions or Finder icon changed.
 

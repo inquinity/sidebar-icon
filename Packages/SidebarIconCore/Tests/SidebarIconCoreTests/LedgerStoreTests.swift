@@ -19,10 +19,19 @@ import Testing
         #expect(try ledger.entries().isEmpty)
     }
 
-    @Test func emptyFileIsEmpty() throws {
+    /// A zero-length ledger means records were lost; it must not read as "nothing recorded"
+    /// (final review I-1).
+    @Test func emptyFileIsReportedNotTreatedAsEmpty() throws {
         try FileManager.default.createDirectory(at: ledger.url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data().write(to: ledger.url)
-        #expect(try ledger.entries().isEmpty)
+        #expect(throws: SidebarIconError.self) { try ledger.entries() }
+    }
+
+    @Test func writesLeaveNoTempFile() throws {
+        try ledger.record(OutsideChange(kind: .sidebarOverride, target: "/x", osType: "S001")) {}
+        let names = try FileManager.default.contentsOfDirectory(atPath: ledger.url.deletingLastPathComponent().path)
+        #expect(names == ["ledger.json"])
+        #expect(try ledger.entries().count == 1)
     }
 
     @Test func corruptFileIsReportedNotIgnored() throws {

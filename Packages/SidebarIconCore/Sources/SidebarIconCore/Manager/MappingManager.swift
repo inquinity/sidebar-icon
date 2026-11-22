@@ -104,6 +104,10 @@ public actor MappingManager {
         let anyOverrideSet = mappings.contains { statuses[$0.id]?.activeOverride == $0.osType }
         let registered = anyOverrideSet && ((try? provider.registrationStillListed()) ?? false)
 
+        // An Off mapping whose override is still recorded could not be cleared. Taken from the
+        // ledger, so it survives a relaunch (final review M-2).
+        let recordedCodes = Set(((try? provider.ledgerEntries()) ?? []).filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+
         return mappings.map { mapping in
             let status = statuses[mapping.id] ?? MappingStatus(
                 mappingID: mapping.id,
@@ -112,7 +116,9 @@ public actor MappingManager {
                 favoriteCount: nil
             )
             var state = MappingState.state(
-                for: mapping, status: status, bundleRegistered: registered, lastFailure: lastFailures[mapping.id]
+                for: mapping, status: status, bundleRegistered: registered,
+                lastFailure: lastFailures[mapping.id]
+                    ?? (!mapping.enabled && recordedCodes.contains(mapping.osType) ? Self.notClearedMessage : nil)
             )
             // The folder was renamed (case), or replaced by a link, since it was added: the stored
             // path no longer names the folder the sidebar shows. Reported, never rewritten.
@@ -448,9 +454,7 @@ public actor MappingManager {
             // A mapping turned off whose override is still recorded could not be cleared (#2).
             let recordedCodes = Set(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
             for mapping in config.mappings where !mapping.enabled {
-                lastFailures[mapping.id] = recordedCodes.contains(mapping.osType)
-                    ? "Its sidebar icon could not be removed. Try again, or use Reset All."
-                    : nil
+                lastFailures[mapping.id] = recordedCodes.contains(mapping.osType) ? Self.notClearedMessage : nil
             }
             // The R7 note is a diagnostic for the spike's log, not for the owner.
             messages += report.notes.filter { !$0.hasPrefix("R7:") }
@@ -478,6 +482,8 @@ public actor MappingManager {
         }
         return ActionResult(rows: await rows(), messages: messages, needsRefresh: needsRefresh)
     }
+
+    static let notClearedMessage = "Its sidebar icon could not be removed. Try again, or use Reset All."
 
     static func managerError(_ error: any Error) -> ManagerError {
         switch error {

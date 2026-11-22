@@ -76,8 +76,8 @@ All of them are inside `~/Library/Group Containers/45GJWJVQN2.com.altmansoftware
 
 | Path | Purpose | Removed by |
 |------|---------|------------|
-| `config.json` (+ `config.json.tmp` during save) | mappings and assets | Reset All empties it; deleting the container removes it |
-| `ledger.json` | change records | emptied by Reset All |
+| `config.json` (+ `config.json.tmp` during save) | mappings and assets | Reset All deletes it; deleting the container removes it |
+| `ledger.json` (+ `ledger.json.tmp` during save) | change records | emptied by Reset All; deleting the container removes it |
 | `Icons/<id>.<format>` | copied image | Remove, Reset All |
 | `Icons/<id>.icns` (+ `.tmp` during conversion) | converted icon | Remove, Reset All |
 | `IconRegistry.app/` (+ `.IconRegistry.app.staging-<uuid>/` while writing) | registry bundle | Reset All (also removes staging folders left by a crash and a bundle that was never recorded), or when no enabled mapping is left |
@@ -85,3 +85,23 @@ All of them are inside `~/Library/Group Containers/45GJWJVQN2.com.altmansoftware
 Outside the container (all undone by Reset All):
 - the `com.apple.LSSharedFileList.OverrideIcon.OSType` property on each mapped Favorite;
 - the Launch Services registration of `IconRegistry.app` and its exported types.
+
+Written by macOS on the app's behalf (no user data; removed by deleting them after uninstalling,
+see the README). Seen on 26B131, 2026-11-21:
+- `~/Library/Preferences/com.altmansoftwaredesign.SidebarIcons.plist`: window frames and the
+  open panel's last folder and size (shared with the spike, which has the same bundle ID);
+- `~/Library/Application Scripts/com.altmansoftwaredesign.SidebarIcons` and
+  `~/Library/Application Scripts/45GJWJVQN2.com.altmansoftwaredesign.SidebarIcons` (empty folders
+  macOS creates for the app and its App Group);
+- the per-user cache folder `$(getconf DARWIN_USER_CACHE_DIR)com.altmansoftwaredesign.SidebarIcons`;
+- the app's own Launch Services registration, as for any app (dropped when the app is deleted);
+- possibly privacy (TCC) decisions, if macOS asked for access to a protected folder
+  (`tccutil reset All com.altmansoftwaredesign.SidebarIcons`, run by the owner);
+- possibly Icon Services' cached renderings of the `sidebaricons.icon.*` types, until the system
+  purges its icon cache. No Saved Application State folder was found.
+
+Left by the retired spike only (not created by the app): the sandbox containers
+`~/Library/Containers/com.altmansoftwaredesign.SidebarIcons` (sandboxed build, experiment B5) and
+`~/Library/Containers/com.altmansoftwaredesign.SidebarIcons.FinderSync` (Finder Sync extension),
+`~/Library/Application Scripts/com.altmansoftwaredesign.SidebarIcons.FinderSync`, and the cache
+folder `…/C/com.altmansoftwaredesign.SidebarIcons.FinderSync`.

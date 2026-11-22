@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import SidebarIconCore
@@ -224,3 +225,36 @@ import Testing
         #expect(try await manager.changeIcon(for: dev.id, image: image).needsRefresh == false)
     }
 }
+
+/// Regression tests for the final review.
+@Suite struct FinalReviewFixTests {
+    // M-2: an Off mapping whose override is still recorded shows an error after a relaunch.
+    @Test func failedOffStillShowsAnErrorAfterRelaunch() async throws {
+        let fixture = try ManagerFixture()
+        let manager = try await fixture.manager()
+        let row = try await manager.add(folder: URL(fileURLWithPath: fixture.dev), image: fixture.png).rows[0]
+        fixture.system.state.withLock { $0.failClearing = ["S001"] }
+        _ = try await manager.setEnabled(false, for: row.id)
+
+        let relaunched = try await fixture.manager()
+
+        guard case .error = await relaunched.rows().first?.state else { Issue.record("expected an error row"); return }
+    }
+
+    // M-4: a symlinked image is copied as the image, not as a link.
+    @Test func aSymlinkedImageIsCopiedAsAFile() async throws {
+        let fixture = try ManagerFixture()
+        let link = fixture.dir.url.appending(path: "link.png")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: fixture.png)
+        let manager = try await fixture.manager()
+
+        let row = try await manager.add(folder: URL(fileURLWithPath: fixture.dev), image: link).rows[0]
+        try FileManager.default.removeItem(at: fixture.png)
+
+        let values = try row.iconFile.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
+        #expect(values.isSymbolicLink == false)
+        #expect(values.isRegularFile == true)
+        #expect(NSImage(contentsOf: row.iconFile) != nil)
+    }
+}
+

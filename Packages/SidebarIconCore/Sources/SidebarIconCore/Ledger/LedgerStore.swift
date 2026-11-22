@@ -26,7 +26,10 @@ public struct LedgerStore: Sendable {
         } catch {
             throw SidebarIconError.ledgerIOFailed(String(describing: error))
         }
-        if data.isEmpty { return [] }
+        // The writer always writes `{schemaVersion, entries}`, so an empty file means a write was
+        // lost (for example power loss before the data reached the disk). Treating it as "nothing
+        // recorded" would let Reset All succeed while overrides stay set, so it is an error.
+        if data.isEmpty { throw SidebarIconError.ledgerIOFailed("ledger.json is empty; its records were lost") }
         do {
             return try Self.decoder.decode(File.self, from: data).entries
         } catch {
@@ -65,7 +68,18 @@ public struct LedgerStore: Sendable {
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let data = try Self.encoder.encode(File(schemaVersion: 1, entries: entries))
-            try data.write(to: url, options: .atomic)
+            // Temp file, forced to disk, then renamed over the ledger: a crash leaves either the old
+            // or the new ledger, never a truncated one (as `ConfigStore.save`).
+            let temp = url.deletingLastPathComponent().appending(path: url.lastPathComponent + ".tmp")
+            try data.write(to: temp)
+            let handle = try FileHandle(forWritingTo: temp)
+            _ = fcntl(handle.fileDescriptor, F_FULLFSYNC)
+            try handle.close()
+            guard rename(temp.path, url.path) == 0 else {
+                let code = POSIXErrorCode(rawValue: errno) ?? .EIO
+                try? FileManager.default.removeItem(at: temp)
+                throw POSIXError(code)
+            }
         } catch {
             throw SidebarIconError.ledgerIOFailed(String(describing: error))
         }

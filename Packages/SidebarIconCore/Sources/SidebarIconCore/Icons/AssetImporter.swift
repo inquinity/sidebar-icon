@@ -47,7 +47,9 @@ public enum AssetImporter {
         if fileManager.fileExists(atPath: destination.path) {
             try fileManager.removeItem(at: destination)
         }
-        try fileManager.copyItem(at: source, to: destination)
+        // Copy the file a link points to, never the link: the copy must not depend on the original
+        // (FR-003; final review M-4).
+        try fileManager.copyItem(at: source.resolvingSymlinksInPath(), to: destination)
         return asset
     }
 }

@@ -195,9 +195,9 @@ These are needed by every story.
 
 ## Phase 7: Polish and Verification
 
-- [ ] T036 [P] Update `README.md`: status (002 in progress → done), build steps for `app/SidebarIcons.xcodeproj`, and that the spike is retired and must not run alongside the app
-- [ ] T037 [P] Update `PRIVATE_API.md` "Current status" to name the shipped app as the caller (same adapter file), and record the app's first verified build
-- [ ] T038 Independent code review of `Core/Manager/`, `Core/Config/` and `app/SidebarIcons/`, plus a security review of `app/SidebarIcons/SidebarIcons.entitlements`, the signing settings and any adapter change (constitution). Fix the findings; record them in `specs/002-mapping-manager-v1/research.md`
+- [X] T036 [P] Update `README.md`: status (002 in progress → done), build steps for `app/SidebarIcons.xcodeproj`, and that the spike is retired and must not run alongside the app
+- [X] T037 [P] Update `PRIVATE_API.md` "Current status" to name the shipped app as the caller (same adapter file), and record the app's first verified build
+- [X] T038 Independent code review of `Core/Manager/`, `Core/Config/` and `app/SidebarIcons/`, plus a security review of `app/SidebarIcons/SidebarIcons.entitlements`, the signing settings and any adapter change (constitution). Fix the findings; record them in `specs/002-mapping-manager-v1/research.md`
 - [ ] T039 (owner) Run quickstart check 11 (light/dark and accent colour)
 - [ ] T040 (owner) Run quickstart check 12 (20 mappings; logout; reboot; FR-011, FR-013, SC-002)
 - [ ] T041 (owner) Run quickstart checks 13–14 (leftovers after Reset All and deletion; folders untouched; SC-004, SC-005)
@@ -221,6 +221,14 @@ Reviewed at each checkpoint; the owner decides whether to schedule them.
 - [ ] F010 Thin, faint line art (few pixels at least 80 % opaque at 16 px) is never flagged; consider a low-coverage warning in `Core/Icons/PreviewAdvice.swift` (review question; not in the spec)
 - [ ] F011 Decide whether the image picker should accept `.icns` (the converter supports it) in `app/SidebarIcons/AddMappingFlow.swift` (review question)
 - [ ] F012 Busy art whose detail blends away at 16 px (photos, noise, small colour blocks) gets no detail warning; decide whether the 64-cluster rule is enough, `Core/Icons/PreviewAdvice.swift` (Story 3 app check)
+- [ ] F013 A mapped folder inside a privacy-protected location (for example a subfolder of `~/Documents`) may prompt on launch; if access is denied the row says Folder missing. Report "Access denied (Privacy & Security)" on `EPERM` in `Core/Manager/MappingManager.swift` and the adapter, after the T041 live check confirms it (final review I-3)
+- [ ] F014 Refuse to write when any folder from the group container down to the app's `SidebarIcons` folder is a symbolic link (another App Group member could redirect Reset All's deletes), `Core/Ledger/ContainerLocator.swift` (final review M-1)
+- [ ] F015 After Remove or Off, the registry bundle keeps declaring that icon until the next rewrite when no other mapping is applied in the same action; rewrite or unregister whenever the needed codes change, `Core/Providers/LaunchServicesOverrideProvider.swift` (final review M-3)
+- [ ] F016 Recommend a Release build for daily use (Debug carries `get-task-allow` and debug dylibs), and settle Developer ID signing versus the constitution's wording, `README.md`, `app/SidebarIcons.xcodeproj` (final review M-7)
+- [ ] F017 Run `MappingManager.load()` through `exclusive`; today only the app's busy flag keeps it from overlapping an action (final review M-8)
+- [ ] F018 Check whether Refresh Finder's polite quit (an Apple Event to Finder) works from the hardened app or always falls back to SIGTERM after 5 s, and whether it leaves an Automation privacy record, `Core/Finder/FinderRestarter.swift` (final review question)
+- [ ] F019 Check whether the open panels add the chosen folder or image to Recent Items or set `com.apple.lastuseddate#PS` on it, and whether an SVG or PDF can make the renderer fetch remote resources (SC-005, FR-012; final review questions)
+- [ ] F020 Spec edge case "another Finder extension watches the same folder: show the conflict if detectable" is not implemented and has no recorded decision; decide and record in research.md (final review)
 
 ---
 
