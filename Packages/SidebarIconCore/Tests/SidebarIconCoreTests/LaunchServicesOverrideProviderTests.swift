@@ -302,7 +302,7 @@ import Testing
     --------------------------------------------------------------------------------
     bundle id:                  IconRegistry (0x3000)
     path:                       /Users/someone/Library/Group Containers/X/IconRegistry.app (0x4100)
-    identifier:                 com.altmansoftwaredesign.SidebarIcons.IconRegistry
+    identifier:                 com.altmansoftwaredesign.sidebaricons.iconregistry
     --------------------------------------------------------------------------------
     claim id:                   Sidebar Icons S001 (0x5200)
     bundle:                     IconRegistry (0x3000)

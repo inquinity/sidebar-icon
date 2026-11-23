@@ -9,3 +9,7 @@ xcuserdata/
 .swiftpm/
 # Xcode regenerates the per-project workspace when a project is opened
 project.xcworkspace/
+
+# Local release credentials (notary profile name) and release build output
+Secrets.xcconfig
+build.noindex/

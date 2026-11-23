@@ -323,7 +323,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.SidebarIcons;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.sidebaricons;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -349,7 +349,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.SidebarIcons;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.sidebaricons;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -375,7 +375,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.SidebarIcons.FinderSync;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.sidebaricons.findersync;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -402,7 +402,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.SidebarIcons.FinderSync;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.sidebaricons.findersync;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;

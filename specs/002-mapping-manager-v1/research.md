@@ -38,6 +38,12 @@ There are no open NEEDS CLARIFICATION items.
 - **Alternatives considered**: giving the app a new ID and container. Rejected: it would split the
   ledger, so neither Reset would see the other's changes.
 
+- **Changed in 0.2.0 (F021)**: the identifiers are lowercase: bundle ID
+  `com.altmansoftwaredesign.sidebaricons`, App Group `45GJWJVQN2.com.altmansoftwaredesign.sidebaricons`,
+  registry bundle `com.altmansoftwaredesign.sidebaricons.iconregistry` (and the spike's extension
+  `….sidebaricons.findersync`). The container moved with them; 0.1.0 was never installed outside
+  development, and its data was removed by the T041 leftover audit, so nothing is migrated.
+
 ## D3 — Configuration persistence
 
 - **Decision**:

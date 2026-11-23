@@ -64,21 +64,39 @@ Using it:
 
 The [002 quickstart](specs/002-mapping-manager-v1/quickstart.md) has the full manual checklist.
 
+## Installing on another Mac
+
+Release builds are signed with Developer ID and notarized, so they open on any Mac running macOS 27
+without warnings. To make one (needs the Developer ID Application certificate and a notarytool
+keychain profile named in a git-ignored `Secrets.xcconfig` as `NOTARY_PROFILE = <profile>`):
+
+```bash
+scripts/release.sh all
+```
+
+It runs `check`, `build`, `notarize` and `verify`, and leaves
+`build.noindex/release/<version>/Sidebar-Icons-<version>.zip`. Copy that zip to the other Mac,
+double-click it, move **Sidebar Icons.app** to `/Applications`, and open it. On a macOS build other
+than the verified one, the window shows a non-blocking warning banner.
+
+Anyone without the Developer ID certificate can still build and run the Debug configuration from
+Xcode.
+
 ## Undoing everything
 
 1. In the app, click **Reset All…** and confirm. Every Favorite goes back to its normal icon, and
    the app's mappings, copied images and Launch Services registration are removed.
 2. Quit the app, delete `Sidebar Icons.app`, and delete its container,
-   `~/Library/Group Containers/<team>.com.altmansoftwaredesign.SidebarIcons`.
+   `~/Library/Group Containers/<team>.com.altmansoftwaredesign.sidebaricons`.
 3. Optionally delete what macOS kept for it (no user data):
-   - `~/Library/Preferences/com.altmansoftwaredesign.SidebarIcons.plist` (window positions);
+   - `~/Library/Preferences/com.altmansoftwaredesign.sidebaricons.plist` (window positions);
    - the `~/Library/Application Scripts/` folders whose names contain
-     `com.altmansoftwaredesign.SidebarIcons`;
-   - the cache folder `$(getconf DARWIN_USER_CACHE_DIR)com.altmansoftwaredesign.SidebarIcons`;
+     `com.altmansoftwaredesign.sidebaricons`;
+   - the cache folder `$(getconf DARWIN_USER_CACHE_DIR)com.altmansoftwaredesign.sidebaricons`;
    - privacy decisions, if macOS asked about a folder:
-     `tccutil reset All com.altmansoftwaredesign.SidebarIcons`;
-   - if you ran the spike: `~/Library/Containers/com.altmansoftwaredesign.SidebarIcons` and
-     `~/Library/Containers/com.altmansoftwaredesign.SidebarIcons.FinderSync`.
+     `tccutil reset All com.altmansoftwaredesign.sidebaricons`;
+   - if you ran the spike: `~/Library/Containers/com.altmansoftwaredesign.sidebaricons` and
+     `~/Library/Containers/com.altmansoftwaredesign.sidebaricons.findersync`.
 
    The full list is in the [data model](specs/002-mapping-manager-v1/data-model.md#files-the-utility-writes-constitution-i-complete-list).
 

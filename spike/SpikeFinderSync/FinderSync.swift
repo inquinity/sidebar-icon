@@ -10,7 +10,7 @@ import os
 /// configuration file (FR-010).
 final class FinderSync: FIFinderSync {
     private static let folders = ["dev", "DevDocs"]
-    private let logger = Logger(subsystem: "com.altmansoftwaredesign.SidebarIcons", category: "FinderSync")
+    private let logger = Logger(subsystem: "com.altmansoftwaredesign.sidebaricons", category: "FinderSync")
 
     override init() {
         super.init()

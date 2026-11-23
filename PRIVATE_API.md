@@ -148,7 +148,7 @@ every entry will be marked **removed**.
   `CFBundleVersion` is derived from the mapping and a format revision (a hash, not an increasing
   number; re-registration goes by path). Registration uses `LSRegisterURL` (public, `LSInfo.h`).
   The bundle is application-type (`IconRegistry.app`, `CFBundlePackageType` `APPL`,
-  `LSUIElement`, no executable, identifier `com.altmansoftwaredesign.SidebarIcons.IconRegistry`).
+  `LSUIElement`, no executable, identifier `com.altmansoftwaredesign.sidebaricons.iconregistry`).
   It is never launched.
 - **Status**: Undocumented behavior. `LSRegisterURL` and the Info.plist keys are public, but two
   things the utility relies on are not documented:

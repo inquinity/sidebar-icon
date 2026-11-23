@@ -22,7 +22,7 @@ import Foundation
 /// (`LSRegisterURL` registers it and its exported types; `lsregister -u` removes both). This file
 /// only builds the bundle; registering it is the provider's job.
 public enum IconRegistryBundle {
-    public static let bundleIdentifier = "com.altmansoftwaredesign.SidebarIcons.IconRegistry"
+    public static let bundleIdentifier = "com.altmansoftwaredesign.sidebaricons.iconregistry"
 
     /// The exported type for a code and icon, for example
     /// `com.altmansoftwaredesign.sidebaricons.icon.s001.5b1c0de0-0001-4000-8000-0000000000a1`.

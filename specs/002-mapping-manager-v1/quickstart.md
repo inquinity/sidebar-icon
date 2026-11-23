@@ -9,7 +9,7 @@ for the stories. The package logic is covered by `swift test`.
 - `~/dev` and `~/DevDocs` are in Finder's sidebar Favorites, plus a third test folder for Story 2.
 - **The spike is retired**: if it ever ran on this Mac, open it once, click **Reset**, then quit
   it. Never run the spike and the app at the same time; they share one ledger (research D2).
-- The spike's Finder Sync extension is off (`pluginkit -m -i com.altmansoftwaredesign.SidebarIcons.FinderSync`
+- The spike's Finder Sync extension is off (`pluginkit -m -i com.altmansoftwaredesign.sidebaricons.findersync`
   shows `-`). A watching extension hides the icons (001 A1).
 
 ## Build and test
@@ -42,7 +42,7 @@ Record each result (pass/fail, macOS build, notes) in the build log, and fold fa
 5. **Refresh**: click Refresh Finder… and confirm. Finder restarts once, and the icons are still
    there (Story 4 scenario 1).
 6. **Reset All**: confirm. The list is empty, and both Favorites show the folder glyph (after a
-   refresh at most). `lsregister -dump | grep -c 'Group Containers/45GJWJVQN2.com.altmansoftwaredesign.SidebarIcons'`
+   refresh at most). `lsregister -dump | grep -c 'Group Containers/45GJWJVQN2.com.altmansoftwaredesign.sidebaricons'`
    prints `0` (scenario 2). Searching our container path rather than `IconRegistry.app` keeps the
    check exact even if another copy of the bundle was ever registered elsewhere.
 

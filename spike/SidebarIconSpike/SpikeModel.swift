@@ -16,7 +16,7 @@ final class SpikeModel {
     private(set) var assets: [IconAsset] = []
     private(set) var container: ContainerLocator?
 
-    private let logger = Logger(subsystem: "com.altmansoftwaredesign.SidebarIcons", category: "Spike")
+    private let logger = Logger(subsystem: "com.altmansoftwaredesign.sidebaricons", category: "Spike")
     private let finderSync = FinderSyncProvider()
     private var launchServices: LaunchServicesOverrideProvider? {
         container.map { LaunchServicesOverrideProvider(container: $0) }

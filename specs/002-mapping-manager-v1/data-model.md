@@ -72,7 +72,7 @@ notInSidebar / notApplied ──Apply Now or Refresh Finder──► applied
 
 ## Files the utility writes (Constitution I: complete list)
 
-All of them are inside `~/Library/Group Containers/45GJWJVQN2.com.altmansoftwaredesign.SidebarIcons/Library/Application Support/SidebarIcons/`:
+All of them are inside `~/Library/Group Containers/45GJWJVQN2.com.altmansoftwaredesign.sidebaricons/Library/Application Support/SidebarIcons/`:
 
 | Path | Purpose | Removed by |
 |------|---------|------------|
@@ -88,20 +88,20 @@ Outside the container (all undone by Reset All):
 
 Written by macOS on the app's behalf (no user data; removed by deleting them after uninstalling,
 see the README). Seen on 26B131, 2026-11-21:
-- `~/Library/Preferences/com.altmansoftwaredesign.SidebarIcons.plist`: window frames and the
+- `~/Library/Preferences/com.altmansoftwaredesign.sidebaricons.plist`: window frames and the
   open panel's last folder and size (shared with the spike, which has the same bundle ID);
-- `~/Library/Application Scripts/com.altmansoftwaredesign.SidebarIcons` and
-  `~/Library/Application Scripts/45GJWJVQN2.com.altmansoftwaredesign.SidebarIcons` (empty folders
+- `~/Library/Application Scripts/com.altmansoftwaredesign.sidebaricons` and
+  `~/Library/Application Scripts/45GJWJVQN2.com.altmansoftwaredesign.sidebaricons` (empty folders
   macOS creates for the app and its App Group);
-- the per-user cache folder `$(getconf DARWIN_USER_CACHE_DIR)com.altmansoftwaredesign.SidebarIcons`;
+- the per-user cache folder `$(getconf DARWIN_USER_CACHE_DIR)com.altmansoftwaredesign.sidebaricons`;
 - the app's own Launch Services registration, as for any app (dropped when the app is deleted);
 - possibly privacy (TCC) decisions, if macOS asked for access to a protected folder
-  (`tccutil reset All com.altmansoftwaredesign.SidebarIcons`, run by the owner);
+  (`tccutil reset All com.altmansoftwaredesign.sidebaricons`, run by the owner);
 - possibly Icon Services' cached renderings of the `sidebaricons.icon.*` types, until the system
   purges its icon cache. No Saved Application State folder was found.
 
 Left by the retired spike only (not created by the app): the sandbox containers
-`~/Library/Containers/com.altmansoftwaredesign.SidebarIcons` (sandboxed build, experiment B5) and
-`~/Library/Containers/com.altmansoftwaredesign.SidebarIcons.FinderSync` (Finder Sync extension),
-`~/Library/Application Scripts/com.altmansoftwaredesign.SidebarIcons.FinderSync`, and the cache
-folder `…/C/com.altmansoftwaredesign.SidebarIcons.FinderSync`.
+`~/Library/Containers/com.altmansoftwaredesign.sidebaricons` (sandboxed build, experiment B5) and
+`~/Library/Containers/com.altmansoftwaredesign.sidebaricons.findersync` (Finder Sync extension),
+`~/Library/Application Scripts/com.altmansoftwaredesign.sidebaricons.findersync`, and the cache
+folder `…/C/com.altmansoftwaredesign.sidebaricons.findersync`.

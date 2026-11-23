@@ -91,7 +91,7 @@ func writeTestPNG(in directory: URL, name: String = "art.png", width: Int = 300,
 
     @Test func usesTheApprovedIdentifierAndNeverLaunches() throws {
         let info = try plist(IconRegistryBundle.infoPlist(for: entries()))
-        #expect(info["CFBundleIdentifier"] as? String == "com.altmansoftwaredesign.SidebarIcons.IconRegistry")
+        #expect(info["CFBundleIdentifier"] as? String == "com.altmansoftwaredesign.sidebaricons.iconregistry")
         #expect(info["CFBundlePackageType"] as? String == "APPL")
         #expect(info["LSUIElement"] as? Bool == true)
         #expect(info["CFBundleExecutable"] == nil)

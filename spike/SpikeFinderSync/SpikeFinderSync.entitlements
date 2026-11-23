@@ -6,7 +6,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>$(TeamIdentifierPrefix)com.altmansoftwaredesign.SidebarIcons</string>
+		<string>$(TeamIdentifierPrefix)com.altmansoftwaredesign.sidebaricons</string>
 	</array>
 </dict>
 </plist>

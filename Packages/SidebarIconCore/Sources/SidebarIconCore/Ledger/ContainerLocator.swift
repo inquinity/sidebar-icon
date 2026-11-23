@@ -11,7 +11,7 @@ public enum ContainerError: Error, Sendable, Equatable {
 /// (data-model.md, Container layout).
 public struct ContainerLocator: Sendable {
     /// The App Group identifier without its team-ID prefix.
-    public static let appGroupSuffix = "com.altmansoftwaredesign.SidebarIcons"
+    public static let appGroupSuffix = "com.altmansoftwaredesign.sidebaricons"
 
     public let root: URL
 
