@@ -149,23 +149,23 @@ the SF Symbols app) and imports the template with Import Glyph…; the glyph sho
   - draw with filled shapes;
   - run `swift run --package-path Packages/SidebarIconCore make-symbol-template in.svg out.svg`, or export a custom-symbol template from Apple's SF Symbols app (it must have a Regular-Medium glyph);
   - then use Import Glyph… in the app.
-- [ ] T024 [P] [US2] Tests in `Tests/ActoolRunnerTests.swift` with a fake `ProcessRunning`:
+- [X] T024 [P] [US2] Tests in `Tests/ActoolRunnerTests.swift` with a fake `ProcessRunning`:
   - the exact argument list and environment from research D5;
   - a 120 s timeout maps to `timedOut`;
   - XML error output maps to `compileFailed(first error)`;
   - `toolStatus`: no path → unavailable; a path under `/Library/Developer/CommandLineTools` → unavailable (Command Line Tools); the license and first-launch messages map to their plain messages.
-- [ ] T025 [US2] Implement `Core/Glyphs/ActoolRunner.swift`:
+- [X] T025 [US2] Implement `Core/Glyphs/ActoolRunner.swift`:
   - a `ProcessRunning` protocol;
   - a real runner with `Process`, a fixed argument list, the D5 environment and a timeout;
   - `ToolStatus` and `GlyphBuildError`.
 
   Makes T024 pass.
-- [ ] T026 [US2] Implement `Core/Glyphs/AssetCatalogWriter.swift`:
+- [X] T026 [US2] Implement `Core/Glyphs/AssetCatalogWriter.swift`:
   - writes `Build/<build id>/Glyphs.xcassets` with one `<name>.<versionID lowercased>.symbolset` per glyph (`"template-rendering-intent": "template"`);
   - checks each template contains `id="Regular-M"` before compiling.
 
   Also add `Glyphs/Assets.car` and `Glyphs/Assets.key` (sorted version IDs of the glyphs it holds) to data-model.md's file list.
-- [ ] T027 [P] [US2] Tests in `Tests/ImportGlyphTests.swift` (fake runner that writes a dummy car):
+- [X] T027 [P] [US2] Tests in `Tests/ImportGlyphTests.swift` (fake runner that writes a dummy car):
   - `importGlyph(name:template:)` validates the name, copies the template to `Glyphs/<versionID>.template.svg`, builds, saves and applies;
   - a mapping set to `customGlyph` gets the declaration `<name>.<versionID>` and the car in the registry bundle;
   - a second import under the same name makes a new version and a new registry version;
@@ -173,7 +173,7 @@ the SF Symbols app) and imports the template with Import Glyph…; the glyph sho
   - `toolUnavailable` changes nothing;
   - with an unchanged glyph set and no tool available, apply reuses `Glyphs/Assets.car`;
   - `deleteGlyph(_:replacement:)` switches the mappings that use it.
-- [ ] T028 [US2] In `Core/Manager/MappingManager.swift`, add `glyphs()`, `glyphToolStatus()`, `importGlyph(name:template:)` and `deleteGlyph(_:replacement:)`, and the `customGlyph` path in `add`/`setStyle`:
+- [X] T028 [US2] In `Core/Manager/MappingManager.swift`, add `glyphs()`, `glyphToolStatus()`, `importGlyph(name:template:)` and `deleteGlyph(_:replacement:)`, and the `customGlyph` path in `add`/`setStyle`:
   - apply rebuilds the combined car only when the glyph set changes (compare `Glyphs/Assets.key`), otherwise reuses `Glyphs/Assets.car`;
   - passes the car to the provider;
   - `resetAll` deletes `Glyphs/` and `Build/`.

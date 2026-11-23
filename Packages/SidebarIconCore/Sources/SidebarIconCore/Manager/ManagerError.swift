@@ -18,6 +18,12 @@ public enum ManagerError: Error, Sendable, Equatable {
     case unknownMapping
     /// An SF Symbol name that doesn't exist on this Mac (FR-003).
     case unknownSymbol(String)
+    /// A custom glyph name that breaks the naming rules (004 data-model.md).
+    case invalidGlyphName(String)
+    /// The glyph is used by mappings and no replacement style was given (FR-010).
+    case glyphInUse(String)
+    /// A custom glyph couldn't be built; nothing was changed.
+    case glyphBuild(GlyphBuildError)
     /// The adapter's error, passed through with its message.
     case sidebar(SidebarIconError)
 
@@ -43,6 +49,12 @@ public enum ManagerError: Error, Sendable, Equatable {
             "\"\(name)\" isn't a system glyph on this Mac."
         case .unknownMapping:
             "That mapping no longer exists."
+        case .invalidGlyphName(let name):
+            "\"\(name)\" can't be a glyph name: use lowercase letters, digits, dots and hyphens (up to 48), starting with a letter or digit."
+        case .glyphInUse(let name):
+            "The glyph \(name) is used by a folder; choose another style for it first."
+        case .glyphBuild(let error):
+            error.message
         case .sidebar(let error):
             error.message
         }

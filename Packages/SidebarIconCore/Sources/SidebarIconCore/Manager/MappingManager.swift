@@ -47,6 +47,8 @@ public actor MappingManager {
     let restartFinder: @Sendable () async throws -> Void
     /// Whether an SF Symbol name exists on this Mac (FR-003); injectable for tests.
     let isValidSystemSymbol: @Sendable (String) -> Bool
+    /// Xcode's asset tool, for custom glyphs only (004 research D5); injectable for tests.
+    nonisolated let glyphTool: ActoolRunner
 
     private var config = AppConfiguration()
     /// Set when `config.json` can't be read (D3). No method writes the config then, except
@@ -63,8 +65,10 @@ public actor MappingManager {
         container: ContainerLocator,
         system: any LaunchServicesSystem = SystemLaunchServices(),
         restartFinder: @escaping @Sendable () async throws -> Void = { _ = try await FinderRestarter.restart() },
-        isValidSystemSymbol: @escaping @Sendable (String) -> Bool = MappingManager.systemSymbolExists
+        isValidSystemSymbol: @escaping @Sendable (String) -> Bool = MappingManager.systemSymbolExists,
+        glyphTool: ActoolRunner = ActoolRunner()
     ) {
+        self.glyphTool = glyphTool
         self.container = container
         self.store = ConfigStore(container: container)
         self.provider = LaunchServicesOverrideProvider(container: container, system: system)
@@ -250,6 +254,149 @@ public actor MappingManager {
         }
     }
 
+    // MARK: - Custom glyphs (004 Story 2)
+
+    /// The owner's custom glyphs, for the Custom glyph tab.
+    public func glyphs() -> [CustomGlyph] { config.glyphs }
+
+    /// Whether custom glyphs can be built on this Mac (runs `xcrun --find actool`).
+    public nonisolated func glyphToolStatus() -> ToolStatus { glyphTool.toolStatus() }
+
+    /// Imports a symbol template under `name` (the manual process, research D4b). A new name adds
+    /// a glyph; an existing name gets a new version, so Finder shows the new drawing at once.
+    /// The combined car is rebuilt first; if that fails nothing is saved.
+    public func importGlyph(name: String, template: URL) async throws -> ActionResult {
+        try await exclusive { try await self.performImportGlyph(name: name, template: template) }
+    }
+
+    private func performImportGlyph(name rawName: String, template: URL) async throws -> ActionResult {
+        try requireWritable()
+        let name = rawName.trimmingCharacters(in: .whitespaces)
+        guard CustomGlyph.isValidName(name) else { throw ManagerError.invalidGlyphName(name) }
+        let data: Data
+        do {
+            data = try Data(contentsOf: template)
+        } catch {
+            throw ManagerError.glyphBuild(.templateUnreadable(template.lastPathComponent))
+        }
+        guard data.count <= SVGShapeReader.maximumFileSize else {
+            throw ManagerError.glyphBuild(.templateUnreadable("\(template.lastPathComponent) is larger than 1 MB"))
+        }
+        guard SymbolTemplateWriter.hasRequiredGlyph(String(decoding: data, as: UTF8.self)) else {
+            throw ManagerError.glyphBuild(.missingRequiredGlyph(template.lastPathComponent))
+        }
+        if case .unavailable(let reason) = glyphTool.toolStatus() {
+            throw ManagerError.glyphBuild(.toolUnavailable(reason))
+        }
+
+        var next = config
+        let glyph: CustomGlyph
+        if let index = next.glyphs.firstIndex(where: { $0.name == name }) {
+            glyph = CustomGlyph(id: next.glyphs[index].id, name: name)
+            next.glyphs[index] = glyph
+        } else {
+            glyph = CustomGlyph(name: name)
+            next.glyphs.append(glyph)
+        }
+        try refuseLinkedGlyphFolders()
+        let templateCopy = container.glyphsDirectory.appending(path: glyph.templateFileName)
+        do {
+            try FileManager.default.createDirectory(at: container.glyphsDirectory, withIntermediateDirectories: true)
+            try data.write(to: templateCopy)
+            try buildCar(for: next.glyphs)
+            config = try store.save(next)
+        } catch {
+            try? FileManager.default.removeItem(at: templateCopy)
+            throw Self.managerError(error)
+        }
+        var result = await applyAfterSave()
+        result.messages.insert("Imported the glyph \(name).", at: 0)
+        return result
+    }
+
+    /// Deletes a glyph. Mappings that use it switch to `replacement` first (FR-010); without
+    /// one, a glyph in use is refused.
+    public func deleteGlyph(_ id: UUID, replacement: SidebarStyle? = nil) async throws -> ActionResult {
+        try await exclusive { try await self.performDeleteGlyph(id, replacement: replacement) }
+    }
+
+    private func performDeleteGlyph(_ id: UUID, replacement: SidebarStyle?) async throws -> ActionResult {
+        try requireWritable()
+        guard let glyph = config.glyph(id) else { throw ManagerError.unknownMapping }
+        var next = config
+        let users = next.mappings.indices.filter { next.mappings[$0].glyphID == id }
+        if !users.isEmpty {
+            guard let replacement else { throw ManagerError.glyphInUse(glyph.name) }
+            if case .customGlyph(let other) = replacement, other == id { throw ManagerError.glyphInUse(glyph.name) }
+            try validateGlyphStyle(replacement)
+            for index in users { next.mappings[index].sidebarStyle = replacement }
+        }
+        next.glyphs.removeAll { $0.id == id }
+        do {
+            config = try store.save(next)
+        } catch {
+            throw Self.managerError(error)
+        }
+        // The old car still holds every remaining glyph, so a failed rebuild is harmless: apply
+        // keeps using it until the next successful build.
+        if next.glyphs.isEmpty {
+            removeCar()
+        } else if case .available = glyphTool.toolStatus() {
+            try? buildCar(for: next.glyphs)
+        }
+        var result = await applyAfterSave()
+        result.messages.insert("Deleted the glyph \(glyph.name).", at: 0)
+        return result
+    }
+
+    /// Builds the combined car for `glyphs` in `Build/<id>/` and installs it as
+    /// `Glyphs/Assets.car` with `Glyphs/Assets.key` (their sorted version IDs). The previous car
+    /// stays until the new one is built; the build folder is always deleted.
+    private func buildCar(for glyphs: [CustomGlyph]) throws {
+        try refuseLinkedGlyphFolders()
+        let fileManager = FileManager.default
+        let build = container.buildDirectory.appending(path: UUID().uuidString.lowercased(), directoryHint: .isDirectory)
+        defer { try? fileManager.removeItem(at: build) }
+        let items = glyphs.map {
+            AssetCatalogWriter.Item(symbolName: $0.symbolName, template: container.glyphsDirectory.appending(path: $0.templateFileName))
+        }
+        let output = build.appending(path: "out", directoryHint: .isDirectory)
+        try fileManager.createDirectory(at: output, withIntermediateDirectories: true)
+        try AssetCatalogWriter.write(items, to: build.appending(path: "Glyphs.xcassets", directoryHint: .isDirectory))
+        let car = try glyphTool.compile(catalog: build.appending(path: "Glyphs.xcassets"), outputDirectory: output,
+                                        partialInfoPlist: build.appending(path: "partial.plist"))
+        let target = container.glyphsDirectory.appending(path: "Assets.car")
+        if fileManager.fileExists(atPath: target.path) {
+            _ = try fileManager.replaceItemAt(target, withItemAt: car)
+        } else {
+            try fileManager.moveItem(at: car, to: target)
+        }
+        try Data(Self.carKey(glyphs).utf8).write(to: container.glyphsDirectory.appending(path: "Assets.key"), options: .atomic)
+    }
+
+    private func removeCar() {
+        guard !container.isSymbolicLink(container.glyphsDirectory) else { return }
+        for name in ["Assets.car", "Assets.key"] {
+            try? FileManager.default.removeItem(at: container.glyphsDirectory.appending(path: name))
+        }
+    }
+
+    private func refuseLinkedGlyphFolders() throws {
+        for folder in [container.glyphsDirectory, container.buildDirectory] where container.isSymbolicLink(folder) {
+            throw ManagerError.sidebar(.unexpectedLedgerTarget(folder.path))
+        }
+    }
+
+    static func carKey(_ glyphs: [CustomGlyph]) -> String {
+        glyphs.map { $0.versionID.uuidString.lowercased() }.sorted().joined(separator: "\n") + "\n"
+    }
+
+    private func carKeyOnDisk() -> Set<String> {
+        let url = container.glyphsDirectory.appending(path: "Assets.key")
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return Set(text.split(separator: "\n").map(String.init))
+    }
+
     // MARK: - Story 2
 
     /// Turns a mapping on or off. Off clears its override and keeps the mapping (FR-005).
@@ -370,6 +517,14 @@ public actor MappingManager {
                     messages.append("The copied images could not all be deleted: \(error.localizedDescription)")
                 }
             }
+            for folder in [container.glyphsDirectory, container.buildDirectory]
+            where FileManager.default.fileExists(atPath: folder.path) || container.isSymbolicLink(folder) {
+                do {
+                    try FileManager.default.removeItem(at: folder)
+                } catch {
+                    messages.append("\(folder.lastPathComponent) could not be deleted: \(error.localizedDescription)")
+                }
+            }
             config = AppConfiguration()
             readOnlyReason = nil
             messages.insert(
@@ -424,10 +579,20 @@ public actor MappingManager {
         if readOnlyReason != nil { throw ManagerError.readOnly }
     }
 
-    /// The combined car holding every custom glyph, kept in `Glyphs/` (004 research D4b, T026).
+    /// The combined car holding every custom glyph, kept in `Glyphs/` (004 research D4b, T028).
+    /// Rebuilt only when the glyph set changed (`Assets.key`); without the tool, an existing car
+    /// that holds every glyph the enabled mappings use is still used.
     func currentAssetsCar() -> URL? {
         let car = container.glyphsDirectory.appending(path: "Assets.car")
-        return FileManager.default.fileExists(atPath: car.path) ? car : nil
+        let needed = Set(config.mappings.filter(\.enabled).compactMap(\.glyphID).compactMap { config.glyph($0) }
+            .map { $0.versionID.uuidString.lowercased() })
+        guard !needed.isEmpty, !container.isSymbolicLink(container.glyphsDirectory) else { return nil }
+        let all = Set(config.glyphs.map { $0.versionID.uuidString.lowercased() })
+        let onDisk = carKeyOnDisk()
+        let carExists = FileManager.default.fileExists(atPath: car.path)
+        if carExists, onDisk == all { return car }
+        if case .available = glyphTool.toolStatus(), (try? buildCar(for: config.glyphs)) != nil { return car }
+        return carExists && needed.isSubset(of: onDisk) ? car : nil
     }
 
     private func iconFile(for mapping: SidebarMapping) -> URL {
@@ -551,6 +716,7 @@ public actor MappingManager {
         switch error {
         case let error as ManagerError: error
         case let error as SidebarIconError: .sidebar(error)
+        case let error as GlyphBuildError: .glyphBuild(error)
         case OSTypeAllocationError.exhausted: .sidebar(.invalidMapping("no unused type code is left"))
         default: .sidebar(.toolFailed(String(describing: error)))
         }

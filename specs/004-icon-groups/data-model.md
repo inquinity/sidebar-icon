@@ -98,6 +98,7 @@ Inside the container (`…/45GJWJVQN2.com.altmansoftwaredesign.sidebaricons/Libr
 | `ledger.json` (+ `.tmp`) | change records | emptied by Reset All |
 | `Icons/<id>.<ext>`, `Icons/<id>.icns` (+ `.tmp`) | sidebar art (full colour), folder art master and sizes, built `.icns` | Remove, Reset All |
 | `Glyphs/<versionID>.svg`, `Glyphs/<versionID>.template.svg` | custom glyph sources and templates | glyph delete, Reset All |
+| `Glyphs/Assets.car`, `Glyphs/Assets.key` | the combined car of every glyph (copied into each registry version that uses it) and the sorted version IDs it holds, so it is rebuilt only when the glyph set changes | last glyph deleted, Reset All |
 | `Build/` | temporary asset catalogs and `actool` output during a build | deleted after each build; Reset All |
 | `IconRegistry-<hash>.app/` (+ `.…staging-<uuid>/`) | the current registry version (earlier ones removed after a switch) | Reset All |
 | `FolderIconBackups/<id>.icns` | a folder's previous custom icon | used and deleted on restore; Reset All |
