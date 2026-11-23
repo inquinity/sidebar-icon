@@ -115,6 +115,10 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         let ownCodes = Set(recordedOverrides.compactMap(\.osType))
 
         let glyphsByID = Dictionary(glyphs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        // The combined car, read once and only when a mapping needs it. An unreadable car makes
+        // only the custom-glyph mappings unavailable; the other styles still apply.
+        let usesGlyphs = mappings.contains { if case .customGlyph = $0.sidebarStyle { true } else { false } }
+        let carData: Data? = usesGlyphs ? assetsCar.flatMap { try? Data(contentsOf: $0) } : nil
 
         func registryEntry(for mapping: SidebarMapping) -> IconRegistryBundle.Entry? {
             switch mapping.sidebarStyle {
@@ -124,7 +128,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             case .systemSymbol(let name):
                 return .init(osType: mapping.osType, style: .systemSymbol(name: name))
             case .customGlyph(let glyphID):
-                guard let glyph = glyphsByID[glyphID], assetsCar != nil else { return nil }
+                guard let glyph = glyphsByID[glyphID], carData != nil else { return nil }
                 return .init(osType: mapping.osType, style: .customGlyph(symbolName: glyph.symbolName, versionID: glyph.versionID))
             }
         }
@@ -213,27 +217,54 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
                 bundleEntries.removeAll { claimed[$0.osType] != nil }
             }
             report.notes.append("R7: no other registered bundle claims \(Set(bundleEntries.map(\.osType)).sorted().joined(separator: ", ")).")
+
+            // A recorded override whose code the new version won't declare (its icon is
+            // unavailable, or another bundle claims the code) would point at nothing once the
+            // older versions are retired in step 4b: clear it now, so the Favorite shows its
+            // normal folder glyph rather than a generic document.
+            let declared = Set(bundleEntries.map(\.osType))
+            for entry in try ledger.entries() where entry.kind == .sidebarOverride {
+                guard let code = entry.osType, !declared.contains(code) else { continue }
+                do {
+                    try ledger.undo(entry) { _ = try system.clearOverrideIcon(code) }
+                    report.cleared.append(entry.target)
+                    report.notes.append("Cleared \(code) on \(entry.target): its icon isn't available in the new registration.")
+                } catch {
+                    report.notes.append("Could not clear \(code) on \(entry.target): \(Self.sidebarError(error).message)")
+                }
+            }
         }
         if !eligible.isEmpty {
-            let carData = try assetsCar.map { try Data(contentsOf: $0) }
-            let hash = IconRegistryBundle.contentHash(entries: bundleEntries, assetsCar: carData)
+            // The car is part of the content only when an entry uses it, so rebuilding the car
+            // doesn't make new versions of registries without custom glyphs.
+            let usesCar = bundleEntries.contains { if case .customGlyph = $0.style { true } else { false } }
+            let bundleCar = usesCar ? carData : nil
+            let hash = IconRegistryBundle.contentHash(entries: bundleEntries, assetsCar: bundleCar)
             bundleURL = container.registryBundleURL(named: IconRegistryBundle.bundleName(forHash: hash))
             try Self.refuseSymbolicLink(bundleURL)
-            // Same content, same path: an existing version is reused, never rewritten in place,
-            // because Finder keeps a loaded Assets.car per bundle path (004 spike S4b).
-            if !FileManager.default.fileExists(atPath: bundleURL.path) {
-                let usesCar = bundleEntries.contains { if case .customGlyph = $0.style { true } else { false } }
-                try IconRegistryBundle.write(bundleEntries, assetsCar: usesCar ? assetsCar : nil, hash: hash, to: bundleURL)
+            let alreadyRecorded = try ledger.entries().contains {
+                $0.kind == .iconRegistration && Self.samePath($0.target, bundleURL.path)
+            }
+            // Same content, same path: an intact existing version is reused, never rewritten,
+            // because Finder keeps a loaded Assets.car per bundle path (004 spike S4b). A damaged
+            // or unexpected bundle at that path is replaced.
+            var wroteBundle = false
+            if !IconRegistryBundle.isIntact(bundleEntries, assetsCarData: bundleCar, hash: hash, at: bundleURL) {
+                try IconRegistryBundle.write(bundleEntries, assetsCarData: bundleCar, hash: hash, to: bundleURL)
+                wroteBundle = true
             }
             do {
                 try ledger.record(OutsideChange(kind: .iconRegistration, target: bundleURL.path)) {
                     try system.register(bundleAt: bundleURL)
                 }
             } catch {
-                // The ledger entry was rolled back, so nothing would ever remove the bundle: undo
-                // a possible partial registration and delete it now.
-                try? system.unregister(bundleAt: bundleURL)
-                try? FileManager.default.removeItem(at: bundleURL)
+                // Only a bundle this call created and that no ledger entry records would never be
+                // removed: undo a possible partial registration and delete it now. A recorded
+                // version stays; it is in use and Reset All removes it.
+                if wroteBundle && !alreadyRecorded {
+                    try? system.unregister(bundleAt: bundleURL)
+                    try? FileManager.default.removeItem(at: bundleURL)
+                }
                 throw error
             }
         }
@@ -442,8 +473,17 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
                 return !(Self.isRegistryBundleName(URL(fileURLWithPath: path).lastPathComponent)
                     && Self.samePath(URL(fileURLWithPath: path).deletingLastPathComponent().path, container.root.path))
             }
+            // With no readable path, only an identifier this utility recorded counts as ours:
+            // 0.2.0's base identifier, or a version whose bundle the ledger records.
             guard let identifier = owner.identifier else { return true }
-            return identifier != IconRegistryBundle.bundleIdentifier && !identifier.hasPrefix(IconRegistryBundle.bundleIdentifier + ".")
+            if identifier == IconRegistryBundle.bundleIdentifier { return false }
+            let recordedIdentifiers = Set(((try? ledger.entries()) ?? []).compactMap { entry -> String? in
+                guard entry.kind == .iconRegistration else { return nil }
+                let name = URL(fileURLWithPath: entry.target).lastPathComponent
+                guard name.hasPrefix("IconRegistry-"), name.hasSuffix(".app") else { return nil }
+                return IconRegistryBundle.bundleIdentifier(forHash: String(name.dropFirst("IconRegistry-".count).dropLast(".app".count)))
+            })
+            return !recordedIdentifiers.contains(identifier)
         }
     }
 

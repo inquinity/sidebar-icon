@@ -65,6 +65,8 @@ import Testing
     @Test func anyVersionInTheContainerIsOurOwnClaim() async throws {
         let (fixture, system, provider) = try setup()
         let ours = fixture.container.registryBundleURL(named: "IconRegistry-deadbeef.app").path
+        // The identifier-only claim counts as ours because the ledger records that version.
+        try LedgerStore(url: fixture.container.ledgerURL).record(OutsideChange(kind: .iconRegistration, target: ours)) {}
         system.state.withLock {
             $0.claims = ["S001": [LSClaimOwner(name: "IconRegistry", identifier: "com.altmansoftwaredesign.sidebaricons.iconregistry.deadbeef", path: ours)],
                          "S002": [LSClaimOwner(name: "IconRegistry", identifier: "com.altmansoftwaredesign.sidebaricons.iconregistry.deadbeef", path: nil)]]
@@ -92,5 +94,90 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: staging.path))
         #expect(try provider.ledgerEntries().isEmpty)
         #expect(system.state.withLock { $0.registered.isEmpty })
+    }
+
+    // Review findings on 9e9da31.
+
+    @Test func failedReRegistrationKeepsARecordedVersion() async throws {
+        let (fixture, system, provider) = try setup()
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+        let bundle = try currentRegistryBundle(fixture.container)
+        system.state.withLock { $0.failRegister = true; $0.calls = [] }
+
+        await #expect(throws: (any Error).self) { try await provider.apply(fixture.mappings(), assets: [fixture.asset]) }
+
+        #expect(FileManager.default.fileExists(atPath: bundle.path))
+        #expect(!system.calls.contains("unregister"))
+        #expect(try currentRegistryBundle(fixture.container) == bundle)
+    }
+
+    @Test func failedFirstRegistrationRemovesTheNewBundle() async throws {
+        let (fixture, system, provider) = try setup()
+        system.state.withLock { $0.failRegister = true }
+        await #expect(throws: (any Error).self) { try await provider.apply(fixture.mappings(), assets: [fixture.asset]) }
+        #expect(try registryBundlesOnDisk(fixture.container).isEmpty)
+        #expect(try provider.ledgerEntries().isEmpty)
+    }
+
+    @Test func damagedVersionIsRewrittenBeforeRegistering() async throws {
+        let (fixture, _, provider) = try setup()
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+        let bundle = try currentRegistryBundle(fixture.container)
+        let info = bundle.appending(path: "Contents/Info.plist")
+        let original = try Data(contentsOf: info)
+        try Data("damaged".utf8).write(to: info)
+
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+
+        #expect(try Data(contentsOf: info) == original)
+    }
+
+    @Test func overrideWhoseIconIsUnavailableIsClearedBeforeRetiring() async throws {
+        let (fixture, system, provider) = try setup()
+        var mappings = fixture.mappings()
+        _ = try await provider.apply(mappings, assets: [fixture.asset])
+        // The docs mapping becomes a custom glyph with no car: its code can't be declared.
+        mappings[1].sidebarStyle = .customGlyph(glyphID: UUID())
+        mappings[0].sidebarStyle = .systemSymbol(name: "hammer")
+
+        let report = try await provider.apply(mappings, assets: [fixture.asset])
+
+        #expect(report.cleared.contains(fixture.docs))
+        #expect(try system.listFavorites().first { $0.path == fixture.docs }?.overrideIcon == nil)
+        #expect(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.compactMap(\.osType) == ["S001"])
+    }
+
+    @Test func unreadableCarOnlyAffectsCustomGlyphs() async throws {
+        let (fixture, _, provider) = try setup()
+        var mappings = fixture.mappings()
+        let glyph = CustomGlyph(name: "git")
+        mappings[1].sidebarStyle = .customGlyph(glyphID: glyph.id)
+        let missingCar = fixture.container.root.appending(path: "nope/Assets.car")
+
+        let report = try await provider.apply(mappings, assets: [fixture.asset], glyphs: [glyph], assetsCar: missingCar)
+
+        #expect(report.applied == [mappings[0].id])
+        #expect(report.skipped.map(\.mappingID) == [mappings[1].id])
+    }
+
+    @Test func carChangesDontMakeVersionsWithoutGlyphs() async throws {
+        let (fixture, _, provider) = try setup()
+        let car = fixture.container.root.appending(path: "a.car")
+        try Data("one".utf8).write(to: car)
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset], glyphs: [], assetsCar: car)
+        let first = try currentRegistryBundle(fixture.container)
+        try Data("two".utf8).write(to: car)
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset], glyphs: [], assetsCar: car)
+        #expect(try currentRegistryBundle(fixture.container) == first)
+        #expect(!FileManager.default.fileExists(atPath: first.appending(path: "Contents/Resources/Assets.car").path))
+    }
+
+    @Test func unrecordedVersionIdentifierIsNotOurs() async throws {
+        let (fixture, system, provider) = try setup()
+        system.state.withLock {
+            $0.claims = ["S001": [LSClaimOwner(name: "Impostor", identifier: "com.altmansoftwaredesign.sidebaricons.iconregistry.deadbeef", path: nil)]]
+        }
+        let report = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+        #expect(report.skipped.contains { if case .codeClaimedElsewhere = $0.reason { true } else { false } })
     }
 }

@@ -196,6 +196,13 @@ every entry will be marked **removed**.
   - Icons are cached per type identifier; a changed icon must get a new identifier.
   - Custom glyphs are cached per bundle path, so each change gets a new bundle path; codes stay
     stable, so the sidebar overrides (PA-02/PA-03) are not rewritten when only a style changes.
+    An existing version is reused only if its `Info.plist`, `.icns` files and `Assets.car` match
+    the content exactly; otherwise it is rewritten before registering. A failed registration
+    deletes only a bundle that call created and no ledger entry records.
+  - Before older versions are retired, any recorded override whose code the new version doesn't
+    declare (icon unavailable, or code claimed elsewhere) is cleared, so no Favorite is left
+    pointing at an unregistered code. A claim with no readable path counts as the utility's own
+    only for 0.2.0's identifier or a version the ledger records.
   - Custom symbols need a "Regular-M" glyph made of filled paths; `actool` refuses strokes. The
     compiled-car format is Apple's and undocumented; the utility only ever produces it with
     `actool` and never parses it.

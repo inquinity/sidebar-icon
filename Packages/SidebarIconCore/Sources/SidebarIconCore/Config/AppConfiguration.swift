@@ -31,11 +31,21 @@ public struct AppConfiguration: Codable, Sendable, Equatable {
             if let glyphID = mapping.glyphID, !glyphIDs.contains(glyphID) {
                 problems.append("mapping for \(mapping.folderPath) refers to a missing glyph")
             }
+            if case .systemSymbol(let name) = mapping.sidebarStyle, !SidebarStyle.isPlausibleSymbolName(name) {
+                problems.append("mapping for \(mapping.folderPath) has an invalid glyph name")
+            }
         }
         var names = Set<String>()
         for glyph in glyphs {
             if !CustomGlyph.isValidName(glyph.name) { problems.append("glyph name \"\(glyph.name)\" is not valid") }
             if !names.insert(glyph.name).inserted { problems.append("glyph name \"\(glyph.name)\" is used twice") }
+            // File names are derived from the version, so a stored name can never point at
+            // another file in Glyphs/ (for example the combined Assets.car).
+            let version = glyph.versionID.uuidString.lowercased()
+            if glyph.templateFileName != "\(version).template.svg"
+                || (glyph.sourceFileName.map { $0 != "\(version).svg" } ?? false) {
+                problems.append("glyph \"\(glyph.name)\" has unexpected file names")
+            }
         }
         return problems
     }

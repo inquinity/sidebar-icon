@@ -32,6 +32,7 @@ final class FakeLaunchServices: LaunchServicesSystem {
         var claims: [String: [LSClaimOwner]] = [:]
         var favoritesUnavailable = false
         var failClaims = false
+        var failRegister = false
     }
 
     let state = Mutex(State())
@@ -75,8 +76,9 @@ final class FakeLaunchServices: LaunchServicesSystem {
     }
 
     func register(bundleAt url: URL) throws {
-        state.withLock { state in
+        try state.withLock { state in
             state.calls.append("register")
+            if state.failRegister { throw SidebarIconError.registrationFailed(-1) }
             state.registered.insert(url.path)
         }
     }

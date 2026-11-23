@@ -10,6 +10,13 @@ public enum SidebarStyle: Codable, Sendable, Hashable {
     /// The 0.2.0 style: the copied image drawn in full colour.
     case fullColour(assetID: UUID)
 
+    /// The shape of an SF Symbol name (`hammer`, `externaldrive.fill`): checked on load so a
+    /// hand-edited name can't put odd characters into a type identifier. Whether the symbol
+    /// exists is checked by the manager when it is chosen.
+    public static func isPlausibleSymbolName(_ name: String) -> Bool {
+        name.wholeMatch(of: /[a-z0-9][a-z0-9.]{0,99}/) != nil
+    }
+
     /// A short label for the list and the style picker.
     public var title: String {
         switch self {

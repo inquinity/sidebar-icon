@@ -105,7 +105,9 @@ public enum IconRegistryBundle {
         var hasher = SHA256()
         hasher.update(data: Data("format\(formatRevision);".utf8))
         for entry in entries.sorted(by: { $0.osType < $1.osType }) {
-            hasher.update(data: Data("\(entry.osType)=\(entry.styleKey)=\(entry.icons.sorted { $0.key < $1.key })\n".utf8))
+            // Explicit key=value text, so the hash never depends on how Swift prints collections.
+            let icons = entry.icons.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ";")
+            hasher.update(data: Data("\(entry.osType)|\(entry.styleKey)|\(icons)\n".utf8))
         }
         if let assetsCar { hasher.update(data: assetsCar) }
         return hasher.finalize().prefix(4).map { String(format: "%02x", $0) }.joined()
@@ -149,6 +151,31 @@ public enum IconRegistryBundle {
     /// Writes the complete bundle to `bundleURL`, replacing any previous content in one step.
     /// `assetsCar`, when given, is copied to `Contents/Resources/Assets.car`.
     public static func write(_ entries: [Entry], assetsCar: URL? = nil, hash: String, to bundleURL: URL) throws {
+        try write(entries, assetsCarData: assetsCar.map { try Data(contentsOf: $0) }, hash: hash, to: bundleURL)
+    }
+
+    /// True when the bundle at `bundleURL` holds exactly this content: the same `Info.plist`, the
+    /// same `Assets.car` (or none), and every `.icns` it names. A damaged or planted bundle at a
+    /// version's path is rewritten rather than registered as it is.
+    public static func isIntact(_ entries: [Entry], assetsCarData: Data?, hash: String, at bundleURL: URL) -> Bool {
+        let fileManager = FileManager.default
+        let contents = bundleURL.appending(path: "Contents", directoryHint: .isDirectory)
+        let resources = contents.appending(path: "Resources", directoryHint: .isDirectory)
+        guard let expected = try? infoPlist(for: entries, hash: hash),
+              (try? Data(contentsOf: contents.appending(path: "Info.plist"))) == expected,
+              fileManager.fileExists(atPath: contents.appending(path: "PkgInfo").path) else { return false }
+        for name in entries.compactMap(\.icnsFileName) where !fileManager.fileExists(atPath: resources.appending(path: name).path) {
+            return false
+        }
+        let car = resources.appending(path: "Assets.car")
+        if let assetsCarData {
+            return (try? Data(contentsOf: car)) == assetsCarData
+        }
+        return !fileManager.fileExists(atPath: car.path)
+    }
+
+    /// Writes the bundle from the car's bytes, the same bytes the content hash was made from.
+    public static func write(_ entries: [Entry], assetsCarData: Data?, hash: String, to bundleURL: URL) throws {
         let fileManager = FileManager.default
         let staging = bundleURL.deletingLastPathComponent()
             .appending(path: ".\(bundleURL.lastPathComponent).staging-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -165,8 +192,8 @@ public enum IconRegistryBundle {
                     try fileManager.copyItem(at: icnsSource, to: target)
                 }
             }
-            if let assetsCar {
-                try fileManager.copyItem(at: assetsCar, to: resources.appending(path: "Assets.car"))
+            if let assetsCarData {
+                try assetsCarData.write(to: resources.appending(path: "Assets.car"))
             }
             if fileManager.fileExists(atPath: bundleURL.path) {
                 // An atomic swap, not `FileManager.replaceItemAt`: that call also registers an

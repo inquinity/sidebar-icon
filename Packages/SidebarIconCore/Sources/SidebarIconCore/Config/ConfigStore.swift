@@ -43,6 +43,9 @@ public struct ConfigStore: Sendable {
             guard header.schemaVersion != 1 else {
                 throw ManagerError.configUnreadable(Self.schemaOneMessage)
             }
+            guard header.schemaVersion >= AppConfiguration.currentSchemaVersion else {
+                throw ManagerError.configUnreadable("config.json uses schema \(header.schemaVersion), which this version doesn't read.")
+            }
             guard header.schemaVersion <= AppConfiguration.currentSchemaVersion else {
                 throw ManagerError.configUnreadable(
                     "config.json uses schema \(header.schemaVersion), written by a newer version of Sidebar Icons."

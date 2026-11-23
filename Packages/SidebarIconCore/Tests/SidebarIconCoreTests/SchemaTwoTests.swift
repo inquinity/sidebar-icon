@@ -29,6 +29,17 @@ import Testing
         let duplicate = AppConfiguration(glyphs: [CustomGlyph(name: "git"), CustomGlyph(name: "git")])
         #expect(duplicate.problems.contains { $0.contains("used twice") })
         #expect(AppConfiguration(mappings: [SidebarMapping(folderPath: path, sidebarStyle: .systemSymbol(name: "hammer"), osType: "S001")]).problems.isEmpty)
+        let oddSymbol = AppConfiguration(mappings: [SidebarMapping(folderPath: path, sidebarStyle: .systemSymbol(name: "a/../b"), osType: "S001")])
+        #expect(oddSymbol.problems.contains { $0.contains("invalid glyph name") })
+        let pointsAtCar = AppConfiguration(glyphs: [CustomGlyph(name: "git", templateFileName: "Assets.car")])
+        #expect(pointsAtCar.problems.contains { $0.contains("unexpected file names") })
+    }
+
+    @Test func schemaZeroIsRefused() throws {
+        let (dir, container, store) = try store()
+        _ = dir
+        try Data(#"{"schemaVersion": 0, "mappings": [], "assets": [], "glyphs": []}"#.utf8).write(to: container.configURL)
+        #expect(throws: ManagerError.self) { try store.load() }
     }
 
     @Test func glyphNameRules() {
@@ -53,9 +64,10 @@ import Testing
 
     @Test func schemaTwoRoundTripsAndPrunesGlyphFiles() throws {
         let (dir, container, store) = try store()
-        let glyph = CustomGlyph(name: "git", sourceFileName: "src.svg")
+        let version = UUID()
+        let glyph = CustomGlyph(name: "git", versionID: version, sourceFileName: "\(version.uuidString.lowercased()).svg")
         try FileManager.default.createDirectory(at: container.glyphsDirectory, withIntermediateDirectories: true)
-        for name in [glyph.templateFileName, "src.svg"] {
+        for name in [glyph.templateFileName, glyph.sourceFileName!] {
             try Data("svg".utf8).write(to: container.glyphsDirectory.appending(path: name))
         }
         let mapping = SidebarMapping(folderPath: PathStandardizer.standardize(dir.url.path), sidebarStyle: .customGlyph(glyphID: glyph.id), osType: "S001")
