@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 100 100">
+  <title>Shapes</title>
+  <desc>One of each supported shape.</desc>
+  <g fill="#000">
+    <rect x="10" y="10" width="30" height="20" rx="4"/>
+    <circle cx="70" cy="20" r="10"/>
+    <ellipse cx="25" cy="70" rx="15" ry="8"/>
+    <polygon points="60,90 80,60 95,90"/>
+  </g>
+</svg>

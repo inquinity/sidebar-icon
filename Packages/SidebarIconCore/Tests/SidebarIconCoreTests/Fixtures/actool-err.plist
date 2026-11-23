@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.actool.compilation-results</key>
+	<dict>
+		<key>output-files</key>
+		<array>
+			<string>/build/p.plist</string>
+		</array>
+	</dict>
+	<key>com.apple.actool.document.errors</key>
+	<array>
+		<dict>
+			<key>affected-items</key>
+			<array>
+				<string>./t.cli.symbolset/[universal][][][]</string>
+			</array>
+			<key>catalog</key>
+			<string>/build/c.xcassets</string>
+			<key>message</key>
+			<string>The SVG file provided for the symbol image set ’t.cli‘ is not suitable: Symbol image file '(null)' must have a glyph for Regular weight Medium size</string>
+			<key>type</key>
+			<string>Corrupt Content</string>
+		</dict>
+	</array>
+	<key>com.apple.actool.errors</key>
+	<array>
+		<dict>
+			<key>description</key>
+			<string>Symbol image file '/build/c.xcassets/t.cli.symbolset/t.cli.svg' must have a glyph for Regular weight Medium size</string>
+		</dict>
+	</array>
+</dict>
+</plist>

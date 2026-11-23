@@ -26,7 +26,8 @@ One SVG file, for example `glyph.svg`.
 
 | Requirement | Detail | Why |
 |-------------|--------|-----|
-| Format | SVG made only of **filled `<path>` elements** | The wizard wraps paths into Apple's symbol template; `actool` builds glyphs from fill geometry |
+| Format | SVG made only of **filled shapes**: `<path>`, `<rect>`, `<circle>`, `<ellipse>`, `<polygon>`, optionally inside plain `<g>` groups | The helper wraps them into Apple's symbol template; `actool` builds glyphs from fill geometry |
+| Plain export | No `transform` attributes, no CSS `<style>` or `class` (use presentation attributes) | The helper reads geometry as written; the error message says which setting to change |
 | No strokes | Convert strokes to shapes before exporting: Illustrator **Object › Path › Outline Stroke**, Figma **Outline stroke**, Sketch **Layer › Convert to Outlines**, Affinity **Expand Stroke**, Inkscape **Path › Stroke to Path** | Stroke-only art has no fill and is refused |
 | No text, images, gradients or masks | Convert text to outlines; flatten everything to paths | Only path geometry is used |
 | Colour | Any single fill colour; it is ignored | The sidebar tints the glyph with the accent colour |
@@ -48,6 +49,35 @@ whether a glyph sits well next to the system symbols.
 | Characters | Lowercase letters, digits, dots and hyphens, for example `dev.folder` or `git-repo` |
 | Unique | Not used by another of your glyphs |
 | Note | The app adds a version suffix internally, so changing a glyph never shows a stale cached one |
+
+## Manual process (Workflow 1, available now)
+
+Until the wizard arrives, a custom glyph takes three steps. You need Xcode installed (the
+Command Line Tools alone don't include the asset tool) and have opened it once.
+
+1. **Draw** the glyph as in section 1 and export it as SVG, for example `~/Icons/git-repo.svg`.
+2. **Make the template**, from the repository folder:
+
+   ```bash
+   swift run --package-path Packages/SidebarIconCore make-symbol-template ~/Icons/git-repo.svg ~/Icons/git-repo.template.svg
+   ```
+
+   - On success it prints the shape count, the width ratio and any warnings (too wide, too
+     detailed, strokes ignored).
+   - If it refuses the drawing, it says what to change, for example "Convert strokes to shapes:
+     Outline Stroke / Stroke to Path in your drawing app." Fix the drawing and run it again.
+   - Exit codes: 0 written, 64 usage, 65 drawing refused, 73 output not writable.
+
+   **Alternative**: in Apple's SF Symbols app, select a similar symbol and export it as a template
+   (**File › Export Symbol…**; the menu name can differ between versions), then draw into it. The template must contain a **Regular-Medium**
+   (`Regular-M`) glyph; other weights and sizes are optional.
+3. **Import** it: in Sidebar Icons, choose **Import Glyph…**, enter the glyph name (section 2) and
+   pick the `.template.svg`. The app checks for the `Regular-M` glyph, builds it with Xcode's asset
+   tool and adds it to the Custom glyph list. Then pick it for a folder with **Change Icon… ›
+   Custom glyph**.
+
+To change a glyph later, edit the drawing, repeat step 2 and import it again under the **same
+name**: the app makes a new version, and the sidebar updates without restarting Finder.
 
 ## 1. Sidebar glyph (Workflow 2: you choose it)
 

@@ -33,14 +33,14 @@ wizard → US4 folder icon → verification and release.
 ## Phase 1: Setup
 
 - [X] T001 Apply constitution amendment A (1.1.0 → 1.2.0, Principles I and III, Sync Impact Report) in `.specify/memory/constitution.md` (owner approved 2026-11-23)
-- [ ] T002 [P] Add SVG fixtures in `Tests/Fixtures/` and declare them as test resources in `Packages/SidebarIconCore/Package.swift` (`resources: [.copy("Fixtures")]`):
+- [X] T002 [P] Add SVG fixtures in `Tests/Fixtures/` and declare them as test resources in `Packages/SidebarIconCore/Package.swift` (`resources: [.copy("Fixtures")]`):
   - `layers-filled.svg` (two even-odd paths, `viewBox="0 0 100 100"`);
   - `shapes.svg` (`rect` with `rx`, `circle`, `ellipse`, `polygon`);
   - `stroked.svg` (`rect fill="none" stroke`, `line`);
   - `text.svg`, `transform.svg` (`<g transform>`), `no-viewbox.svg`, `empty.svg`;
   - `template-regular-m.svg` (a valid template from the spike generator) and `template-s-only.svg`
     (only `Regular-S`).
-- [ ] T003 [P] Add an executable target `make-symbol-template` (`Sources/make-symbol-template/main.swift`, depends on `SidebarIconCore`) to `Packages/SidebarIconCore/Package.swift`; for now `main.swift` prints usage and exits 64
+- [X] T003 [P] Add an executable target `make-symbol-template` (`Sources/make-symbol-template/main.swift`, depends on `SidebarIconCore`) to `Packages/SidebarIconCore/Package.swift`; for now `main.swift` prints usage and exits 64
 
 ---
 
@@ -131,21 +131,21 @@ the SF Symbols app) and imports the template with Import Glyph…; the glyph sho
 
 **Independent Test**: quickstart checks 3–5.
 
-- [ ] T018 [P] [US2] Tests in `Tests/SVGShapeReaderTests.swift` using the T002 fixtures, per contracts/glyph-builder.md:
+- [X] T018 [P] [US2] Tests in `Tests/SVGShapeReaderTests.swift` using the T002 fixtures, per contracts/glyph-builder.md:
   - accepts `path`, `rect` (with `rx`/`ry`), `circle`, `ellipse`, `polygon`, and `g` without `transform`;
   - refuses `stroked.svg` with the Outline Stroke guidance, `text.svg`, `transform.svg` and `no-viewbox.svg`, and `empty.svg` with `emptySVG`;
   - reports the width ratio.
-- [ ] T019 [P] [US2] Tests in `Tests/SymbolTemplateWriterTests.swift`:
+- [X] T019 [P] [US2] Tests in `Tests/SymbolTemplateWriterTests.swift`:
   - output is deterministic;
   - it contains the groups `Ultralight-M`, `Regular-M` and `Black-M`, the guides `Baseline-S/M/L` and `Capline-S/M/L`, and margin lines;
   - the path transform scales the `viewBox` height to 150 units, from 120 above the baseline to 30 below.
-- [ ] T020 [P] [US2] Implement `Core/Glyphs/SVGShapeReader.swift` (Foundation `XMLParser`; shape-to-path conversion; refusals with guidance strings from contracts/glyph-builder.md). Makes T018 pass
-- [ ] T021 [P] [US2] Implement `Core/Glyphs/SymbolTemplateWriter.swift` (research D4; follows the spike generator). Makes T019 pass
-- [ ] T022 [US2] Implement `Packages/SidebarIconCore/Sources/make-symbol-template/main.swift`:
+- [X] T020 [P] [US2] Implement `Core/Glyphs/SVGShapeReader.swift` (Foundation `XMLParser`; shape-to-path conversion; refusals with guidance strings from contracts/glyph-builder.md). Makes T018 pass
+- [X] T021 [P] [US2] Implement `Core/Glyphs/SymbolTemplateWriter.swift` (research D4; follows the spike generator). Makes T019 pass
+- [X] T022 [US2] Implement `Packages/SidebarIconCore/Sources/make-symbol-template/main.swift`:
   - usage `swift run make-symbol-template <input.svg> <output.svg>`;
   - on success, prints the glyph's width ratio and any warnings;
   - on refusal, prints the guidance and exits 65; usage errors exit 64.
-- [ ] T023 [US2] Add a "Manual process" section to `specs/004-icon-groups/icon-specification.md`:
+- [X] T023 [US2] Add a "Manual process" section to `specs/004-icon-groups/icon-specification.md`:
   - draw with filled shapes;
   - run `swift run --package-path Packages/SidebarIconCore make-symbol-template in.svg out.svg`, or export a custom-symbol template from Apple's SF Symbols app (it must have a Regular-Medium glyph);
   - then use Import Glyph… in the app.
