@@ -90,6 +90,7 @@ struct CustomGlyphTab: View {
             if importing {
                 importForm
             } else {
+                // Two rows, so four buttons never truncate in the 452-point sheet (T034).
                 HStack {
                     Button("New Custom Glyph…") {
                         model.clearLastError()
@@ -102,7 +103,9 @@ struct CustomGlyphTab: View {
                         template = nil
                     }
                     .disabled(toolUnavailableReason != nil || !model.canChange)
-                    if let glyph = model.glyphs.first(where: { $0.id == selection }) {
+                }
+                if let glyph = model.glyphs.first(where: { $0.id == selection }) {
+                    HStack {
                         Button("New Drawing…") {
                             model.clearLastError()
                             wizard = WizardRequest(updating: glyph)

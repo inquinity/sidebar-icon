@@ -3,7 +3,8 @@ import Foundation
 /// Writes an SF Symbols custom-symbol template that `actool` accepts (004 research D4, spike S2
 /// and S2b): `Ultralight-M`, `Regular-M` and `Black-M` glyphs with the same geometry, scaled so
 /// the drawing's height fills a 150-unit box (120 above the baseline, 30 below), which matches the
-/// size of the system glyphs in the sidebar.
+/// size of the system glyphs in the sidebar. A drawing wider than `maximumWidthRatio` is scaled to
+/// that width instead and centred vertically in the box.
 public enum SymbolTemplateWriter {
     static let baselines: [(size: String, y: Double)] = [("S", 696), ("M", 1126), ("L", 1556)]
     static let capHeight = 70.459
@@ -14,9 +15,17 @@ public enum SymbolTemplateWriter {
     /// The glyph IDs written; `actool` requires `Regular-M`.
     public static let glyphIDs = weightLefts.map { "\($0.weight)-M" }
 
+    /// The widest glyph, as a multiple of the box height. Finder draws a symbol at its own width,
+    /// so a wider drawing would spill out of the sidebar's icon slot over the folder's name (T034:
+    /// a 3:1 drawing did). Wider drawings are scaled down to this width and centred vertically;
+    /// the reader warns about them from the same ratio.
+    public static let maximumWidthRatio = 1.25
+
     public static func template(for drawing: SVGShapes) -> String {
-        let scale = boxHeight / drawing.viewBox.height
+        let scale = min(boxHeight / drawing.viewBox.height, boxHeight * maximumWidthRatio / drawing.viewBox.width)
         let width = drawing.viewBox.width * scale
+        // Zero unless the width limit applied: then the shorter glyph sits in the middle of the box.
+        let lift = (boxHeight - drawing.viewBox.height * scale) / 2
         let baselineM = baselines.first { $0.size == "M" }!.y
         let n = { (value: Double) in String(format: "%.3f", value) }
 
@@ -43,7 +52,7 @@ public enum SymbolTemplateWriter {
         lines.append(" </g>")
         lines.append(#" <g id="Symbols">"#)
         let transform = "matrix(\(String(format: "%.6f", scale)) 0 0 \(String(format: "%.6f", scale)) "
-            + "\(String(format: "%.4f", -drawing.viewBox.x * scale)) \(String(format: "%.4f", boxTop - drawing.viewBox.y * scale)))"
+            + "\(String(format: "%.4f", 0 - drawing.viewBox.x * scale)) \(String(format: "%.4f", boxTop + lift - drawing.viewBox.y * scale)))"
         for (weight, left) in weightLefts {
             lines.append(#"  <g id="\#(weight)-M" transform="matrix(1 0 0 1 \#(n(left)) \#(n(baselineM)))">"#)
             for shape in drawing.shapes {

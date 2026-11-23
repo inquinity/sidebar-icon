@@ -189,8 +189,49 @@ Each decision: what was chosen, why, and what else was considered.
     `…icon.s001.glyph.<version>` and `UTTypeSymbolName` `dev.folder.<version>`.
   - The Finder sidebar showed the `dev` Favorite with the custom glyph, in the same outline blue as
     the system Favorites (Desktop, Documents, Downloads). Refresh Finder was not needed.
+
 - **Alternatives**: `xcrun actool` directly (rejected: `xcrun` would run whatever tool name it
   resolves; finding the path first allows a check that it is inside a Developer directory).
+
+## T034 — batched live check, Stories 1–3 (2026-11-23, 26B131, Developer ID build)
+
+Twenty test folders (`~/sidebar-icons-test/g01`–`g20`) were added to Favorites with Finder's
+File › Add to Sidebar, one at a time, because the command is disabled when several items are
+selected. A first attempt dragged them onto the sidebar and dropped them *into* Applications
+instead; they were moved back.
+
+| Quickstart check | Result |
+|------------------|--------|
+| 1 System glyph `hammer` on g01 | Pass: outline blue, about 9 s to "Applied" (SC-001 allows 10 s), no Finder restart. An invalid name says "Not a system glyph on this Mac" and Apply stays disabled |
+| 2 Change to `externaldrive` | Pass: updated without a restart; the type code stayed S002 |
+| 3, 4 Manual process and import | Passed at P-1 |
+| 5 Import a new version under an existing name (g05) | Pass: "This replaces the existing glyph with a new version"; only g05's version changed |
+| 6 Wizard without Xcode | **Not run live**: it would need changing the selected developer directory, a system setting. Covered by `CreateGlyphTests` (tool unavailable) and the check step's fallback UI |
+| 7 Wizard, then 20 custom mappings with one changed | Pass, details below |
+
+Check 7 details:
+- **Wizard on g02:**
+  - a name in use (`dev.folder`) was refused;
+  - the stroked `dev-sidebar.svg` was refused with the Outline Stroke guidance;
+  - a 3:1 drawing showed the width warning without blocking.
+- **Sheets:** after Build the wizard closed, then the picker, and the mapping was applied. The
+  review's sheet-sequencing fix holds.
+- **20 mappings:** `dev.folder`, `wide.test` and g03–g20, all served by one registry bundle, all
+  drawn in the sidebar.
+- **One changed:** New Drawing… on g04 (the SharePoint glyph). Only g04's symbol version changed;
+  the other 19 were byte-identical in Launch Services. Finder showed the new g04 without a restart,
+  and one registry bundle remained.
+- **Reset All** afterwards: no `iconregistry` or icon type left registered. The 20 Favorites and
+  the test folders were removed, and `~/dev` was set up again with `dev.folder`.
+
+Found and fixed:
+- **Wide drawings spilled out of the slot.** The 3:1 glyph drew three times wider than the slot
+  and ran under the folder name, while the wizard's preview squeezed it to fit. The template writer
+  now caps the glyph width at 1.25 × the box height and centres it vertically, and the warning says
+  it is scaled down. **Not yet checked in Finder** (next signed build).
+- **Name step message:** "…use New Drawing…." had a doubled stop.
+- **Custom glyph tab:** with a glyph selected, four buttons truncated ("New Custom…"); the
+  glyph-specific buttons now sit on a second row.
 
 ## D6 — SF Symbol validation and search
 

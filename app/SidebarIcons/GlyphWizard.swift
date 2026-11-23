@@ -51,7 +51,7 @@ struct GlyphWizard: View {
             return "Use lowercase letters, digits, dots and hyphens (up to 48), starting with a letter or digit."
         }
         if model.glyphs.contains(where: { $0.name == trimmedName }) {
-            return "You already have a glyph named \(trimmedName). Choose another name, or select it and use New Drawing…."
+            return "You already have a glyph named \(trimmedName). Choose another name, or select that glyph and click New Drawing…"
         }
         return nil
     }

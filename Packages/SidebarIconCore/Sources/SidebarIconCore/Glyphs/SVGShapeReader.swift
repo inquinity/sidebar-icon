@@ -98,8 +98,8 @@ public enum SVGShapeReader {
 
         let commands = collector.shapes.reduce(0) { $0 + commandCount($1.d) }
         var result = SVGShapes(shapes: collector.shapes, viewBox: viewBox, commandCount: commands, warnings: [])
-        if result.widthRatio > 1.25 {
-            result.warnings.append("The drawing is much wider than tall, so it will look small in the sidebar.")
+        if result.widthRatio > SymbolTemplateWriter.maximumWidthRatio {
+            result.warnings.append("The drawing is much wider than tall, so it's scaled down to fit the sidebar and will look small.")
         } else if result.widthRatio < 0.8 {
             result.warnings.append("The drawing is much taller than wide, so it will look narrow in the sidebar.")
         }

@@ -38,6 +38,20 @@ import Testing
         #expect(template.contains(#"id="right-margin-Regular-M" style="fill:none;stroke:#00AEEF;stroke-width:0.5;" x1="1433.500""#))
     }
 
+    @Test func capsTheWidthOfAWideDrawingAndCentresIt() throws {
+        // A 3:1 drawing spilled over the folder name in Finder (T034). viewBox 0 0 300 100:
+        // height-scaling would give 1.5 (450 wide); the cap gives 187.5 / 300 = 0.625.
+        let drawing = SVGShapes(shapes: [.init(d: "M0 20H300V80H0Z", fillRule: "nonzero")],
+                                viewBox: .init(x: 0, y: 0, width: 300, height: 100), commandCount: 5, warnings: [])
+        let template = SymbolTemplateWriter.template(for: drawing)
+        // Height 62.5 centred in the 150 box: top at −120 + 43.75 = −76.25.
+        #expect(template.contains(#"transform="matrix(0.625000 0 0 0.625000 0.0000 -76.2500)""#))
+        // Right margin = Regular left 1396 + 187.5.
+        #expect(template.contains(#"id="right-margin-Regular-M" style="fill:none;stroke:#00AEEF;stroke-width:0.5;" x1="1583.500""#))
+        let preview = try #require(SymbolTemplatePreview.svg(fromTemplate: template))
+        #expect(preview.contains(#"viewBox="1396 1006 187.5 150""#))
+    }
+
     @Test func escapesPathData() {
         let drawing = SVGShapes(shapes: [.init(d: #"M0 0 "&<"#, fillRule: "nonzero")],
                                 viewBox: .init(x: 0, y: 0, width: 1, height: 1), commandCount: 1, warnings: [])

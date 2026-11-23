@@ -215,7 +215,7 @@ and previews.
 
 ## Batched live check (US1–US3)
 
-- [ ] T034 (live) Quickstart checks 1–7 on 26B131 (system glyph, manual import, wizard, a glyph change without a Finder restart, and a 20-glyph check with generated test glyphs); record the results in research.md; clean up test Favorites and folders afterwards
+- [X] T034 (live) Quickstart checks 1–7 on 26B131 (system glyph, manual import, wizard, a glyph change without a Finder restart, and a 20-glyph check with generated test glyphs); record the results in research.md; clean up test Favorites and folders afterwards
 
 ---
 
