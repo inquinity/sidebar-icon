@@ -1,6 +1,6 @@
 # Release build (feature 003)
 
-**Status**: In progress (2026-11-22) | **Branch**: `003-release-build`
+**Status**: Released 0.2.0 on this Mac (2026-11-22); work-Mac check pending | **Branch**: `003-release-build`
 
 The owner needs Sidebar Icons on a work Mac, copied by hand until a Homebrew tap exists. This
 covers 002 follow-ups F016 (Release build and signing) and F021 (lowercase identifiers).
@@ -56,6 +56,20 @@ again rather than resumed (rare; `notarytool wait <id>` by hand).
    add one mapping, Refresh Finder, Reset All; uninstall.
 3. On the work Mac (owner): copy, unzip, move to `/Applications`, open; add, then Reset All.
 4. Independent code and security review of the signing settings, entitlements and script.
+
+## Results (2026-11-22, macOS 27.2.1 (26B131))
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| `scripts/release.sh all` for `v0.2.0` at `bcf00ee` | Pass | Gates met; Developer ID Application, hardened runtime, secure timestamp, App Group only; links only system libraries; no personal paths in the binary. Notarization Accepted (submission `48288fb9…`), ticket stapled; the quarantined copy passes Gatekeeper as Notarized Developer ID; `syspolicy_check distribution` clean. Zip SHA-256 `82c4aa42411d13ece023b3856cd9d9c4cf68bf4204025ac358a5c3953f8c3a1c` |
+| Install on this Mac | Pass | From the zip into `/Applications`: `spctl` accepted (Notarized Developer ID), stapler validates; opens with no banner |
+| Smoke test | Pass | Add `~/dev` → Applied (`S001`), icon in the sidebar; Refresh Finder restarted Finder once (13 s); Reset All → no overrides, no registry bundle, no icon types |
+| Work Mac | Pending | Owner: copy, unzip, move to `/Applications`, open, add one mapping, Reset All; report the macOS build |
+
+Finding for F018: from the hardened release app, Refresh Finder's polite quit went through an Apple
+Events privacy check (TCC) with no prompt on screen, and the restart took the 5-second fallback to
+SIGTERM before Finder came back (13 s in all). Finder restarts correctly; the polite quit appears not
+to be allowed. Decide in F018 whether to drop the polite quit or request Automation access.
 
 ## Rollback
 
