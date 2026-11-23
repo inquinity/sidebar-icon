@@ -16,8 +16,8 @@ final class AppModel {
     private(set) var busy = false
     private(set) var statusLine = ""
     var alert: Alert?
-    /// A picked image shown in the preview sheet until Apply or Cancel (Story 3).
-    var pendingIcon: PendingIcon?
+    /// The open style picker (Add Folder… or Change Icon…) until Apply or Cancel.
+    var styleRequest: StyleRequest?
     /// Set when `config.json` can't be read (research D3).
     private(set) var readOnlyReason: String?
     private(set) var favoritesUnavailable = false
@@ -77,28 +77,31 @@ final class AppModel {
     }
 
     func changeIcon(for row: MappingRow) {
-        guard let image = AddMappingFlow.chooseImage(for: row.displayName) else { return }
-        preview(image, for: .change(row))
+        styleRequest = StyleRequest(purpose: .change(row))
     }
 
-    /// Shows the preview sheet for a picked image. Nothing is copied or saved yet.
-    func preview(_ image: URL, for purpose: PendingIcon.Purpose) {
-        pendingIcon = PendingIcon(purpose: purpose, image: image, advice: PreviewAdvice.evaluate(imageAt: image))
+    /// Opens the style picker for a folder just picked in Add Folder….
+    func chooseStyle(forNewFolder folder: URL) {
+        styleRequest = StyleRequest(purpose: .add(folder: folder))
     }
 
-    func applyPendingIcon() {
-        guard let pending = pendingIcon else { return }
-        pendingIcon = nil
-        switch pending.purpose {
-        case .add(let folder):
-            add(folder: folder, image: pending.image)
-        case .change(let row):
-            run { try await $0.changeIcon(for: row.id, image: pending.image) }
+    func applyStyle(_ choice: StyleChoice) {
+        guard let request = styleRequest else { return }
+        styleRequest = nil
+        switch (request.purpose, choice) {
+        case (.add(let folder), .systemSymbol(let name)):
+            run { try await $0.add(folder: folder, style: .systemSymbol(name: name)) }
+        case (.add(let folder), .image(let image)):
+            add(folder: folder, image: image)
+        case (.change(let row), .systemSymbol(let name)):
+            run { try await $0.setStyle(.systemSymbol(name: name), for: row.id) }
+        case (.change(let row), .image(let image)):
+            run { try await $0.changeIcon(for: row.id, image: image) }
         }
     }
 
-    func cancelPendingIcon() {
-        pendingIcon = nil
+    func cancelStyle() {
+        styleRequest = nil
     }
 
     func repoint(_ row: MappingRow) {

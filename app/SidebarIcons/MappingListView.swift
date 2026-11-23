@@ -55,10 +55,15 @@ struct MappingRowView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            IconSwatch(file: row.iconFile, dark: false)
-            IconSwatch(file: row.iconFile, dark: true)
+            IconSwatch(row: row, dark: false)
+            IconSwatch(row: row, dark: true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(row.displayName)
+                HStack(spacing: 6) {
+                    Text(row.displayName)
+                    Text(styleLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Text(PathStandardizer.abbreviatingHome(row.folderPath))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -84,29 +89,39 @@ struct MappingRowView: View {
         }
         .padding(.vertical, 2)
     }
+
+    private var styleLabel: String {
+        if case .systemSymbol(let name) = row.style { "\(row.style.title): \(name)" } else { row.style.title }
+    }
 }
 
-/// The copied image at the sidebar's 20 pt size on a light or dark sidebar-coloured swatch
-/// (research D9). The sidebar draws the `.icns` in full colour, so a plain render is faithful.
+/// The row's sidebar icon at 20 pt on a light or dark sidebar-coloured swatch (research D9):
+/// a system glyph tinted with the accent colour like the sidebar draws it, or the copied image
+/// in full colour.
 struct IconSwatch: View {
-    let file: URL
+    let row: MappingRow
     let dark: Bool
 
     var body: some View {
         Group {
-            if let image = IconImageCache.image(for: file) {
-                Image(nsImage: image).resizable().scaledToFit()
-            } else {
-                Image(systemName: "questionmark.square.dashed").foregroundStyle(.secondary)
+            switch row.style {
+            case .systemSymbol(let name):
+                Image(systemName: name).resizable().scaledToFit().foregroundStyle(.tint)
+            case .customGlyph:
+                Image(systemName: "seal").resizable().scaledToFit().foregroundStyle(.secondary)
+            case .fullColour:
+                if let image = IconImageCache.image(for: row.iconFile) {
+                    Image(nsImage: image).resizable().scaledToFit()
+                } else {
+                    Image(systemName: "questionmark.square.dashed").foregroundStyle(.secondary)
+                }
             }
         }
         .frame(width: 20, height: 20)
         .padding(5)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(dark ? Color(white: 0.17) : Color(white: 0.93))
-        )
+        .background(RoundedRectangle(cornerRadius: 6).fill(SidebarSwatch.fill(dark: dark)))
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
+        .environment(\.colorScheme, dark ? .dark : .light)
         .help(dark ? "Dark sidebar" : "Light sidebar")
         .accessibilityLabel(dark ? "Icon on a dark sidebar" : "Icon on a light sidebar")
     }

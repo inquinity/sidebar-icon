@@ -114,11 +114,11 @@ with no Finder restart.
   - an unknown name (validator returns false) throws `ManagerError.unknownSymbol` and saves nothing;
   - `setStyle` from `fullColour` to `systemSymbol` keeps the `osType`, changes the type identifier and the registry version.
 - [X] T014 [US1] In `Core/Manager/MappingManager.swift`, add the `systemSymbol` path to `add` and `setStyle`, with an injectable `isValidSystemSymbol: @Sendable (String) -> Bool` (default: `NSImage(systemSymbolName:accessibilityDescription:) != nil`); add `ManagerError.unknownSymbol(String)` with its message. Makes T013 pass
-- [ ] T015 [P] [US1] Create `app/SidebarIcons/SymbolCatalog.swift`, a curated list of about 80 SF Symbol names relevant to folders (research D6), and `app/SidebarIcons/SymbolSearchView.swift`:
+- [X] T015 [P] [US1] Create `app/SidebarIcons/SymbolCatalog.swift`, a curated list of about 80 SF Symbol names relevant to folders (research D6), and `app/SidebarIcons/SymbolSearchView.swift`:
   - a name field filtering suggestions, with live validation ("✓ available" or "Not a system glyph on this Mac");
   - a preview at 16 and 20 pt tinted with the accent colour on light and dark sidebar swatches (`Image(systemName:)`, `.foregroundStyle(.tint)`).
-- [ ] T016 [US1] Create `app/SidebarIcons/StylePickerView.swift`, a sheet with tabs System glyph (`SymbolSearchView`), Custom glyph (placeholder until US2) and Full colour (the 002 image flow and `PreviewSheet`), and Cancel/Apply. Wire it into Add Folder… (after the folder pick) and Change Icon… in `AppModel.swift` and `AddMappingFlow.swift`
-- [ ] T017 [US1] In `app/SidebarIcons/MappingListView.swift`, the row shows the style name and a 16 pt tinted preview for system glyphs (`Image(systemName:)`)
+- [X] T016 [US1] Create `app/SidebarIcons/StylePickerView.swift`, a sheet with tabs System glyph (`SymbolSearchView`), Custom glyph (placeholder until US2) and Full colour (the 002 image flow and `PreviewSheet`), and Cancel/Apply. Wire it into Add Folder… (after the folder pick) and Change Icon… in `AppModel.swift` and `AddMappingFlow.swift`
+- [X] T017 [US1] In `app/SidebarIcons/MappingListView.swift`, the row shows the style name and a 16 pt tinted preview for system glyphs (`Image(systemName:)`)
 
 **Checkpoint**: US1 works end to end in the app; verified in the batched live check (T034).
 

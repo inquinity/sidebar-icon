@@ -1,12 +1,12 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// The open panels for Add Folder…, Change Icon… and Re-point…. Cancelling any step does nothing.
+/// The open panels for Add Folder…, the Full colour tab and Re-point…. Cancelling any step does nothing.
 @MainActor
 enum AddMappingFlow {
     static func run(model: AppModel) {
-        guard let folder = chooseFolder(), let image = chooseImage(for: folder.lastPathComponent) else { return }
-        model.preview(image, for: .add(folder: folder))
+        guard let folder = chooseFolder() else { return }
+        model.chooseStyle(forNewFolder: folder)
     }
 
     static func chooseFolder(title: String = "Choose a Folder",
