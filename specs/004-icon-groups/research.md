@@ -63,7 +63,7 @@ What to create per folder is in [icon-specification.md](icon-specification.md).
 ## Open checks (before or during implementation)
 
 - Dark mode and a non-default accent colour with custom glyphs (owner).
-- `actool` launched from the notarized, hardened app.
+- `actool` launched from the notarized, hardened app. **Done: proof P-1 passed (D5).**
 - `setIcon` from the app on a folder under `~/Documents` (privacy prompt and its answer).
 - A folder that already has a custom icon (detect, refuse or back up and restore).
 
@@ -178,6 +178,17 @@ Each decision: what was chosen, why, and what else was considered.
     failed install), and apply always follows an explicit owner action (Principle I).
 - **Rationale**: an Apple tool with no shell and a minimal environment, the same discipline as
   `lsregister` (002). Whether it runs from the hardened app is **proof P-1** (Principle IV).
+- **Proof P-1 (passed, 2026-11-23, macOS 27.2.1 26B131, Xcode in /Applications)**:
+  - The app was built Release with the Developer ID identity: the signature verifies, with the
+    hardened runtime, a secure timestamp, team 45GJWJVQN2 and only the App Group entitlement.
+    It was not notarized; notarization doesn't change the signature's runtime rules.
+  - `folder-icon/dev/glyph.svg` went through `make-symbol-template` (3 shapes, width ratio 1.00).
+  - In the app, Add Folder… › `~/dev` › Custom glyph › Import Glyph… as `dev.folder`: no error,
+    and the 16 and 20 pt previews were drawn in light and dark.
+  - After Apply, Launch Services listed `…iconregistry.c58d8110` with type
+    `…icon.s001.glyph.<version>` and `UTTypeSymbolName` `dev.folder.<version>`.
+  - The Finder sidebar showed the `dev` Favorite with the custom glyph, in the same outline blue as
+    the system Favorites (Desktop, Documents, Downloads). Refresh Finder was not needed.
 - **Alternatives**: `xcrun actool` directly (rejected: `xcrun` would run whatever tool name it
   resolves; finding the path first allows a check that it is inside a Developer directory).
 

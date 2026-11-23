@@ -183,7 +183,7 @@ the SF Symbols app) and imports the template with Import Glyph…; the glyph sho
   - the list of glyphs with a tinted preview (`NSImage(symbolName:bundle:variableValue:)` from the current registry bundle);
   - **Import Glyph…** (name field and an open panel for the template), and Delete….
   - The tool status is shown when unavailable.
-- [ ] T030 [US2] (live) Proof **P-1**: build the app with the Developer ID Release settings, run it, Import Glyph… with the `make-symbol-template` output for `layers-filled.svg`. Pass: an `Assets.car` is built from the signed, hardened app and the Favorite shows the glyph outline blue. Record the result in research.md
+- [X] T030 [US2] (live) Proof **P-1**: build the app with the Developer ID Release settings, run it, Import Glyph… with the `make-symbol-template` output for `layers-filled.svg`. Pass: an `Assets.car` is built from the signed, hardened app and the Favorite shows the glyph outline blue. Record the result in research.md
 
 **Checkpoint**: US2 works with the owner's own drawings.
 
