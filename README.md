@@ -11,9 +11,11 @@ generic folder glyph. One app can manage any number of folders.
 
 ## Status
 
-**Sidebar Icons v1 is done and verified on macOS 27.2.1 (26B131)**: add, turn off, change and
-remove per-folder sidebar icons, preview them first, refresh Finder, and reset everything. Verified
-with 22 mappings across logout and reboot, in light and dark mode, and with a full leftover audit.
+**Version 0.1.0: Sidebar Icons v1 is done and verified on macOS 27.2.1 (26B131)**: add, turn off,
+change and remove per-folder sidebar icons, preview them first, refresh Finder, and reset
+everything. Verified with 22 mappings across logout and reboot, in light and dark mode, and with a
+full leftover audit. What 1.0.0 still needs is the "1.0.0 gate" in the [002
+tasks](specs/002-mapping-manager-v1/tasks.md); changes are in [CHANGELOG.md](CHANGELOG.md).
 
 | Feature | State |
 |---------|-------|

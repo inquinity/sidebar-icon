@@ -205,6 +205,16 @@ These are needed by every story.
 
 ---
 
+## 1.0.0 gate
+
+Version 0.1.0 (tagged `v0.1.0`) is feature 002 as verified. 1.0.0 needs:
+
+- **Must be done**: F001, F002, F003, F005, F014, F015, F016, F017, F021 (F021 changes the
+  bundle ID and App Group, so it must land before 1.0.0, when the install should be stable).
+- **Must be decided** (do, drop, or defer past 1.0.0 with a reason recorded in research.md; build
+  only those decided "do"): F010, F011, F012, F018, F019, F020.
+- **Not in the gate** (any release): F004, F006, F007, F008, F009. F006 is cheap to do with F014.
+
 ## Follow-ups (found during the work; not blocking a story)
 
 Reviewed at each checkpoint; the owner decides whether to schedule them.
