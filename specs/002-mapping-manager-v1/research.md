@@ -313,3 +313,10 @@ builds and signs with hardened runtime and only the App Group entitlement (plus 
 FR/SC status from the review: FR-011, FR-013 and SC-002 need T040; SC-004 and SC-005 need T041;
 SC-001 is likely but unproven (icon seen at 12 s, override set at 6 s); SC-003 has no timing yet.
 
+## Final verification (owner)
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| 11 Light/dark/accent (T039) | Pass | Run by the owner, 2026-11-22 |
+| 12 Scale and persistence (T040) | Pass | 2026-11-22: 22 mappings (20 test folders `~/Sidebar Icons Test/Test 01…20` with numbered icons, plus `dev` and `DevDocs`), codes `S001`–`S00M`; all shown in order. The owner combined logout with a reboot: all icons persisted. After the reboot `lsregister -dump` still listed the registry bundle with all 22 types (FR-011, FR-013, SC-002) |
+

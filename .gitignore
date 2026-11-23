@@ -7,3 +7,5 @@ DerivedData/
 xcuserdata/
 .build/
 .swiftpm/
+# Xcode regenerates the per-project workspace when a project is opened
+*.xcodeproj/project.xcworkspace/

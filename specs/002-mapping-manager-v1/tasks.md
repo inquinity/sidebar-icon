@@ -198,8 +198,8 @@ These are needed by every story.
 - [X] T036 [P] Update `README.md`: status (002 in progress → done), build steps for `app/SidebarIcons.xcodeproj`, and that the spike is retired and must not run alongside the app
 - [X] T037 [P] Update `PRIVATE_API.md` "Current status" to name the shipped app as the caller (same adapter file), and record the app's first verified build
 - [X] T038 Independent code review of `Core/Manager/`, `Core/Config/` and `app/SidebarIcons/`, plus a security review of `app/SidebarIcons/SidebarIcons.entitlements`, the signing settings and any adapter change (constitution). Fix the findings; record them in `specs/002-mapping-manager-v1/research.md`
-- [ ] T039 (owner) Run quickstart check 11 (light/dark and accent colour)
-- [ ] T040 (owner) Run quickstart check 12 (20 mappings; logout; reboot; FR-011, FR-013, SC-002)
+- [X] T039 (owner) Run quickstart check 11 (light/dark and accent colour)
+- [X] T040 (owner) Run quickstart check 12 (20 mappings; logout; reboot; FR-011, FR-013, SC-002)
 - [ ] T041 (owner) Run quickstart checks 13–14 (leftovers after Reset All and deletion; folders untouched; SC-004, SC-005)
 - [ ] T042 Mark the spec Status "Done" with the verified macOS build and merge to `main` on the owner's go-ahead (no PR; branch workflow)
 
