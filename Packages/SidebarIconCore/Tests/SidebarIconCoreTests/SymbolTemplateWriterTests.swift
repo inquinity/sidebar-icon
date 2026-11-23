@@ -44,3 +44,18 @@ import Testing
         #expect(SymbolTemplateWriter.template(for: drawing).contains(#"d="M0 0 &quot;&amp;&lt;""#))
     }
 }
+
+@Suite struct SymbolTemplatePreviewTests {
+    @Test func cropsTheRegularGlyph() throws {
+        let template = SymbolTemplateWriter.template(for: try SVGShapeReader.read(contentsOf: try fixture("layers-filled.svg")))
+        let preview = try #require(SymbolTemplatePreview.svg(fromTemplate: template))
+        #expect(preview.contains(#"viewBox="1396 1006 150 150""#))
+        #expect(preview.components(separatedBy: "<path ").count - 1 == 2)
+        #expect(preview.contains(#"<g transform="matrix(1 0 0 1 1396.000 1126.000)">"#))
+        #expect(XMLParser(data: Data(preview.utf8)).parse())
+    }
+
+    @Test func noRegularGlyphNoPreview() throws {
+        #expect(SymbolTemplatePreview.svg(fromTemplate: try String(contentsOf: try fixture("template-s-only.svg"), encoding: .utf8)) == nil)
+    }
+}

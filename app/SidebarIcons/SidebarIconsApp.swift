@@ -74,7 +74,7 @@ struct MainView: View {
             Text("Remove all custom sidebar icons and delete this app's mappings and copied images? Your folders are not changed.")
         }
         .sheet(item: $model.styleRequest) { request in
-            StylePickerView(request: request, apply: model.applyStyle, cancel: model.cancelStyle)
+            StylePickerView(request: request, model: model, apply: model.applyStyle, cancel: model.cancelStyle)
         }
         .alert(
             model.alert?.title ?? "",

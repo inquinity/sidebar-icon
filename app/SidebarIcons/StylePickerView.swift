@@ -26,6 +26,7 @@ struct StyleRequest: Identifiable {
 /// The owner's choice in the picker.
 enum StyleChoice {
     case systemSymbol(String)
+    case customGlyph(UUID)
     case image(URL)
 }
 
@@ -35,17 +36,25 @@ struct StylePickerView: View {
     enum Tab: Hashable { case system, custom, fullColour }
 
     let request: StyleRequest
+    let model: AppModel
     let apply: (StyleChoice) -> Void
     let cancel: () -> Void
 
     @State private var tab: Tab
     @State private var symbolName: String
     @State private var picked: PickedImage?
+    @State private var selectedGlyph: UUID?
 
-    init(request: StyleRequest, apply: @escaping (StyleChoice) -> Void, cancel: @escaping () -> Void) {
+    init(request: StyleRequest, model: AppModel, apply: @escaping (StyleChoice) -> Void, cancel: @escaping () -> Void) {
         self.request = request
+        self.model = model
         self.apply = apply
         self.cancel = cancel
+        if case .customGlyph(let id)? = request.currentStyle {
+            _selectedGlyph = State(initialValue: id)
+        } else {
+            _selectedGlyph = State(initialValue: nil)
+        }
         switch request.currentStyle {
         case .systemSymbol(let name)?:
             _tab = State(initialValue: .system)
@@ -69,7 +78,7 @@ struct StylePickerView: View {
             let name = symbolName.trimmingCharacters(in: .whitespaces)
             return MappingManager.systemSymbolExists(name) ? .systemSymbol(name) : nil
         case .custom:
-            return nil
+            return selectedGlyph.flatMap { id in model.glyphs.contains { $0.id == id } ? .customGlyph(id) : nil }
         case .fullColour:
             return picked.map { .image($0.url) }
         }
@@ -91,12 +100,7 @@ struct StylePickerView: View {
                 case .system:
                     SymbolSearchView(name: $symbolName, folderName: request.folderName)
                 case .custom:
-                    ContentUnavailableView {
-                        Label("Custom glyphs are coming", systemImage: "seal")
-                    } description: {
-                        Text("Importing your own glyphs arrives in a later step of 0.3.0. Pick a system glyph or full colour for now.")
-                    }
-                    .frame(height: 240)
+                    CustomGlyphTab(model: model, folderName: request.folderName, selection: $selectedGlyph)
                 case .fullColour:
                     fullColourTab
                 }

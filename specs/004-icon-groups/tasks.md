@@ -179,7 +179,7 @@ the SF Symbols app) and imports the template with Import Glyph…; the glyph sho
   - `resetAll` deletes `Glyphs/` and `Build/`.
 
   Makes T027 pass.
-- [ ] T029 [US2] In `app/SidebarIcons/StylePickerView.swift`, Custom glyph tab:
+- [X] T029 [US2] In `app/SidebarIcons/StylePickerView.swift`, Custom glyph tab:
   - the list of glyphs with a tinted preview (`NSImage(symbolName:bundle:variableValue:)` from the current registry bundle);
   - **Import Glyph…** (name field and an open panel for the template), and Delete….
   - The tool status is shown when unavailable.

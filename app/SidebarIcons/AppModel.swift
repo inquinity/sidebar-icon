@@ -13,6 +13,10 @@ final class AppModel {
     }
 
     private(set) var rows: [MappingRow] = []
+    /// The owner's custom glyphs (004 Story 2).
+    private(set) var glyphs: [CustomGlyph] = []
+    /// Whether custom glyphs can be built here; nil until checked.
+    private(set) var glyphToolStatus: ToolStatus?
     private(set) var busy = false
     private(set) var statusLine = ""
     var alert: Alert?
@@ -97,7 +101,43 @@ final class AppModel {
             run { try await $0.setStyle(.systemSymbol(name: name), for: row.id) }
         case (.change(let row), .image(let image)):
             run { try await $0.changeIcon(for: row.id, image: image) }
+        case (.add(let folder), .customGlyph(let id)):
+            run { try await $0.add(folder: folder, style: .customGlyph(glyphID: id)) }
+        case (.change(let row), .customGlyph(let id)):
+            run { try await $0.setStyle(.customGlyph(glyphID: id), for: row.id) }
         }
+    }
+
+    // MARK: - Custom glyphs
+
+    /// Runs `xcrun --find actool` off the main actor and records the result.
+    func checkGlyphTool() async {
+        guard let manager else { return }
+        glyphToolStatus = await Task.detached { manager.glyphToolStatus() }.value
+    }
+
+    func importGlyph(name: String, template: URL) {
+        run { try await $0.importGlyph(name: name, template: template) }
+    }
+
+    /// Deletes a glyph; folders that use it switch to the system folder glyph (FR-010).
+    func deleteGlyph(_ glyph: CustomGlyph) {
+        run { try await $0.deleteGlyph(glyph.id, replacement: .systemSymbol(name: "folder")) }
+    }
+
+    func folderCount(using glyph: CustomGlyph) -> Int {
+        rows.filter { $0.style == .customGlyph(glyphID: glyph.id) }.count
+    }
+
+    /// The stored template of a glyph, for previews.
+    func templateURL(for glyph: CustomGlyph) -> URL? {
+        guard let manager else { return nil }
+        return manager.container.glyphsDirectory.appending(path: glyph.templateFileName)
+    }
+
+    func templateURL(for style: SidebarStyle) -> URL? {
+        guard case .customGlyph(let id) = style, let glyph = glyphs.first(where: { $0.id == id }) else { return nil }
+        return templateURL(for: glyph)
     }
 
     func cancelStyle() {
@@ -129,11 +169,13 @@ final class AppModel {
             do {
                 let result = try await action(manager)
                 rows = result.rows
+                glyphs = await manager.glyphs()
                 statusLine = Self.summary(of: result)
             } catch {
                 statusLine = ""
                 alert = Alert(title: "Sidebar Icons", message: Self.message(for: error))
                 rows = await manager.rows()
+                glyphs = await manager.glyphs()
             }
             readOnlyReason = await manager.readOnlyReason
             favoritesUnavailable = !(await manager.favoritesReadable)
@@ -142,6 +184,7 @@ final class AppModel {
 
     private func reloadRows(from manager: MappingManager) async {
         rows = await manager.rows()
+        glyphs = await manager.glyphs()
         readOnlyReason = await manager.readOnlyReason
         favoritesUnavailable = !(await manager.favoritesReadable)
     }

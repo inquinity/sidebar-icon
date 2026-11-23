@@ -55,8 +55,8 @@ struct MappingRowView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            IconSwatch(row: row, dark: false)
-            IconSwatch(row: row, dark: true)
+            IconSwatch(row: row, glyphTemplate: model.templateURL(for: row.style), dark: false)
+            IconSwatch(row: row, glyphTemplate: model.templateURL(for: row.style), dark: true)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(row.displayName)
@@ -91,7 +91,11 @@ struct MappingRowView: View {
     }
 
     private var styleLabel: String {
-        if case .systemSymbol(let name) = row.style { "\(row.style.title): \(name)" } else { row.style.title }
+        switch row.style {
+        case .systemSymbol(let name): "\(row.style.title): \(name)"
+        case .customGlyph(let id): "\(row.style.title): \(model.glyphs.first { $0.id == id }?.name ?? "missing")"
+        case .fullColour: row.style.title
+        }
     }
 }
 
@@ -100,6 +104,7 @@ struct MappingRowView: View {
 /// in full colour.
 struct IconSwatch: View {
     let row: MappingRow
+    let glyphTemplate: URL?
     let dark: Bool
 
     var body: some View {
@@ -108,7 +113,7 @@ struct IconSwatch: View {
             case .systemSymbol(let name):
                 Image(systemName: name).resizable().scaledToFit().foregroundStyle(.tint)
             case .customGlyph:
-                Image(systemName: "seal").resizable().scaledToFit().foregroundStyle(.secondary)
+                GlyphImage(template: glyphTemplate)
             case .fullColour:
                 if let image = IconImageCache.image(for: row.iconFile) {
                     Image(nsImage: image).resizable().scaledToFit()

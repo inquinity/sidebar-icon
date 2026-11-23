@@ -71,10 +71,10 @@ Command Line Tools alone don't include the asset tool) and have opened it once.
    **Alternative**: in Apple's SF Symbols app, select a similar symbol and export it as a template
    (**File › Export Symbol…**; the menu name can differ between versions), then draw into it. The template must contain a **Regular-Medium**
    (`Regular-M`) glyph; other weights and sizes are optional.
-3. **Import** it: in Sidebar Icons, choose **Import Glyph…**, enter the glyph name (section 2) and
-   pick the `.template.svg`. The app checks for the `Regular-M` glyph, builds it with Xcode's asset
-   tool and adds it to the Custom glyph list. Then pick it for a folder with **Change Icon… ›
-   Custom glyph**.
+3. **Import** it: in Sidebar Icons, open **Change Icon…** on a folder (or **Add Folder…**), go to
+   the **Custom glyph** tab and click **Import Glyph…**. Enter the glyph name (section 2), choose
+   the `.template.svg` and click **Import**. The app checks for the `Regular-M` glyph, builds it
+   with Xcode's asset tool and selects it in the list; click **Apply**.
 
 To change a glyph later, edit the drawing, repeat step 2 and import it again under the **same
 name**: the app makes a new version, and the sidebar updates without restarting Finder.
