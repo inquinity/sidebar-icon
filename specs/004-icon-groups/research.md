@@ -58,6 +58,8 @@ touched.
    registering bundle's `Assets.car`, and caches that car per bundle path". `NSWorkspace.setIcon`
    is public API.
 
+What to create per folder is in [icon-specification.md](icon-specification.md).
+
 ## Open checks (before or during implementation)
 
 - Dark mode and a non-default accent colour with custom glyphs (owner).
