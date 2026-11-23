@@ -319,4 +319,5 @@ SC-001 is likely but unproven (icon seen at 12 s, override set at 6 s); SC-003 h
 |-------|--------|-------|
 | 11 Light/dark/accent (T039) | Pass | Run by the owner, 2026-11-22 |
 | 12 Scale and persistence (T040) | Pass | 2026-11-22: 22 mappings (20 test folders `~/Sidebar Icons Test/Test 01…20` with numbered icons, plus `dev` and `DevDocs`), codes `S001`–`S00M`; all shown in order. The owner combined logout with a reboot: all icons persisted. After the reboot `lsregister -dump` still listed the registry bundle with all 22 types (FR-011, FR-013, SC-002) |
+| 13a Protected folder (T041, final review I-3) | Pass | 2026-11-22: a subfolder of `~/Documents` was mapped; the app, launched directly (not from Xcode), was quit and reopened. No privacy prompt appeared, the row said Applied, the icon showed, and Sidebar Icons is not listed in Privacy & Security → Files & Folders. The app only resolves paths and reads the Favorites list, which macOS doesn't gate on 26B131. F013 closed |
 
