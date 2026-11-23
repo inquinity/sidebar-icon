@@ -10,9 +10,10 @@ First build for use on other Macs: signed with Developer ID, notarized by Apple 
 ### Changed
 
 - **Breaking**: the bundle ID and App Group are now lowercase
-  (`com.altmansoftwaredesign.sidebaricons`), so the app keeps its data in a new container. If you
-  ran 0.1.0, click Reset All in it before installing 0.2.0, then delete its container
-  (`~/Library/Group Containers/45GJWJVQN2.com.altmansoftwaredesign.SidebarIcons`).
+  (`com.altmansoftwaredesign.sidebaricons`). On a case-insensitive disk (the macOS default) the
+  container folder is the same one, so 0.2.0 would pick up 0.1.0's mappings and records under a
+  different app identity. If you ran 0.1.0, click Reset All in it before installing 0.2.0, then
+  delete its container (`~/Library/Group Containers/45GJWJVQN2.com.altmansoftwaredesign.SidebarIcons`).
 
 ### Added
 

@@ -26,7 +26,8 @@ makes each Finder sidebar Favorite show its own full-colour icon.
 **Primary Dependencies**: SwiftUI, AppKit (`NSOpenPanel`, `NSWorkspace`, `NSRunningApplication`),
 ImageIO, CoreServices (`LSSharedFileList`, `LSRegisterURL`); no third-party code
 
-**Storage**: App Group container `45GJWJVQN2.com.altmansoftwaredesign.SidebarIcons`, holding:
+**Storage**: App Group container `45GJWJVQN2.com.altmansoftwaredesign.sidebaricons` (lowercase since
+0.2.0), holding:
 - `config.json` (versioned);
 - `ledger.json` (change records);
 - `Icons/` (copied images and `.icns` files);
@@ -145,7 +146,7 @@ spike/                                    # retired harness; project now referen
 - In the app, click **Reset All** and confirm, then **Refresh Finder**. Every Favorite shows its
   folder glyph, and `lsregister -dump` lists no `IconRegistry.app`.
 - Quit the app, then delete `Sidebar Icons.app` and the container
-  `~/Library/Group Containers/45GJWJVQN2.com.altmansoftwaredesign.SidebarIcons`.
+  `~/Library/Group Containers/45GJWJVQN2.com.altmansoftwaredesign.sidebaricons`.
 - If the app can't run: open the spike app and click Reset; it shares the ledger.
 - Manual fallback: remove each Favorite and drag its folder back in.
 - There is no extension to disable.
