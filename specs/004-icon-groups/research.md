@@ -66,3 +66,150 @@ What to create per folder is in [icon-specification.md](icon-specification.md).
 - `actool` launched from the notarized, hardened app.
 - `setIcon` from the app on a folder under `~/Documents` (privacy prompt and its answer).
 - A folder that already has a custom icon (detect, refuse or back up and restore).
+
+---
+
+# Plan decisions (2026-11-22)
+
+Each decision: what was chosen, why, and what else was considered.
+
+## D1 — Config schema 2 and migration
+
+- **Decision**: `config.json` schema 2 adds, per mapping, a `sidebarStyle` (`systemSymbol(name)`,
+  `customGlyph(glyphID)` or `fullColour(assetID)`) and an optional `folderIcon` setting, and at the
+  top level a `glyphs` list. Loading schema 1 migrates in memory: every mapping becomes
+  `fullColour(iconAssetID)`, with no folder icon. The first save writes schema 2, after copying the
+  original to `config.schema1.json` once.
+- **Rationale**: Story 4 (no action on upgrade); the backup allows a manual downgrade; 0.2.0 reading
+  schema 2 goes read-only with Reset All available (002 D3), so a downgrade is never destructive.
+- **Alternatives**: a separate styles file (rejected: two files to keep consistent); in-place
+  rewrite without backup (rejected: no way back to 0.2.0).
+
+## D2 — Versioned registry bundles
+
+- **Decision**: the registry bundle's name carries a content hash: `IconRegistry-<8 hex>.app`. The
+  hash covers the type declarations and the `Assets.car` bytes. Apply computes the desired content:
+  - if that bundle is already registered and recorded, nothing happens;
+  - otherwise it writes the new bundle (staging, then rename), records it, registers it, sets
+    overrides, and then unregisters and deletes every other recorded registry version, including
+    0.2.0's `IconRegistry.app`.
+
+  Override codes stay the same. "Our own bundle" in the claim check means any `IconRegistry*.app`
+  directly in the container.
+- **Rationale**: S4b. Finder caches a bundle's `Assets.car` per path, and a new path updates at
+  once with the same code. A content hash makes apply idempotent: same content, same path.
+- **Alternatives**: a monotonically increasing number (rejected: not idempotent); restarting
+  Finder after glyph changes (rejected: SC-004).
+
+## D3 — Type declarations per style
+
+- **Decision**: the type identifier is
+  `com.altmansoftwaredesign.sidebaricons.icon.<code>.<style key>`, where the style key is the asset
+  ID (full colour), the glyph version ID (custom), or a hash of the symbol name (system).
+  `UTTypeIcons` per style:
+  - **full colour**: `{UTTypeIconFile: <assetID>.icns, UTTypeSymbolName: <missing name>}` (0.2.0);
+  - **custom**: `{UTTypeSymbolName: <glyph name>.<version ID>}`, with the symbol compiled into the
+    bundle's `Assets.car`;
+  - **system**: `{UTTypeSymbolName: <SF Symbol name>}`.
+- **Rationale**: S1, S3; a new style key gives a new type, and Finder's per-type cache can't show
+  stale art (001 B3). Versioned symbol names keep custom glyphs distinct from system names.
+
+## D4 — Symbol template writer
+
+- **Decision**: a Swift `SVGShapeReader` (Foundation `XMLParser`) reads the root `viewBox` and
+  these filled shapes:
+  - `<path>`, which keeps its `fill-rule`;
+  - `<rect>` (with `rx`/`ry`), `<circle>`, `<ellipse>` and `<polygon>`, each converted to path data;
+  - `<g>` without `transform`.
+
+  It refuses any of the following, naming the element:
+  - `stroke` other than `none` together with `fill="none"`;
+  - `<text>`, `<image>`, `<use>`, `<line>` and `<polyline>`;
+  - gradients, masks and filters;
+  - `transform` on any element;
+  - an empty result.
+
+  `SymbolTemplateWriter` fits the art to a **150-unit** box (120 units above the baseline, 30
+  below). It emits Ultralight-M, Regular-M and Black-M glyphs with the same geometry, plus guides
+  and margins, following the template the spike compiled.
+- **Rationale**: S2 (filled paths; Regular-M required; strokes have no fill) and S2b (box size).
+  Refusing transforms keeps v1 simple; most editors' "Export SVG" can flatten them, and the error
+  says so.
+- **Alternatives**: converting strokes to fills ourselves (rejected: needs path offsetting, error
+  prone); requiring a template from Apple's SF Symbols app (rejected: much harder for the owner).
+
+## D5 — Running `actool`
+
+- **Decision**: `ActoolRunner`:
+  1. Locate the tool with `/usr/bin/xcrun --find actool`.
+  2. Run it with `Process`, using a fixed argument list:
+     `--compile <dir> --platform macosx --minimum-deployment-target 27.0 --output-format xml1 --errors --warnings --output-partial-info-plist <file> <catalog>`.
+  3. Give it an environment of `PATH=/usr/bin:/bin`, plus `HOME`, `TMPDIR`, and `DEVELOPER_DIR`
+     if set.
+  4. Stop it after 120 s.
+  5. Parse the XML output for errors, and map known failures to plain messages: tool missing
+     (Command Line Tools only), Xcode license not accepted, first-launch components missing.
+
+  Builds run in `Build/` inside the container, and only the resulting `Assets.car` is kept, inside
+  the new registry bundle.
+- **Rationale**: an Apple tool with no shell and a minimal environment, the same discipline as
+  `lsregister` (002). Whether it runs from the hardened app is **proof P-1** (Principle IV).
+- **Alternatives**: `xcrun actool` directly (rejected: `xcrun` would run whatever tool name it
+  resolves; finding the path first allows a check that it is inside a Developer directory).
+
+## D6 — SF Symbol validation and search
+
+- **Decision**: a name is valid when `NSImage(systemSymbolName:accessibilityDescription:)` returns
+  an image on the running Mac. The search box suggests from a curated list of about 80 names
+  relevant to folders (folder, doc, hammer, terminal, externaldrive, photo, music, film, globe, …),
+  filtered as the owner types, and accepts any valid name.
+- **Rationale**: there is no public API that lists every symbol; validation is public and exact.
+- **Alternatives**: bundling the full name list from the SF Symbols app (rejected: licence and
+  staleness).
+
+## D7 — Folder art to `.icns`
+
+- **Decision**: `FolderArtBuilder` makes an `.icns` from:
+  - the master (PNG ≥ 1024 px, PDF or SVG), rendered per size as `ICNSConverter` does;
+  - optional overrides: individual PNGs, or the matching files of an `.iconset` (Apple's file
+    names), each checked for exact pixel size; an override replaces the rendered representation.
+
+  ImageIO only; `iconutil` is not needed.
+- **Rationale**: FR-012; one code path for both inputs; reuses 002's proven converter.
+
+## D8 — Folder icon provider
+
+- **Decision**: `FolderIconProvider` (public API, outside the private adapter):
+  1. **Before**: read the folder's state. It has a custom icon if `Icon\r` exists or the
+     `FinderInfo` custom-icon flag is set. If it does, a replacement needs explicit confirmation,
+     and the current icon is saved as `.icns` in `FolderIconBackups/<id>.icns` (from
+     `NSWorkspace.icon(forFile:)`).
+  2. **Record**: write a ledger entry of kind `folderIcon`, with the folder path, the backup file
+     name if any, and (after setting) a **fingerprint**: the SHA-256 of `Icon\r`'s resource fork.
+  3. **Set**: `NSWorkspace.setIcon(_:forFile:options:)`; a `false` return is an error (for example,
+     access denied) and the entry is removed.
+  4. **Undo** (Off, Remove, Reset All): if the current fingerprint matches, restore the backup with
+     `setIcon(backup)`, or clear with `setIcon(nil)`, and remove the entry. If it doesn't match,
+     leave the folder, keep a note, and remove the entry.
+- **Rationale**: FR-013 to FR-015, S6 (set and clear are clean). The fingerprint makes undo safe if
+  something else changed the icon since.
+
+## D9 — UI
+
+- **Decision**: the row shows the style (system, custom or full colour) and a folder-icon badge.
+  Change Icon… opens the **style picker** sheet:
+  - tabs System glyph, Custom glyph and Full colour;
+  - a live tinted preview at 16 and 20 pt, in light and dark appearance.
+
+  **New Custom Glyph…** opens the **wizard**: `actool` check, then name, then SVG, then optional
+  folder art, then preview, then Build. **Folder icon…** opens the **opt-in sheet**, which explains
+  the hidden file, the modification date, git and sync, and a replace warning when needed. Add
+  Folder… uses the style picker after the folder pick, instead of going straight to an image.
+- **Rationale**: one place to choose a look; the folder icon stays a separate, labeled action
+  (Principle III).
+
+## D10 — Verified builds and release
+
+- **Decision**: `SidebarIconCoreInfo.verifiedBuilds` gets each build where quickstart passes (the
+  work Mac's build when the owner reports it). Release 0.3.0 with `scripts/release.sh all` after the
+  reviews; CHANGELOG notes the schema migration and the folder-icon opt-in.
