@@ -69,7 +69,7 @@ import Testing
         _ = try await manager.remove(dev.id)
 
         #expect(fixture.system.state.withLock { $0.registered.isEmpty })
-        #expect(!FileManager.default.fileExists(atPath: fixture.container.registryBundleURL.path))
+        #expect(try registryBundlesOnDisk(fixture.container).isEmpty)
         #expect(try LedgerStore(url: fixture.container.ledgerURL).entries().isEmpty)
         // The disabled mapping is kept, and turning it on registers again.
         let result = try await manager.setEnabled(true, for: docs.id)
@@ -94,8 +94,8 @@ import Testing
         #expect(!files.contains(oldAsset.fileName))
         #expect(!files.contains(oldAsset.icnsFileName!))
         // The registry declares the new asset's type (a new type id, so Finder's cache is not stale).
-        let plist = try String(contentsOf: fixture.container.registryBundleURL.appending(path: "Contents/Info.plist"), encoding: .utf8)
-        #expect(plist.contains(after.mappings[0].iconAssetID.uuidString.lowercased()))
+        let plist = try String(contentsOf: try currentRegistryBundle(fixture.container).appending(path: "Contents/Info.plist"), encoding: .utf8)
+        #expect(plist.contains(after.mappings[0].iconAssetID!.uuidString.lowercased()))
         #expect(!plist.contains(oldAsset.id.uuidString.lowercased()))
     }
 
@@ -194,7 +194,7 @@ import Testing
         guard case .error = result.rows.first(where: { $0.id == dev.id })?.state else {
             Issue.record("expected an error row"); return
         }
-        let plist = try String(contentsOf: fixture.container.registryBundleURL.appending(path: "Contents/Info.plist"), encoding: .utf8)
+        let plist = try String(contentsOf: try currentRegistryBundle(fixture.container).appending(path: "Contents/Info.plist"), encoding: .utf8)
         #expect(plist.contains(">S001<"))
 
         fixture.system.state.withLock { $0.failClearing = [] }

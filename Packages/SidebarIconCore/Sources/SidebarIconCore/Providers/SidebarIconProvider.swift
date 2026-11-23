@@ -92,6 +92,8 @@ public enum SidebarIconError: Error, Sendable, Equatable {
     /// The clear call succeeded but the Favorite still carries the code when read back.
     case overrideNotCleared(path: String, code: String)
     case assetConversionFailed(UUID)
+    /// A glyph style that can't be drawn yet: a custom glyph that isn't built, for example.
+    case glyphUnavailable(String)
     case ledgerIOFailed(String)
     /// Research R7: another registered bundle already claims one of the codes.
     case codeClaimedElsewhere(code: String, owners: [String])
@@ -119,6 +121,8 @@ public enum SidebarIconError: Error, Sendable, Equatable {
             "The sidebar refused the icon override for \(path) (OSStatus \(status))."
         case .overrideNotCleared(let path, let code):
             "The sidebar override \(code) on \(path) could not be removed; it is still recorded."
+        case .glyphUnavailable(let path):
+            "The glyph for \(path) isn't built yet; build it with Xcode's asset tool (Import Glyph or the wizard)."
         case .assetConversionFailed(let id):
             "The image for asset \(id) could not be converted to an icon."
         case .ledgerIOFailed(let detail):

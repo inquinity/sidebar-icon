@@ -1,21 +1,54 @@
 import Foundation
 
-/// One Finder sidebar Favorite paired with one icon (data-model.md).
+/// One Finder sidebar Favorite paired with its icon group (004 data-model.md).
 public struct SidebarMapping: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     /// Absolute and standardized; see `PathStandardizer`.
     public var folderPath: String
-    public var iconAssetID: UUID
-    /// `S` plus three base-36 characters; see `OSTypeCode`.
+    /// How the Favorite is drawn in the sidebar.
+    public var sidebarStyle: SidebarStyle
+    /// `S` plus three base-36 characters; see `OSTypeCode`. Stays the same across style changes.
     public var osType: String
     public var enabled: Bool
+    /// The opt-in folder icon; nil means the folder itself is never touched.
+    public var folderIcon: FolderIconSetting?
 
-    public init(id: UUID = UUID(), folderPath: String, iconAssetID: UUID, osType: String, enabled: Bool = true) {
+    public init(id: UUID = UUID(), folderPath: String, sidebarStyle: SidebarStyle, osType: String,
+                enabled: Bool = true, folderIcon: FolderIconSetting? = nil) {
         self.id = id
         self.folderPath = folderPath
-        self.iconAssetID = iconAssetID
+        self.sidebarStyle = sidebarStyle
         self.osType = osType
         self.enabled = enabled
+        self.folderIcon = folderIcon
+    }
+
+    /// A full-colour mapping (the 0.2.0 style).
+    public init(id: UUID = UUID(), folderPath: String, iconAssetID: UUID, osType: String, enabled: Bool = true) {
+        self.init(id: id, folderPath: folderPath, sidebarStyle: .fullColour(assetID: iconAssetID), osType: osType, enabled: enabled)
+    }
+
+    /// The full-colour image's asset, or nil for the glyph styles.
+    public var iconAssetID: UUID? {
+        if case .fullColour(let assetID) = sidebarStyle { return assetID }
+        return nil
+    }
+
+    /// Every asset this mapping needs: the full-colour image and the folder art with its sizes.
+    public var referencedAssetIDs: Set<UUID> {
+        var ids = Set<UUID>()
+        if let iconAssetID { ids.insert(iconAssetID) }
+        if let folderIcon {
+            ids.insert(folderIcon.artAssetID)
+            ids.formUnion(folderIcon.overrideAssetIDs.values)
+        }
+        return ids
+    }
+
+    /// The custom glyph this mapping draws, if any.
+    public var glyphID: UUID? {
+        if case .customGlyph(let glyphID) = sidebarStyle { return glyphID }
+        return nil
     }
 }
 

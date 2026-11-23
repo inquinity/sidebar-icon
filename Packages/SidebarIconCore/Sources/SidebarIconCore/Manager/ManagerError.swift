@@ -16,6 +16,8 @@ public enum ManagerError: Error, Sendable, Equatable {
     /// Another action is still running.
     case busy
     case unknownMapping
+    /// An SF Symbol name that doesn't exist on this Mac (FR-003).
+    case unknownSymbol(String)
     /// The adapter's error, passed through with its message.
     case sidebar(SidebarIconError)
 
@@ -37,6 +39,8 @@ public enum ManagerError: Error, Sendable, Equatable {
             "Your mappings can't be loaded, so nothing will be changed. Reset All still works."
         case .busy:
             "Another action is still running; try again when it finishes."
+        case .unknownSymbol(let name):
+            "\"\(name)\" isn't a system glyph on this Mac."
         case .unknownMapping:
             "That mapping no longer exists."
         case .sidebar(let error):

@@ -24,11 +24,16 @@ func writeTestPNG(in directory: URL, name: String = "art.png", width: Int = 300,
     let dir: TemporaryDirectory
     init() throws { dir = try TemporaryDirectory() }
 
+    let assetOne = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    let versionOne = UUID(uuidString: "00000000-0000-0000-0000-0000000000a1")!
+
+    /// One entry of each style (004 research D3).
     private func entries() -> [IconRegistryBundle.Entry] {
         let icns = dir.url.appending(path: "x.icns")
         return [
-            .init(osType: "S002", assetID: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, icnsSource: icns),
-            .init(osType: "S001", assetID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, icnsSource: icns),
+            .init(osType: "S003", style: .customGlyph(symbolName: "git-repo.\(versionOne.uuidString.lowercased())", versionID: versionOne)),
+            .init(osType: "S002", style: .systemSymbol(name: "hammer")),
+            .init(osType: "S001", assetID: assetOne, icnsSource: icns),
         ]
     }
 
@@ -36,88 +41,88 @@ func writeTestPNG(in directory: URL, name: String = "art.png", width: Int = 300,
         try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
     }
 
-    /// The shape the Finder sidebar draws in full colour on 26B131 (research R3, 2026-11-20).
-    @Test func exportsOneTypeTaggedWithEachCode() throws {
-        let info = try plist(IconRegistryBundle.infoPlist(for: entries()))
+    @Test func declaresEachStyle() throws {
+        let info = try plist(IconRegistryBundle.infoPlist(for: entries(), hash: "0123abcd"))
         #expect(info["CFBundleDocumentTypes"] == nil)
         let types = try #require(info["UTExportedTypeDeclarations"] as? [[String: Any]])
         #expect(types.map { $0["UTTypeIdentifier"] as? String } == [
             "com.altmansoftwaredesign.sidebaricons.icon.s001.00000000-0000-0000-0000-000000000001",
-            "com.altmansoftwaredesign.sidebaricons.icon.s002.00000000-0000-0000-0000-000000000002",
+            "com.altmansoftwaredesign.sidebaricons.icon.s002.sf.hammer",
+            "com.altmansoftwaredesign.sidebaricons.icon.s003.glyph.00000000-0000-0000-0000-0000000000a1",
         ])
-        #expect(types.map { ($0["UTTypeTagSpecification"] as? [String: [String]])?["com.apple.ostype"] } == [["S001"], ["S002"]])
+        #expect(types.map { ($0["UTTypeTagSpecification"] as? [String: [String]])?["com.apple.ostype"] } == [["S001"], ["S002"], ["S003"]])
         let icons = types.map { $0["UTTypeIcons"] as? [String: String] }
-        #expect(icons.map { $0?["UTTypeIconFile"] } == [
-            "00000000-0000-0000-0000-000000000001.icns",
-            "00000000-0000-0000-0000-000000000002.icns",
-        ])
-        #expect(icons.allSatisfy { $0?["UTTypeSymbolName"] == IconRegistryBundle.missingSymbolName })
-        #expect(types.allSatisfy { $0["UTTypeIconFile"] == nil })
+        #expect(icons[0] == ["UTTypeIconFile": "00000000-0000-0000-0000-000000000001.icns",
+                             "UTTypeSymbolName": IconRegistryBundle.missingSymbolName])
+        #expect(icons[1] == ["UTTypeSymbolName": "hammer"])
+        #expect(icons[2] == ["UTTypeSymbolName": "git-repo.00000000-0000-0000-0000-0000000000a1"])
         #expect(types.allSatisfy { $0["UTTypeConformsTo"] as? [String] == ["public.data"] })
     }
 
     @Test func rejectsInvalidOrDuplicateCodes() {
-        let icns = dir.url.appending(path: "x.icns")
         #expect(throws: SidebarIconError.self) {
-            try IconRegistryBundle.infoPlist(for: [.init(osType: "PDF ", assetID: UUID(), icnsSource: icns)])
+            try IconRegistryBundle.infoPlist(for: [.init(osType: "PDF ", style: .systemSymbol(name: "doc"))], hash: "00000000")
         }
         #expect(throws: SidebarIconError.self) {
             try IconRegistryBundle.infoPlist(for: [
-                .init(osType: "S001", assetID: UUID(), icnsSource: icns),
-                .init(osType: "S001", assetID: UUID(), icnsSource: icns),
-            ])
+                .init(osType: "S001", style: .systemSymbol(name: "doc")),
+                .init(osType: "S001", style: .systemSymbol(name: "hammer")),
+            ], hash: "00000000")
         }
     }
 
-    /// Icons are cached per type, so a new icon for the same code must get a new type.
-    @Test func typeIdentifierChangesWithTheIcon() {
-        let first = IconRegistryBundle.typeIdentifier(for: "S001", assetID: UUID())
-        let second = IconRegistryBundle.typeIdentifier(for: "S001", assetID: UUID())
-        #expect(first != second)
-        #expect(first.hasPrefix("com.altmansoftwaredesign.sidebaricons.icon.s001."))
-        #expect(first == first.lowercased())
+    /// Icons are cached per type, so a new icon or style for the same code must get a new type.
+    @Test func typeIdentifierChangesWithTheStyle() {
+        let icns = dir.url.appending(path: "x.icns")
+        let keys = [
+            IconRegistryBundle.Entry(osType: "S001", assetID: UUID(), icnsSource: icns).styleKey,
+            IconRegistryBundle.Entry(osType: "S001", assetID: UUID(), icnsSource: icns).styleKey,
+            IconRegistryBundle.Entry(osType: "S001", style: .systemSymbol(name: "hammer")).styleKey,
+            IconRegistryBundle.Entry(osType: "S001", style: .customGlyph(symbolName: "a.b", versionID: UUID())).styleKey,
+        ]
+        #expect(Set(keys).count == 4)
+        let identifier = IconRegistryBundle.typeIdentifier(for: "S001", styleKey: keys[2])
+        #expect(identifier == identifier.lowercased())
     }
 
-    @Test func versionChangesWithTheMapping() throws {
-        let original = try plist(IconRegistryBundle.infoPlist(for: entries()))["CFBundleVersion"] as? String
-        var changed = entries()
-        changed[0].assetID = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
-        let updated = try plist(IconRegistryBundle.infoPlist(for: changed))["CFBundleVersion"] as? String
-        let dropped = try plist(IconRegistryBundle.infoPlist(for: [entries()[1]]))["CFBundleVersion"] as? String
-        let version = try #require(original)
-        #expect(UInt32(version) != nil)
-        #expect(Set([original, updated, dropped]).count == 3)
+    @Test func contentHashNamesTheVersion() {
+        let hash = IconRegistryBundle.contentHash(entries: entries(), assetsCar: Data("car".utf8))
+        #expect(hash.count == 8 && hash.allSatisfy { "0123456789abcdef".contains($0) })
+        #expect(IconRegistryBundle.contentHash(entries: entries().reversed(), assetsCar: Data("car".utf8)) == hash)
+        #expect(IconRegistryBundle.contentHash(entries: entries(), assetsCar: Data("car2".utf8)) != hash)
+        #expect(IconRegistryBundle.contentHash(entries: Array(entries().dropFirst()), assetsCar: Data("car".utf8)) != hash)
+        #expect(IconRegistryBundle.bundleName(forHash: hash) == "IconRegistry-\(hash).app")
     }
 
-    @Test func usesTheApprovedIdentifierAndNeverLaunches() throws {
-        let info = try plist(IconRegistryBundle.infoPlist(for: entries()))
-        #expect(info["CFBundleIdentifier"] as? String == "com.altmansoftwaredesign.sidebaricons.iconregistry")
+    @Test func versionedIdentifierAndNeverLaunches() throws {
+        let info = try plist(IconRegistryBundle.infoPlist(for: entries(), hash: "0123abcd"))
+        #expect(info["CFBundleIdentifier"] as? String == "com.altmansoftwaredesign.sidebaricons.iconregistry.0123abcd")
         #expect(info["CFBundlePackageType"] as? String == "APPL")
         #expect(info["LSUIElement"] as? Bool == true)
         #expect(info["CFBundleExecutable"] == nil)
     }
 
     @Test func outputIsDeterministic() throws {
-        let first = try IconRegistryBundle.infoPlist(for: entries())
-        let second = try IconRegistryBundle.infoPlist(for: entries().reversed())
+        let first = try IconRegistryBundle.infoPlist(for: entries(), hash: "0123abcd")
+        let second = try IconRegistryBundle.infoPlist(for: entries().reversed(), hash: "0123abcd")
         #expect(first == second)
     }
 
-    @Test func writesACompleteBundleAndReplacesIt() throws {
+    @Test func writesACompleteBundleWithTheCar() throws {
         let png = try writeTestPNG(in: dir.url)
         let icns = dir.url.appending(path: "a.icns")
         try ICNSConverter.convert(png, to: icns)
-        let bundle = dir.url.appending(path: "IconRegistry.app")
+        let car = dir.url.appending(path: "Assets.car")
+        try Data("not really a car".utf8).write(to: car)
+        let bundle = dir.url.appending(path: "IconRegistry-0123abcd.app")
         let id = UUID()
-        try IconRegistryBundle.write([.init(osType: "S001", assetID: id, icnsSource: icns)], to: bundle)
+        try IconRegistryBundle.write([.init(osType: "S001", assetID: id, icnsSource: icns),
+                                      .init(osType: "S002", style: .systemSymbol(name: "hammer"))],
+                                     assetsCar: car, hash: "0123abcd", to: bundle)
         let fileManager = FileManager.default
         #expect(fileManager.fileExists(atPath: bundle.appending(path: "Contents/Info.plist").path))
         #expect(fileManager.fileExists(atPath: bundle.appending(path: "Contents/Resources/\(id.uuidString).icns").path))
-
-        let newID = UUID()
-        try IconRegistryBundle.write([.init(osType: "S001", assetID: newID, icnsSource: icns)], to: bundle)
-        #expect(!fileManager.fileExists(atPath: bundle.appending(path: "Contents/Resources/\(id.uuidString).icns").path))
-        #expect(fileManager.fileExists(atPath: bundle.appending(path: "Contents/Resources/\(newID.uuidString).icns").path))
+        #expect(try Data(contentsOf: bundle.appending(path: "Contents/Resources/Assets.car")) == Data("not really a car".utf8))
         let leftovers = try fileManager.contentsOfDirectory(atPath: dir.url.path).filter { $0.contains("staging") }
         #expect(leftovers.isEmpty)
     }

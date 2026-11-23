@@ -177,3 +177,19 @@ struct ManagerFixture {
         return files
     }
 }
+
+/// The registry bundle version the ledger records last (0.3.0 writes `IconRegistry-<hash>.app`).
+func currentRegistryBundle(_ container: ContainerLocator) throws -> URL {
+    guard let entry = try LedgerStore(url: container.ledgerURL).entries().last(where: { $0.kind == .iconRegistration }) else {
+        throw TestError()
+    }
+    return URL(fileURLWithPath: entry.target, isDirectory: true)
+}
+
+/// Every `IconRegistry*.app` directly in the container.
+func registryBundlesOnDisk(_ container: ContainerLocator) throws -> [String] {
+    guard FileManager.default.fileExists(atPath: container.root.path) else { return [] }
+    return try FileManager.default.contentsOfDirectory(atPath: container.root.path)
+        .filter { $0.hasPrefix("IconRegistry") && $0.hasSuffix(".app") }
+}
+

@@ -21,7 +21,7 @@ import Testing
         #expect(fixture.system.state.withLock { $0.favorites.allSatisfy { $0.overrideIcon == nil } })
         #expect(fixture.system.state.withLock { $0.registered.isEmpty })
         #expect(try LedgerStore(url: fixture.container.ledgerURL).entries().isEmpty)
-        #expect(!FileManager.default.fileExists(atPath: fixture.container.registryBundleURL.path))
+        #expect(try registryBundlesOnDisk(fixture.container).isEmpty)
         #expect(!FileManager.default.fileExists(atPath: fixture.container.configURL.path))
         #expect(!FileManager.default.fileExists(atPath: fixture.container.iconsDirectory.path))
         #expect(try ConfigStore(container: fixture.container).load() == AppConfiguration())

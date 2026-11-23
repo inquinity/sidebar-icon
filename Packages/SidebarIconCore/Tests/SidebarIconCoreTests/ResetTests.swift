@@ -20,7 +20,7 @@ import Testing
         #expect(report.succeeded)
         #expect(system.calls == ["clear S001", "clear S002", "unregister"])
         #expect(try provider.ledgerEntries().isEmpty)
-        #expect(!FileManager.default.fileExists(atPath: fixture.container.registryBundleURL.path))
+        #expect(try registryBundlesOnDisk(fixture.container).isEmpty)
         #expect(try system.listFavorites().allSatisfy { $0.overrideIcon == nil })
     }
 
@@ -71,7 +71,7 @@ import Testing
 
         #expect(report.failed.map(\.change.kind) == [.iconRegistration])
         #expect(try provider.ledgerEntries().map(\.kind) == [.iconRegistration])
-        #expect(FileManager.default.fileExists(atPath: fixture.container.registryBundleURL.path))
+        #expect(try !registryBundlesOnDisk(fixture.container).isEmpty)
     }
 
     @Test func refusesToTouchARegistrationThatIsNotItsOwnBundle() async throws {
@@ -116,7 +116,7 @@ import Testing
 
     @Test func unregisterFailureForAnAlreadyDeletedBundleIsFineIfNoLongerListed() async throws {
         let (fixture, system, provider) = try await appliedProvider()
-        try FileManager.default.removeItem(at: fixture.container.registryBundleURL)
+        try FileManager.default.removeItem(at: try currentRegistryBundle(fixture.container))
         system.state.withLock { $0.unregisterFailsWhenMissing = true }
         let report = try await provider.reset()
         #expect(report.succeeded)

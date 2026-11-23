@@ -98,6 +98,13 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
     }
 
     public func apply(_ mappings: [SidebarMapping], assets: [IconAsset]) async throws -> ApplyReport {
+        try await apply(mappings, assets: assets, glyphs: [], assetsCar: nil)
+    }
+
+    /// Applies every mapping's style (004 research D2, D3). `glyphs` and `assetsCar` (the combined
+    /// car holding every glyph's symbol) are needed only for custom-glyph mappings.
+    public func apply(_ mappings: [SidebarMapping], assets: [IconAsset], glyphs: [CustomGlyph],
+                      assetsCar: URL?) async throws -> ApplyReport {
         var report = ApplyReport()
         if let problem = SidebarMapping.validate(mappings).first {
             throw SidebarIconError.invalidMapping(String(describing: problem))
@@ -107,9 +114,26 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         let recordedOverrides = try ledger.entries().filter { $0.kind == .sidebarOverride }
         let ownCodes = Set(recordedOverrides.compactMap(\.osType))
 
+        let glyphsByID = Dictionary(glyphs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+
         func registryEntry(for mapping: SidebarMapping) -> IconRegistryBundle.Entry? {
-            guard let asset = assetsByID[mapping.iconAssetID], let icns = try? icnsFile(for: asset) else { return nil }
-            return .init(osType: mapping.osType, assetID: asset.id, icnsSource: icns)
+            switch mapping.sidebarStyle {
+            case .fullColour(let assetID):
+                guard let asset = assetsByID[assetID], let icns = try? icnsFile(for: asset) else { return nil }
+                return .init(osType: mapping.osType, assetID: asset.id, icnsSource: icns)
+            case .systemSymbol(let name):
+                return .init(osType: mapping.osType, style: .systemSymbol(name: name))
+            case .customGlyph(let glyphID):
+                guard let glyph = glyphsByID[glyphID], assetsCar != nil else { return nil }
+                return .init(osType: mapping.osType, style: .customGlyph(symbolName: glyph.symbolName, versionID: glyph.versionID))
+            }
+        }
+
+        func unavailable(_ mapping: SidebarMapping) -> SidebarIconError {
+            switch mapping.sidebarStyle {
+            case .fullColour(let assetID): .assetConversionFailed(assetID)
+            case .systemSymbol, .customGlyph: .glyphUnavailable(mapping.folderPath)
+            }
         }
 
         // 1. Decide which enabled mappings can be applied; report the rest (spec edge cases).
@@ -132,7 +156,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
                 skip(.foreignOverride(path: mapping.folderPath, code: current)); continue
             }
             guard let entry = registryEntry(for: mapping) else {
-                skip(.assetConversionFailed(mapping.iconAssetID)); continue
+                skip(unavailable(mapping)); continue
             }
             eligible.append((mapping, entry))
         }
@@ -160,8 +184,8 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         // 3. Register the icons (research R3 part 1), after checking no one else claims the codes (R7).
         // The bundle keeps every code an override in the ledger still points at (after the clears
         // above), so a Favorite that was skipped, or whose clear failed, is not left pointing at an
-        // unregistered code.
-        let bundleURL = container.registryBundleURL
+        // unregistered code. Each distinct content is its own versioned bundle (004 research D2).
+        var bundleURL = container.registryBundleURL
         var bundleEntries: [IconRegistryBundle.Entry] = []
         if !eligible.isEmpty {
             bundleEntries = eligible.map(\.entry)
@@ -175,7 +199,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             let codes = Set(bundleEntries.map(\.osType))
             var claimed: [String: [String]] = [:]
             for (code, owners) in try system.claims(on: codes) {
-                let others = Self.foreignOwners(owners, ownBundle: bundleURL)
+                let others = foreignOwners(owners)
                 if !others.isEmpty { claimed[code] = others.map(\.description) }
             }
             if !claimed.isEmpty {
@@ -191,8 +215,16 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             report.notes.append("R7: no other registered bundle claims \(Set(bundleEntries.map(\.osType)).sorted().joined(separator: ", ")).")
         }
         if !eligible.isEmpty {
+            let carData = try assetsCar.map { try Data(contentsOf: $0) }
+            let hash = IconRegistryBundle.contentHash(entries: bundleEntries, assetsCar: carData)
+            bundleURL = container.registryBundleURL(named: IconRegistryBundle.bundleName(forHash: hash))
             try Self.refuseSymbolicLink(bundleURL)
-            try IconRegistryBundle.write(bundleEntries, to: bundleURL)
+            // Same content, same path: an existing version is reused, never rewritten in place,
+            // because Finder keeps a loaded Assets.car per bundle path (004 spike S4b).
+            if !FileManager.default.fileExists(atPath: bundleURL.path) {
+                let usesCar = bundleEntries.contains { if case .customGlyph = $0.style { true } else { false } }
+                try IconRegistryBundle.write(bundleEntries, assetsCar: usesCar ? assetsCar : nil, hash: hash, to: bundleURL)
+            }
             do {
                 try ledger.record(OutsideChange(kind: .iconRegistration, target: bundleURL.path)) {
                     try system.register(bundleAt: bundleURL)
@@ -221,6 +253,18 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
                 }
             } catch {
                 report.skipped.append(.init(mappingID: mapping.id, reason: Self.sidebarError(error)))
+            }
+        }
+
+        // 4b. Retire every other registry version now that the Favorites point at the current one
+        // (004 research D2). The codes don't change, so the current bundle takes over at once.
+        if !eligible.isEmpty {
+            for entry in try ledger.entries() where entry.kind == .iconRegistration && !Self.samePath(entry.target, bundleURL.path) {
+                do {
+                    try undoRegistration(entry)
+                } catch {
+                    report.notes.append("Could not remove an earlier icon registration: \(Self.sidebarError(error).message)")
+                }
             }
         }
 
@@ -288,10 +332,13 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
     /// removes the entry. Only ever acts on this utility's own bundle path, never a symbolic link,
     /// whatever the ledger says.
     func undoRegistration(_ entry: OutsideChange) throws {
-        let ownBundle = container.registryBundleURL
-        guard PathStandardizer.standardize(entry.target) == PathStandardizer.standardize(ownBundle.path) else {
+        guard container.isOwnRegistryBundle(path: entry.target) || !FileManager.default.fileExists(atPath: entry.target),
+              Self.isRegistryBundleName(URL(fileURLWithPath: entry.target).lastPathComponent),
+              Self.samePath(URL(fileURLWithPath: entry.target).deletingLastPathComponent().path, container.root.path)
+        else {
             throw SidebarIconError.unexpectedLedgerTarget(entry.target)
         }
+        let ownBundle = URL(fileURLWithPath: entry.target, isDirectory: true)
         try Self.refuseSymbolicLink(ownBundle)
         try ledger.undo(entry) {
             do {
@@ -312,9 +359,8 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
     /// The codes among `codes` that another registered bundle or type claims (R7, PA-05 read-only).
     /// Claims by this utility's own registry bundle don't count.
     public func codesClaimedElsewhere(among codes: Set<String>) throws -> Set<String> {
-        let bundleURL = container.registryBundleURL
-        return Set(try system.claims(on: codes).compactMap { code, owners in
-            Self.foreignOwners(owners, ownBundle: bundleURL).isEmpty ? nil : code
+        Set(try system.claims(on: codes).compactMap { code, owners in
+            foreignOwners(owners).isEmpty ? nil : code
         })
     }
 
@@ -325,13 +371,12 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
     public func removeUnrecordedRegistryFiles() -> [String] {
         let fileManager = FileManager.default
         let root = container.root
-        let bundleName = container.registryBundleURL.lastPathComponent
         var messages: [String] = []
         for name in (try? fileManager.contentsOfDirectory(atPath: root.path)) ?? []
-        where name == bundleName || name.hasPrefix(".\(bundleName).staging-") {
+        where Self.isRegistryBundleName(name) || (name.hasPrefix(".IconRegistry") && name.contains(".staging-")) {
             let url = root.appending(path: name)
             let isLink = (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true
-            if name == bundleName, !isLink {
+            if Self.isRegistryBundleName(name), !isLink {
                 try? system.unregister(bundleAt: url)
             }
             do {
@@ -343,9 +388,16 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         return messages
     }
 
-    /// Experiment B6: whether `lsregister -dump` still lists the registration bundle.
+    /// Experiment B6: whether `lsregister -dump` still lists the current (last recorded) registry
+    /// bundle version.
     public func registrationStillListed() throws -> Bool {
-        try system.isRegistered(bundleAt: container.registryBundleURL)
+        guard let current = try ledger.entries().last(where: { $0.kind == .iconRegistration }) else { return false }
+        return try system.isRegistered(bundleAt: URL(fileURLWithPath: current.target, isDirectory: true))
+    }
+
+    /// `IconRegistry.app` (0.2.0) or `IconRegistry-<hash>.app` (0.3.0 versions).
+    static func isRegistryBundleName(_ name: String) -> Bool {
+        name == "IconRegistry.app" || (name.hasPrefix("IconRegistry-") && name.hasSuffix(".app") && !name.contains("/"))
     }
 
     /// The `.icns` for `asset` in `Icons/`, converted on first use. A missing or unusable `.icns`
@@ -381,13 +433,17 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         }
     }
 
-    /// The owners of a code claim that are not this utility's own registry bundle. Only the bundle
-    /// at our path is ours; a stale copy elsewhere is a conflict. A claim whose bundle path could
-    /// not be read counts as ours only if it has our identifier.
-    static func foreignOwners(_ owners: [LSClaimOwner], ownBundle: URL) -> [LSClaimOwner] {
+    /// The owners of a code claim that are not this utility's own registry bundles. Only a registry
+    /// bundle version directly in our container is ours; a copy elsewhere is a conflict. A claim
+    /// whose bundle path could not be read counts as ours only if it has our identifier.
+    func foreignOwners(_ owners: [LSClaimOwner]) -> [LSClaimOwner] {
         owners.filter { owner in
-            if let path = owner.path { return !samePath(path, ownBundle.path) }
-            return owner.identifier != IconRegistryBundle.bundleIdentifier
+            if let path = owner.path {
+                return !(Self.isRegistryBundleName(URL(fileURLWithPath: path).lastPathComponent)
+                    && Self.samePath(URL(fileURLWithPath: path).deletingLastPathComponent().path, container.root.path))
+            }
+            guard let identifier = owner.identifier else { return true }
+            return identifier != IconRegistryBundle.bundleIdentifier && !identifier.hasPrefix(IconRegistryBundle.bundleIdentifier + ".")
         }
     }
 

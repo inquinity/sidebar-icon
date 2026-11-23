@@ -16,6 +16,10 @@ public struct ConfigStore: Sendable {
     }
 
     public var url: URL { container.configURL }
+
+    static let schemaOneMessage =
+        "This configuration was made by Sidebar Icons 0.2.0 and isn't converted. Use Reset All to start fresh."
+
     var tempURL: URL { url.deletingLastPathComponent().appending(path: url.lastPathComponent + ".tmp") }
 
     private struct Header: Decodable {
@@ -35,6 +39,10 @@ public struct ConfigStore: Sendable {
         let config: AppConfiguration
         do {
             let header = try decoder.decode(Header.self, from: data)
+            // 0.2.0's schema is not migrated (004 research D1, owner addendum).
+            guard header.schemaVersion != 1 else {
+                throw ManagerError.configUnreadable(Self.schemaOneMessage)
+            }
             guard header.schemaVersion <= AppConfiguration.currentSchemaVersion else {
                 throw ManagerError.configUnreadable(
                     "config.json uses schema \(header.schemaVersion), written by a newer version of Sidebar Icons."
@@ -63,9 +71,13 @@ public struct ConfigStore: Sendable {
         let previous = try load()
 
         var pruned = config
-        let referenced = Set(config.mappings.map(\.iconAssetID))
+        let referenced = config.mappings.reduce(into: Set<UUID>()) { $0.formUnion($1.referencedAssetIDs) }
         pruned.assets = config.assets.filter { referenced.contains($0.id) }
         let removed = (config.assets + previous.assets).filter { !referenced.contains($0.id) }
+        // Glyph versions no longer listed lose their files.
+        let keptGlyphFiles = Set(config.glyphs.flatMap { [$0.templateFileName, $0.sourceFileName].compactMap { $0 } })
+        let removedGlyphFiles = previous.glyphs.flatMap { [$0.templateFileName, $0.sourceFileName].compactMap { $0 } }
+            .filter { !keptGlyphFiles.contains($0) }
 
         let fileManager = FileManager.default
         do {
@@ -94,6 +106,7 @@ public struct ConfigStore: Sendable {
         for asset in removed {
             deleteFiles(of: asset)
         }
+        deleteGlyphFiles(removedGlyphFiles)
         return pruned
     }
 
@@ -104,6 +117,14 @@ public struct ConfigStore: Sendable {
         for name in [asset.fileName, asset.icnsFileName].compactMap({ $0 })
         where LaunchServicesOverrideProvider.isPlainFileName(name) {
             try? FileManager.default.removeItem(at: container.iconsDirectory.appending(path: name))
+        }
+    }
+
+    /// Deletes glyph files from `Glyphs/`: plain names only, never through a linked folder.
+    public func deleteGlyphFiles(_ names: [String]) {
+        guard !container.isSymbolicLink(container.glyphsDirectory) else { return }
+        for name in names where LaunchServicesOverrideProvider.isPlainFileName(name) {
+            try? FileManager.default.removeItem(at: container.glyphsDirectory.appending(path: name))
         }
     }
 

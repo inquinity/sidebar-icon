@@ -48,19 +48,19 @@ wizard → US4 folder icon → verification and release.
 
 **Purpose**: schema 2, sidebar styles, per-style type declarations, versioned registry bundles.
 
-- [ ] T004 [P] Tests in `Tests/SchemaTwoTests.swift`:
+- [X] T004 [P] Tests in `Tests/SchemaTwoTests.swift`:
   - `SidebarStyle` round-trips through JSON for all three cases;
   - `AppConfiguration.problems` reports an unresolved `fullColour` asset, an unresolved `customGlyph` glyph, an invalid glyph name (must match `^[a-z0-9][a-z0-9.-]{0,47}$`) and a duplicate glyph name;
   - `ConfigStore.load()` of a schema 1 file throws `configUnreadable` whose message contains "made by Sidebar Icons 0.2.0" and does not modify the file;
   - schema 2 save/load round-trips mappings, assets and glyphs;
   - pruning deletes the files of unreferenced assets and of glyphs no longer listed (`Glyphs/<versionID>.svg`, `Glyphs/<versionID>.template.svg`).
-- [ ] T005 Add `Core/Model/SidebarStyle.swift` (`enum SidebarStyle: Codable, Sendable, Hashable { systemSymbol(name: String), customGlyph(glyphID: UUID), fullColour(assetID: UUID) }`), `Core/Model/CustomGlyph.swift` (fields per data-model.md: `id`, `name`, `versionID`, `sourceFileName?`, `templateFileName`), and `Core/Model/FolderIconSetting.swift` (`enabled`, `artAssetID`, `overrideAssetIDs: [String: UUID]`, `replaceExisting`). In `Core/Model/SidebarMapping.swift` replace `iconAssetID` with `sidebarStyle` and add `folderIcon: FolderIconSetting?`
-- [ ] T006 Update `Core/Config/AppConfiguration.swift` (`currentSchemaVersion = 2`, `glyphs: [CustomGlyph]`, `problems` per T004) and `Core/Config/ConfigStore.swift`:
+- [X] T005 Add `Core/Model/SidebarStyle.swift` (`enum SidebarStyle: Codable, Sendable, Hashable { systemSymbol(name: String), customGlyph(glyphID: UUID), fullColour(assetID: UUID) }`), `Core/Model/CustomGlyph.swift` (fields per data-model.md: `id`, `name`, `versionID`, `sourceFileName?`, `templateFileName`), and `Core/Model/FolderIconSetting.swift` (`enabled`, `artAssetID`, `overrideAssetIDs: [String: UUID]`, `replaceExisting`). In `Core/Model/SidebarMapping.swift` replace `iconAssetID` with `sidebarStyle` and add `folderIcon: FolderIconSetting?`
+- [X] T006 Update `Core/Config/AppConfiguration.swift` (`currentSchemaVersion = 2`, `glyphs: [CustomGlyph]`, `problems` per T004) and `Core/Config/ConfigStore.swift`:
   - a schema 1 file throws `configUnreadable("This configuration was made by Sidebar Icons 0.2.0 and isn't converted. Use Reset All to start fresh.")`;
   - pruning covers style assets, folder-art assets and glyph files.
 
   Makes T004 pass.
-- [ ] T007 [P] Tests in `Tests/IconRegistryBundleTests.swift` (rewrite):
+- [X] T007 [P] Tests in `Tests/IconRegistryBundleTests.swift` (rewrite):
   - declarations per style (research D3):
     - `fullColour` → `UTTypeIconFile` + missing symbol;
     - `systemSymbol` → `UTTypeSymbolName = name`;
@@ -69,20 +69,20 @@ wizard → US4 folder icon → verification and release.
   - `contentHash` is deterministic, changes with any declaration or car byte, and gives a bundle name `IconRegistry-<8 lowercase hex>.app`;
   - `write` copies `Assets.car` into `Contents/Resources/` when given;
   - an invalid or duplicate code throws.
-- [ ] T008 Rewrite `Core/Icons/IconRegistryBundle.swift`:
+- [X] T008 Rewrite `Core/Icons/IconRegistryBundle.swift`:
   - `Entry` holds `osType` and `style: EntryStyle` (`fullColour(assetID, icnsSource)`, `systemSymbol(name)`, `customGlyph(symbolName, versionID)`);
   - add `contentHash(entries:assetsCar:)` and `bundleName(forHash:)`;
   - `write(_:assetsCar:to:)` uses the same atomic swap as before.
 
   Makes T007 pass.
-- [ ] T009 [P] Tests in `Tests/VersionedRegistryTests.swift` (with `FakeLaunchServices`):
+- [X] T009 [P] Tests in `Tests/VersionedRegistryTests.swift` (with `FakeLaunchServices`):
   - apply writes `IconRegistry-<hash>.app`, records it, then registers it before setting overrides;
   - a second apply with the same configuration makes no calls;
   - a style change writes a new version, then unregisters and deletes the previous recorded version, including a legacy `IconRegistry.app` entry;
   - each code keeps its value;
   - the claim check counts any `IconRegistry*.app` directly in the container as the app's own;
   - reset undoes every recorded version and deletes unrecorded `IconRegistry*.app` and staging folders.
-- [ ] T010 Update `Core/Ledger/ContainerLocator.swift` (`registryBundleURL(named:)`, `isOwnRegistryBundle(path:)` = a non-link `IconRegistry*.app` directly in `root`) and `Core/Providers/LaunchServicesOverrideProvider.swift`:
+- [X] T010 Update `Core/Ledger/ContainerLocator.swift` (`registryBundleURL(named:)`, `isOwnRegistryBundle(path:)` = a non-link `IconRegistry*.app` directly in `root`) and `Core/Providers/LaunchServicesOverrideProvider.swift`:
   - build entries from `sidebarStyle`;
   - switch versions per research D2;
   - `foreignOwners` uses `isOwnRegistryBundle`;
@@ -90,13 +90,13 @@ wizard → US4 folder icon → verification and release.
   - add a `assetsCar: URL?` parameter to `apply`.
 
   Update `PRIVATE_API.md` PA-04 (versioned bundles; Finder caches `Assets.car` per bundle path; codes stable) **in the same commit**. Makes T009 pass.
-- [ ] T011 Update `Core/Manager/MappingManager.swift` to the new model:
+- [X] T011 Update `Core/Manager/MappingManager.swift` to the new model:
   - `add(folder:style:)`; a `.fullColour` style is created through `addFullColour(folder:image:)`, which keeps 002's import;
   - `setStyle(_:for:)` replaces `changeIcon`;
   - `MappingRow` gains `style`.
 
   Update the 002 manager tests (`Tests/MappingManager*Tests.swift`, `Tests/ReviewFixTests.swift`) to the new API; all tests pass.
-- [ ] T012 Update the app to compile against the new engine (`app/SidebarIcons/AppModel.swift`, `AddMappingFlow.swift`, `MappingListView.swift`): Add Folder… and Change Icon… keep working with full-colour images for now; the scheme builds
+- [X] T012 Update the app to compile against the new engine (`app/SidebarIcons/AppModel.swift`, `AddMappingFlow.swift`, `MappingListView.swift`): Add Folder… and Change Icon… keep working with full-colour images for now; the scheme builds
 
 **Checkpoint**: `swift test` passes; the app builds; full-colour mappings work through versioned registry bundles.
 
@@ -109,11 +109,11 @@ with no Finder restart.
 
 **Independent Test**: quickstart checks 1–2.
 
-- [ ] T013 [P] [US1] Tests in `Tests/SystemGlyphTests.swift`:
+- [X] T013 [P] [US1] Tests in `Tests/SystemGlyphTests.swift`:
   - `add(folder:style: .systemSymbol("hammer"))` applies with the declaration `UTTypeSymbolName = "hammer"`;
   - an unknown name (validator returns false) throws `ManagerError.unknownSymbol` and saves nothing;
   - `setStyle` from `fullColour` to `systemSymbol` keeps the `osType`, changes the type identifier and the registry version.
-- [ ] T014 [US1] In `Core/Manager/MappingManager.swift`, add the `systemSymbol` path to `add` and `setStyle`, with an injectable `isValidSystemSymbol: @Sendable (String) -> Bool` (default: `NSImage(systemSymbolName:accessibilityDescription:) != nil`); add `ManagerError.unknownSymbol(String)` with its message. Makes T013 pass
+- [X] T014 [US1] In `Core/Manager/MappingManager.swift`, add the `systemSymbol` path to `add` and `setStyle`, with an injectable `isValidSystemSymbol: @Sendable (String) -> Bool` (default: `NSImage(systemSymbolName:accessibilityDescription:) != nil`); add `ManagerError.unknownSymbol(String)` with its message. Makes T013 pass
 - [ ] T015 [P] [US1] Create `app/SidebarIcons/SymbolCatalog.swift`, a curated list of about 80 SF Symbol names relevant to folders (research D6), and `app/SidebarIcons/SymbolSearchView.swift`:
   - a name field filtering suggestions, with live validation ("✓ available" or "Not a system glyph on this Mac");
   - a preview at 16 and 20 pt tinted with the accent colour on light and dark sidebar swatches (`Image(systemName:)`, `.foregroundStyle(.tint)`).

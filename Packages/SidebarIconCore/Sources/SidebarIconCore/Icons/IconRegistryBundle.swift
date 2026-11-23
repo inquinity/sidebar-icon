@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// The Path B icon registration bundle (research R3, `PRIVATE_API.md` PA-04).
@@ -17,65 +18,103 @@ import Foundation
 /// - The icon is cached per type, so the type identifier includes the asset ID: a new icon gets a
 ///   new type and is not hidden by the cached one.
 ///
-/// The bundle is `IconRegistry.app` with `CFBundlePackageType` `APPL` and `LSUIElement` set, and
-/// is never launched. It stays application-type because that is the shape verified on 26B131
+/// Since 0.3.0 (004 research D2, D3): each mapping's style decides its type's icons (full colour,
+/// an SF Symbol, or a custom glyph compiled into the bundle's `Assets.car`), and every distinct
+/// content gets its own bundle, `IconRegistry-<hash>.app` with identifier `…iconregistry.<hash>`,
+/// because Finder caches a bundle's `Assets.car` per path (004 spike S4b).
+///
+/// The bundle has `CFBundlePackageType` `APPL` and `LSUIElement` set, and is never launched. It stays application-type because that is the shape verified on 26B131
 /// (`LSRegisterURL` registers it and its exported types; `lsregister -u` removes both). This file
 /// only builds the bundle; registering it is the provider's job.
 public enum IconRegistryBundle {
+    /// The identifier of 0.2.0's unversioned bundle; versions append `.<hash>`.
     public static let bundleIdentifier = "com.altmansoftwaredesign.sidebaricons.iconregistry"
 
-    /// The exported type for a code and icon, for example
-    /// `com.altmansoftwaredesign.sidebaricons.icon.s001.5b1c0de0-0001-4000-8000-0000000000a1`.
-    /// Codes are `S` plus base-36 characters (`OSTypeCode`) and UUIDs are hex and hyphens, so the
-    /// result is a valid identifier. The asset ID is part of it because icons are cached per type.
-    public static func typeIdentifier(for code: String, assetID: UUID) -> String {
-        "com.altmansoftwaredesign.sidebaricons.icon.\(code.lowercased()).\(assetID.uuidString.lowercased())"
+    public static func bundleIdentifier(forHash hash: String) -> String { "\(bundleIdentifier).\(hash)" }
+    public static func bundleName(forHash hash: String) -> String { "IconRegistry-\(hash).app" }
+
+    /// The exported type for a code and a style key, for example
+    /// `com.altmansoftwaredesign.sidebaricons.icon.s001.sf.hammer`. Codes are `S` plus base-36
+    /// characters and style keys use lowercase letters, digits, dots and hyphens, so the result is a
+    /// valid identifier. The style key is part of it because icons are cached per type.
+    public static func typeIdentifier(for code: String, styleKey: String) -> String {
+        "com.altmansoftwaredesign.sidebaricons.icon.\(code.lowercased()).\(styleKey)"
     }
 
     /// A symbol name that is never defined, so the sidebar falls back to the type's `.icns`.
     public static let missingSymbolName = "com.altmansoftwaredesign.sidebaricons.no-symbol"
 
-    /// Bump when the Info.plist layout changes, so the version changes even if the mapping does not.
-    /// 2: exported types per code. 3: icons in `UTTypeIcons` with the missing symbol, no document
-    /// types, asset ID in the type identifier (2026-11-20).
-    static let formatRevision = 3
+    /// Bump when the Info.plist layout changes. 3: icons in `UTTypeIcons` with the missing symbol,
+    /// asset ID in the type identifier (2026-11-20). 4: styles, versioned bundles (0.3.0).
+    static let formatRevision = 4
 
-    /// A version that changes whenever the code-to-icon mapping or the plist format changes, so
-    /// Launch Services and the icon cache do not keep serving an earlier bundle's icons. FNV-1a
-    /// over the format revision and the sorted entries; deterministic across runs (unlike
-    /// `Hasher`). It is not monotonic: a new mapping can get a lower number. Re-registration goes
-    /// by path (`LSRegisterURL(url, true)`), so nothing relies on "newer is higher".
-    static func bundleVersion(for entries: [Entry]) -> String {
-        let key = "format\(formatRevision);" + entries
-            .sorted { $0.osType < $1.osType }
-            .map { "\($0.osType)=\($0.assetID.uuidString)" }
-            .joined(separator: ";")
-        var hash: UInt32 = 2_166_136_261
-        for byte in key.utf8 {
-            hash = (hash ^ UInt32(byte)) &* 16_777_619
-        }
-        return String(hash)
+    public enum EntryStyle: Sendable, Equatable {
+        /// The copied image's `.icns`, drawn in full colour (the missing-symbol fallback).
+        case fullColour(assetID: UUID, icnsSource: URL)
+        /// An SF Symbol by name.
+        case systemSymbol(name: String)
+        /// A symbol compiled into the bundle's `Assets.car` (`CustomGlyph.symbolName`).
+        case customGlyph(symbolName: String, versionID: UUID)
     }
 
     public struct Entry: Sendable, Equatable {
         public var osType: String
-        public var assetID: UUID
-        /// The `.icns` to copy into `Contents/Resources/<assetID>.icns`.
-        public var icnsSource: URL
+        public var style: EntryStyle
 
-        public init(osType: String, assetID: UUID, icnsSource: URL) {
+        public init(osType: String, style: EntryStyle) {
             self.osType = osType
-            self.assetID = assetID
-            self.icnsSource = icnsSource
+            self.style = style
         }
 
-        public var icnsFileName: String { "\(assetID.uuidString).icns" }
+        /// A full-colour entry (the 0.2.0 shape).
+        public init(osType: String, assetID: UUID, icnsSource: URL) {
+            self.init(osType: osType, style: .fullColour(assetID: assetID, icnsSource: icnsSource))
+        }
+
+        /// The part of the type identifier that changes with the icon.
+        public var styleKey: String {
+            switch style {
+            case .fullColour(let assetID, _): assetID.uuidString.lowercased()
+            case .systemSymbol(let name): "sf.\(name)"
+            case .customGlyph(_, let versionID): "glyph.\(versionID.uuidString.lowercased())"
+            }
+        }
+
+        /// `<assetID>.icns` for full colour; nothing for the symbol styles.
+        public var icnsFileName: String? {
+            if case .fullColour(let assetID, _) = style { return "\(assetID.uuidString).icns" }
+            return nil
+        }
+
+        var icons: [String: String] {
+            switch style {
+            case .fullColour:
+                ["UTTypeIconFile": icnsFileName ?? "", "UTTypeSymbolName": IconRegistryBundle.missingSymbolName]
+            case .systemSymbol(let name):
+                ["UTTypeSymbolName": name]
+            case .customGlyph(let symbolName, _):
+                ["UTTypeSymbolName": symbolName]
+            }
+        }
+    }
+
+    /// Eight lowercase hex characters naming one content: the format revision, the sorted entries
+    /// and the bytes of `Assets.car`. Same content, same hash, same bundle path, so applying the
+    /// same configuration twice writes nothing new.
+    public static func contentHash(entries: [Entry], assetsCar: Data?) -> String {
+        var hasher = SHA256()
+        hasher.update(data: Data("format\(formatRevision);".utf8))
+        for entry in entries.sorted(by: { $0.osType < $1.osType }) {
+            hasher.update(data: Data("\(entry.osType)=\(entry.styleKey)=\(entry.icons.sorted { $0.key < $1.key })\n".utf8))
+        }
+        if let assetsCar { hasher.update(data: assetsCar) }
+        return hasher.finalize().prefix(4).map { String(format: "%02x", $0) }.joined()
     }
 
     /// The `Info.plist` contents. Deterministic: entries are sorted by code and keys are sorted.
     /// Throws `invalidMapping` for a code outside the project's range or a code used twice, since
     /// either would give an invalid or ambiguous type.
-    public static func infoPlist(for entries: [Entry]) throws -> Data {
+    public static func infoPlist(for entries: [Entry], hash: String) throws -> Data {
         let codes = entries.map(\.osType)
         if let bad = codes.first(where: { !OSTypeCode.isValid($0) }) {
             throw SidebarIconError.invalidMapping("type code \(bad) is not in the S000–SZZZ range")
@@ -83,27 +122,23 @@ public enum IconRegistryBundle {
         guard Set(codes).count == codes.count else {
             throw SidebarIconError.invalidMapping("a type code is used more than once")
         }
-        let sorted = entries.sorted { $0.osType < $1.osType }
-        let exportedTypes: [[String: Any]] = sorted.map { entry in
+        let exportedTypes: [[String: Any]] = entries.sorted { $0.osType < $1.osType }.map { entry in
             [
-                "UTTypeIdentifier": typeIdentifier(for: entry.osType, assetID: entry.assetID),
+                "UTTypeIdentifier": typeIdentifier(for: entry.osType, styleKey: entry.styleKey),
                 "UTTypeDescription": "Sidebar Icons \(entry.osType)",
                 "UTTypeConformsTo": ["public.data"],
-                "UTTypeIcons": [
-                    "UTTypeIconFile": entry.icnsFileName,
-                    "UTTypeSymbolName": missingSymbolName,
-                ],
+                "UTTypeIcons": entry.icons,
                 "UTTypeTagSpecification": ["com.apple.ostype": [entry.osType]],
             ]
         }
         let plist: [String: Any] = [
             "CFBundleDevelopmentRegion": "en",
-            "CFBundleIdentifier": bundleIdentifier,
+            "CFBundleIdentifier": bundleIdentifier(forHash: hash),
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundleName": "IconRegistry",
             "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": "1.0",
-            "CFBundleVersion": bundleVersion(for: entries),
+            "CFBundleVersion": String(UInt32(hash, radix: 16) ?? 0),
             "LSMinimumSystemVersion": "27.0",
             "LSUIElement": true,
             "UTExportedTypeDeclarations": exportedTypes,
@@ -111,8 +146,9 @@ public enum IconRegistryBundle {
         return try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
     }
 
-    /// Writes the complete bundle to `bundleURL`, replacing any previous version in one step.
-    public static func write(_ entries: [Entry], to bundleURL: URL) throws {
+    /// Writes the complete bundle to `bundleURL`, replacing any previous content in one step.
+    /// `assetsCar`, when given, is copied to `Contents/Resources/Assets.car`.
+    public static func write(_ entries: [Entry], assetsCar: URL? = nil, hash: String, to bundleURL: URL) throws {
         let fileManager = FileManager.default
         let staging = bundleURL.deletingLastPathComponent()
             .appending(path: ".\(bundleURL.lastPathComponent).staging-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -120,13 +156,17 @@ public enum IconRegistryBundle {
         let resources = contents.appending(path: "Resources", directoryHint: .isDirectory)
         try fileManager.createDirectory(at: resources, withIntermediateDirectories: true)
         do {
-            try infoPlist(for: entries).write(to: contents.appending(path: "Info.plist"))
+            try infoPlist(for: entries, hash: hash).write(to: contents.appending(path: "Info.plist"))
             try Data("APPL????".utf8).write(to: contents.appending(path: "PkgInfo"))
             for entry in entries {
-                let target = resources.appending(path: entry.icnsFileName)
+                guard case .fullColour(_, let icnsSource) = entry.style, let name = entry.icnsFileName else { continue }
+                let target = resources.appending(path: name)
                 if !fileManager.fileExists(atPath: target.path) {
-                    try fileManager.copyItem(at: entry.icnsSource, to: target)
+                    try fileManager.copyItem(at: icnsSource, to: target)
                 }
+            }
+            if let assetsCar {
+                try fileManager.copyItem(at: assetsCar, to: resources.appending(path: "Assets.car"))
             }
             if fileManager.fileExists(atPath: bundleURL.path) {
                 // An atomic swap, not `FileManager.replaceItemAt`: that call also registers an
@@ -139,7 +179,7 @@ public enum IconRegistryBundle {
                         NSUnderlyingErrorKey: POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO),
                     ])
                 }
-                // `staging` now holds the previous version. A failed delete only leaves a staging
+                // `staging` now holds the previous content. A failed delete only leaves a staging
                 // folder, which Reset All removes.
                 try? fileManager.removeItem(at: staging)
             } else {

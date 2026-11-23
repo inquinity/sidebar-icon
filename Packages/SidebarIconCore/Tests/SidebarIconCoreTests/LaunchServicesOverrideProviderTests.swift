@@ -16,7 +16,7 @@ import Testing
         #expect(system.calls == ["claims", "register", "set S001 \(fixture.dev)", "set S002 \(fixture.docs)"])
         let ledger = try provider.ledgerEntries()
         #expect(ledger.map(\.kind) == [.iconRegistration, .sidebarOverride, .sidebarOverride])
-        #expect(FileManager.default.fileExists(atPath: fixture.container.registryBundleURL.appending(path: "Contents/Info.plist").path))
+        #expect(FileManager.default.fileExists(atPath: try currentRegistryBundle(fixture.container).appending(path: "Contents/Info.plist").path))
     }
 
     @Test func applyIsIdempotent() async throws {
@@ -62,7 +62,7 @@ import Testing
         #expect(report.applied == [mappings[0].id])
         #expect(report.skipped == [.init(mappingID: mappings[1].id, reason: .codeClaimedElsewhere(code: "S002", owners: owners.map(\.description)))])
         #expect(system.calls == ["claims", "register", "set S001 \(fixture.dev)"])
-        let plist = try Data(contentsOf: fixture.container.registryBundleURL.appending(path: "Contents/Info.plist"))
+        let plist = try Data(contentsOf: try currentRegistryBundle(fixture.container).appending(path: "Contents/Info.plist"))
         #expect(String(decoding: plist, as: UTF8.self).contains("S001"))
         #expect(!String(decoding: plist, as: UTF8.self).contains(">S002<"))
         #expect(try provider.ledgerEntries().compactMap(\.osType) == ["S001"])
@@ -81,14 +81,14 @@ import Testing
         #expect(report.skipped.count == 2)
         #expect(system.calls == ["claims"])
         #expect(try provider.ledgerEntries().isEmpty)
-        #expect(!FileManager.default.fileExists(atPath: fixture.container.registryBundleURL.path))
+        #expect(try registryBundlesOnDisk(fixture.container).isEmpty)
     }
 
     @Test func ignoresClaimsByItsOwnRegistrationBundle() async throws {
         let fixture = try ProviderFixture()
         let system = FakeLaunchServices(favoritePaths: [fixture.dev, fixture.docs])
         system.state.withLock {
-            $0.claims = ["S001": [LSClaimOwner(name: "IconRegistry", identifier: IconRegistryBundle.bundleIdentifier, path: fixture.container.registryBundleURL.path)]]
+            $0.claims = ["S001": [LSClaimOwner(name: "IconRegistry", identifier: IconRegistryBundle.bundleIdentifier, path: fixture.container.registryBundleURL(named: "IconRegistry-0000abcd.app").path)]]
         }
         let provider = LaunchServicesOverrideProvider(container: fixture.container, system: system)
         let report = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
@@ -98,7 +98,7 @@ import Testing
     @Test(arguments: ["firmlink", "trailingSlash", "noPath"])
     func recognisesItsOwnBundleHoweverTheDumpSpellsThePath(_ spelling: String) async throws {
         let fixture = try ProviderFixture()
-        let own = fixture.container.registryBundleURL.path
+        let own = fixture.container.registryBundleURL(named: "IconRegistry-0000abcd.app").path
         let path: String? = switch spelling {
         case "firmlink": "/System/Volumes/Data" + own
         case "trailingSlash": own + "/"
@@ -159,7 +159,7 @@ import Testing
         }
         _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
 
-        let info = try Data(contentsOf: fixture.container.registryBundleURL.appending(path: "Contents/Info.plist"))
+        let info = try Data(contentsOf: try currentRegistryBundle(fixture.container).appending(path: "Contents/Info.plist"))
         let plist = try #require(PropertyListSerialization.propertyList(from: info, format: nil) as? [String: Any])
         let codes = (plist["UTExportedTypeDeclarations"] as? [[String: Any]])?
             .compactMap { ($0["UTTypeTagSpecification"] as? [String: [String]])?["com.apple.ostype"]?.first }
@@ -190,7 +190,8 @@ import Testing
         #expect(report.cleared == [fixture.docs])
         // Unwanted overrides are cleared first, before registration and before any override is set.
         let second = Array(system.calls.dropFirst(4))
-        #expect(second == ["clear S002", "claims", "register", "set S001 \(fixture.dev)"])
+        // The content changed (S002 left), so a new version is registered and the old one retired.
+        #expect(second == ["clear S002", "claims", "register", "set S001 \(fixture.dev)", "unregister"])
         #expect(try system.listFavorites().first { $0.path == fixture.docs }?.overrideIcon == nil)
         #expect(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.map(\.target) == [fixture.dev])
     }
@@ -233,8 +234,13 @@ import Testing
         let system = FakeLaunchServices(favoritePaths: [fixture.dev, fixture.docs])
         let elsewhere = fixture.dir.url.appending(path: "Other.app", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
-        try FileManager.default.createSymbolicLink(at: fixture.container.registryBundleURL, withDestinationURL: elsewhere)
         let provider = LaunchServicesOverrideProvider(container: fixture.container, system: system)
+        // Learn the version's path, undo everything, then plant a link where that version goes.
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+        let versionPath = try currentRegistryBundle(fixture.container)
+        _ = try await provider.reset()
+        system.state.withLock { $0.calls = [] }
+        try FileManager.default.createSymbolicLink(at: versionPath, withDestinationURL: elsewhere)
         await #expect(throws: SidebarIconError.self) {
             try await provider.apply(fixture.mappings(), assets: [fixture.asset])
         }

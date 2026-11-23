@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// One row of the mapping list (contracts/mapping-manager.md).
@@ -8,6 +9,8 @@ public struct MappingRow: Sendable, Equatable, Identifiable {
     public var displayName: String
     /// The copied image in `Icons/`, for the preview.
     public var iconFile: URL
+    /// How the Favorite is drawn in the sidebar.
+    public var style: SidebarStyle
     public var enabled: Bool
     public var osType: String
     public var state: MappingState
@@ -42,6 +45,8 @@ public actor MappingManager {
     let store: ConfigStore
     let provider: LaunchServicesOverrideProvider
     let restartFinder: @Sendable () async throws -> Void
+    /// Whether an SF Symbol name exists on this Mac (FR-003); injectable for tests.
+    let isValidSystemSymbol: @Sendable (String) -> Bool
 
     private var config = AppConfiguration()
     /// Set when `config.json` can't be read (D3). No method writes the config then, except
@@ -57,12 +62,19 @@ public actor MappingManager {
     public init(
         container: ContainerLocator,
         system: any LaunchServicesSystem = SystemLaunchServices(),
-        restartFinder: @escaping @Sendable () async throws -> Void = { _ = try await FinderRestarter.restart() }
+        restartFinder: @escaping @Sendable () async throws -> Void = { _ = try await FinderRestarter.restart() },
+        isValidSystemSymbol: @escaping @Sendable (String) -> Bool = MappingManager.systemSymbolExists
     ) {
         self.container = container
         self.store = ConfigStore(container: container)
         self.provider = LaunchServicesOverrideProvider(container: container, system: system)
         self.restartFinder = restartFinder
+        self.isValidSystemSymbol = isValidSystemSymbol
+    }
+
+    /// An SF Symbol name is valid when AppKit can load it on this Mac (004 research D6).
+    public static func systemSymbolExists(_ name: String) -> Bool {
+        !name.isEmpty && NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil
     }
 
     /// Whether this macOS build is one the mechanism was verified on (D8).
@@ -135,6 +147,7 @@ public actor MappingManager {
                 folderPath: mapping.folderPath,
                 displayName: URL(fileURLWithPath: mapping.folderPath).lastPathComponent,
                 iconFile: iconFile(for: mapping),
+                style: mapping.sidebarStyle,
                 enabled: mapping.enabled,
                 osType: mapping.osType,
                 state: state
@@ -147,10 +160,20 @@ public actor MappingManager {
     /// Adds a mapping for `folder` with a copy of `image`, then applies every enabled mapping
     /// (contracts/mapping-manager.md). If the image can't be read or converted, nothing is saved.
     public func add(folder: URL, image: URL) async throws -> ActionResult {
-        try await exclusive { try await self.performAdd(folder: folder, image: image) }
+        try await exclusive { try await self.performAdd(folder: folder, icon: .image(image)) }
     }
 
-    private func performAdd(folder: URL, image: URL) async throws -> ActionResult {
+    /// Adds a mapping drawn with a glyph style (system or custom), then applies (004 Stories 1–3).
+    public func add(folder: URL, style: SidebarStyle) async throws -> ActionResult {
+        try await exclusive { try await self.performAdd(folder: folder, icon: .style(style)) }
+    }
+
+    private enum NewIcon {
+        case image(URL)
+        case style(SidebarStyle)
+    }
+
+    private func performAdd(folder: URL, icon: NewIcon) async throws -> ActionResult {
         try requireWritable()
         guard (try? provider.listFavorites()) != nil else {
             favoritesReadable = false
@@ -160,18 +183,28 @@ public actor MappingManager {
         // 1. The folder: an existing directory, not already mapped by any spelling (FR-004).
         let path = try validatedNewFolder(folder, excluding: nil)
 
-        // 2. Copy and convert the image.
-        let asset = try importAsset(image)
+        // 2. The icon: copy and convert an image, or check a glyph style.
+        var asset: IconAsset?
+        let style: SidebarStyle
+        switch icon {
+        case .image(let image):
+            let imported = try importAsset(image)
+            asset = imported
+            style = .fullColour(assetID: imported.id)
+        case .style(let chosen):
+            try validateGlyphStyle(chosen)
+            style = chosen
+        }
 
         // 3–4. Allocate a code and save; on failure the copied files are removed again.
         do {
             let code = try allocateCode()
             var next = config
-            next.mappings.append(SidebarMapping(folderPath: path, iconAssetID: asset.id, osType: code))
-            next.assets.append(asset)
+            next.mappings.append(SidebarMapping(folderPath: path, sidebarStyle: style, osType: code))
+            if let asset { next.assets.append(asset) }
             config = try store.save(next)
         } catch {
-            store.deleteFiles(of: asset)
+            if let asset { store.deleteFiles(of: asset) }
             throw Self.managerError(error)
         }
 
@@ -192,6 +225,28 @@ public actor MappingManager {
         try await exclusive {
             try await self.requireWritable()
             return try await self.applyAll()
+        }
+    }
+
+    /// Changes how a mapping is drawn in the sidebar to a glyph style; its code stays the same
+    /// (004 research D2). Full colour is set with `changeIcon(for:image:)`.
+    public func setStyle(_ style: SidebarStyle, for id: UUID) async throws -> ActionResult {
+        try await exclusive {
+            try await self.validateGlyphStyle(style)
+            try await self.change(id) { $0.mappings[$1].sidebarStyle = style }
+            return await self.applyAfterSave(iconChangedFor: id)
+        }
+    }
+
+    /// A system glyph must exist on this Mac (FR-003); a custom glyph must be one of the owner's.
+    private func validateGlyphStyle(_ style: SidebarStyle) throws {
+        switch style {
+        case .systemSymbol(let name):
+            guard isValidSystemSymbol(name) else { throw ManagerError.unknownSymbol(name) }
+        case .customGlyph(let glyphID):
+            guard config.glyph(glyphID) != nil else { throw ManagerError.unknownMapping }
+        case .fullColour:
+            throw ManagerError.unknownMapping
         }
     }
 
@@ -227,7 +282,7 @@ public actor MappingManager {
             let asset = try await self.importAsset(image)
             do {
                 try await self.change(id) { config, index in
-                    config.mappings[index].iconAssetID = asset.id
+                    config.mappings[index].sidebarStyle = .fullColour(assetID: asset.id)
                     config.assets.append(asset)
                 }
             } catch {
@@ -369,6 +424,12 @@ public actor MappingManager {
         if readOnlyReason != nil { throw ManagerError.readOnly }
     }
 
+    /// The combined car holding every custom glyph, kept in `Glyphs/` (004 research D4b, T026).
+    func currentAssetsCar() -> URL? {
+        let car = container.glyphsDirectory.appending(path: "Assets.car")
+        return FileManager.default.fileExists(atPath: car.path) ? car : nil
+    }
+
     private func iconFile(for mapping: SidebarMapping) -> URL {
         let name = config.asset(for: mapping)?.fileName ?? ""
         return container.iconsDirectory.appending(path: LaunchServicesOverrideProvider.isPlainFileName(name) ? name : "missing")
@@ -438,7 +499,8 @@ public actor MappingManager {
         // Which overrides are already in place, so the refresh hint only follows a real change.
         let before = (try? provider.listFavorites()) ?? []
         do {
-            let report = try await provider.apply(config.mappings, assets: config.assets)
+            let report = try await provider.apply(config.mappings, assets: config.assets, glyphs: config.glyphs,
+                                                  assetsCar: currentAssetsCar())
             for id in report.applied {
                 lastFailures[id] = nil
             }

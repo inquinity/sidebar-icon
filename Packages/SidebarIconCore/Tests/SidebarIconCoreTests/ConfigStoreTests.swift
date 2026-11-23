@@ -21,7 +21,7 @@ import Testing
         let (_, _, store) = try makeStore()
         let config = try store.load()
         #expect(config == AppConfiguration())
-        #expect(config.schemaVersion == 1)
+        #expect(config.schemaVersion == 2)
     }
 
     @Test func saveThenLoadRoundTrips() throws {

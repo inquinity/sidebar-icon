@@ -141,23 +141,36 @@ every entry will be marked **removed**.
 
 - **Symbol and framework**: Launch Services registration of a small bundle whose `Info.plist`
   declares only `UTExportedTypeDeclarations`, one per code:
-  - identifier `com.altmansoftwaredesign.sidebaricons.icon.<code>.<asset id>`;
+  - identifier `com.altmansoftwaredesign.sidebaricons.icon.<code>.<style key>`, where the style
+    key is the asset ID (full colour), `sf.<symbol name>` (system glyph) or `glyph.<version id>`
+    (custom glyph);
   - a `com.apple.ostype` tag with the code;
-  - `UTTypeIcons` = `{UTTypeIconFile: <asset id>.icns, UTTypeSymbolName: <a name no symbol has>}`.
+  - `UTTypeIcons`, per style (since 0.3.0):
+    - full colour: `{UTTypeIconFile: <asset id>.icns, UTTypeSymbolName: <a name no symbol has>}`;
+    - system glyph: `{UTTypeSymbolName: <SF Symbol name>}`;
+    - custom glyph: `{UTTypeSymbolName: <glyph name>.<version id>}`, with the symbol compiled by
+      Xcode's `actool` into the bundle's `Contents/Resources/Assets.car`.
 
-  `CFBundleVersion` is derived from the mapping and a format revision (a hash, not an increasing
+  `CFBundleVersion` is derived from the content and a format revision (a hash, not an increasing
   number; re-registration goes by path). Registration uses `LSRegisterURL` (public, `LSInfo.h`).
-  The bundle is application-type (`IconRegistry.app`, `CFBundlePackageType` `APPL`,
-  `LSUIElement`, no executable, identifier `com.altmansoftwaredesign.sidebaricons.iconregistry`).
-  It is never launched.
+  The bundle is application-type (`CFBundlePackageType` `APPL`, `LSUIElement`, no executable) and
+  is never launched. Since 0.3.0 it is **versioned**: `IconRegistry-<content hash>.app` with the
+  identifier `com.altmansoftwaredesign.sidebaricons.iconregistry.<content hash>`, where the hash
+  is the first 8 hex digits of a SHA-256 over the entries and the `Assets.car`. 0.2.0 used a
+  single `IconRegistry.app` with the base identifier.
 - **Status**: Undocumented behavior. `LSRegisterURL` and the Info.plist keys are public, but two
   things the utility relies on are not documented:
   - Finder's sidebar draws the type's icon for the PA-03 code.
   - It draws the `.icns` in full colour when the named symbol does not exist. With a real SF
-    Symbol name it draws that symbol as a monochrome glyph, and with no symbol, a generic
-    document glyph.
+    Symbol name it draws that symbol as a glyph tinted like the system glyphs (outline blue with
+    the default accent), and with no symbol, a generic document glyph.
+  - It also looks the symbol name up in the registering bundle's `Assets.car`, so a custom symbol
+    compiled there is drawn tinted like an SF Symbol (004 spike S1, S4).
+  - It caches that `Assets.car` per bundle path: rewriting the car in place shows the old glyph
+    until Finder restarts (S4b). A new bundle path with the same codes shows the new glyph.
 - **Purpose and calling file**: Maps each type code to the icon chosen for a folder. The bundle
-  is written to the utility's own App Group container as `IconRegistry.app`. Built by
+  is written to the utility's own App Group container as `IconRegistry-<hash>.app` (one current
+  version; the previous one is unregistered and deleted after each switch). Built by
   `Packages/SidebarIconCore/Sources/SidebarIconCore/Icons/IconRegistryBundle.swift` (public file
   writes only) and registered by `SystemLaunchServices` in `LaunchServicesOverrideProvider.swift`
   (tasks T024, T027).
@@ -167,6 +180,9 @@ every entry will be marked **removed**.
     Apply, with no Finder restart.
   - B4: icons persist with the app quit and across Finder restarts.
   - B6: reset restores the folder glyphs.
+  - 004 spike, 2026-11-22: SF Symbol names and custom symbols from an `actool`-built
+    `Assets.car` are drawn at system glyph size and tint; a new versioned bundle with the same
+    codes switches glyphs within seconds without restarting Finder (S1–S4b).
 
   Failed earlier on the same build:
   - Document types with only `CFBundleTypeOSTypes`: the codes became `dyn.…` types, so no icon.
@@ -175,8 +191,14 @@ every entry will be marked **removed**.
     why the asset ID is in the identifier.
 - **Risks**:
   - The full-colour result depends on a fallback for a missing symbol; Apple could change it to a
-    generic glyph in any release. The monochrome SF Symbol variant is the fallback design.
+    generic glyph in any release. Since 0.3.0 the glyph styles are the main design and full colour
+    is the legacy style.
   - Icons are cached per type identifier; a changed icon must get a new identifier.
+  - Custom glyphs are cached per bundle path, so each change gets a new bundle path; codes stay
+    stable, so the sidebar overrides (PA-02/PA-03) are not rewritten when only a style changes.
+  - Custom symbols need a "Regular-M" glyph made of filled paths; `actool` refuses strokes. The
+    compiled-car format is Apple's and undocumented; the utility only ever produces it with
+    `actool` and never parses it.
   - A Finder Sync extension watching the same folder replaces the glyph with its app's icon (A1),
     so the utility must not ship one for these folders.
   - Another app could register the same type code; apply checks for this before registering
@@ -194,15 +216,18 @@ every entry will be marked **removed**.
     `SLD8`, `SLKX` on 26B131); the R7 check now also catches type declarations, so such a code
     is refused rather than overridden. Since 002 the allocator skips claimed codes when a mapping
     is added (research D4).
-- **Reset and removal**: Reset unregisters the bundle (PA-05) and deletes it from the container.
+- **Reset and removal**: Reset unregisters every recorded bundle version (PA-05) and deletes it
+  from the container. After switching to a new version, apply does the same for the previous
+  versions, once the overrides point at the new one.
   Since 002, apply does the same when no enabled mapping is left and no override is still
   recorded (for example after removing or turning off the last mapping). Apply clears unwanted
   overrides first, before registering and before setting new ones, so a mapping moved to another
   Favorite never leaves its code on the old one, and a failed registration can't stop Off or
   Remove. A code whose clear failed stays declared in the bundle until it is cleared.
-  Reset only ever unregisters or deletes the bundle at the utility's own container path; a ledger
+  Reset only ever unregisters or deletes a bundle named `IconRegistry.app` or
+  `IconRegistry-*.app` directly in the utility's own container (never a symbolic link); a ledger
   entry naming any other path is reported and left untouched. Since 002, after a successful reset
-  the app also removes registry staging folders left by a crash and a bundle at its own path
+  the app also removes registry staging folders left by a crash and bundles at its own paths
   that the ledger never recorded (unregistered first; a symbolic link is removed as a link and
   never unregistered).
 
