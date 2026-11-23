@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-17
 
-**Status**: Planned (2026-11-20) — 001 chose Path B; see [plan.md](plan.md)
+**Status**: Done (2026-11-22) — verified on macOS 27.2.1 (26B131); see [research.md › Verification](research.md#verification) and [Final verification](research.md#final-verification-owner). Open follow-ups F001–F021 are in [tasks.md](tasks.md)
 
 **Input**: User description: "A small macOS utility to manage any number of folder → sidebar icon
 mappings: Add Folder, Pick Icon, Enable/Disable, Remove, Preview, Refresh Finder. Settings persist,

@@ -200,8 +200,8 @@ These are needed by every story.
 - [X] T038 Independent code review of `Core/Manager/`, `Core/Config/` and `app/SidebarIcons/`, plus a security review of `app/SidebarIcons/SidebarIcons.entitlements`, the signing settings and any adapter change (constitution). Fix the findings; record them in `specs/002-mapping-manager-v1/research.md`
 - [X] T039 (owner) Run quickstart check 11 (light/dark and accent colour)
 - [X] T040 (owner) Run quickstart check 12 (20 mappings; logout; reboot; FR-011, FR-013, SC-002)
-- [ ] T041 (owner) Run quickstart checks 13–14 (leftovers after Reset All and deletion; folders untouched; SC-004, SC-005)
-- [ ] T042 Mark the spec Status "Done" with the verified macOS build and merge to `main` on the owner's go-ahead (no PR; branch workflow)
+- [X] T041 (owner) Run quickstart checks 13–14 (leftovers after Reset All and deletion; folders untouched; SC-004, SC-005)
+- [X] T042 Mark the spec Status "Done" with the verified macOS build and merge to `main` on the owner's go-ahead (no PR; branch workflow)
 
 ---
 
@@ -229,6 +229,7 @@ Reviewed at each checkpoint; the owner decides whether to schedule them.
 - [ ] F018 Check whether Refresh Finder's polite quit (an Apple Event to Finder) works from the hardened app or always falls back to SIGTERM after 5 s, and whether it leaves an Automation privacy record, `Core/Finder/FinderRestarter.swift` (final review question)
 - [ ] F019 Check whether the open panels add the chosen folder or image to Recent Items or set `com.apple.lastuseddate#PS` on it, and whether an SVG or PDF can make the renderer fetch remote resources (SC-005, FR-012; final review questions)
 - [ ] F020 Spec edge case "another Finder extension watches the same folder: show the conflict if detectable" is not implemented and has no recorded decision; decide and record in research.md (final review)
+- [ ] F021 Use lowercase identifiers for the bundle ID and App Group (for example `com.altmansoftwaredesign.sidebaricons`), the owner's preference. Changing them moves the app's container, so plan it as its own change: new IDs in `app/SidebarIcons.xcodeproj`, the entitlements, `ContainerLocator.appGroupSuffix`, the spike, and the docs; Reset All before switching
 
 ---
 

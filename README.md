@@ -11,15 +11,14 @@ generic folder glyph. One app can manage any number of folders.
 
 ## Status
 
-**The Sidebar Icons app works on macOS 27.2.1 (26B131)**: add, turn off, change and remove
-per-folder sidebar icons, preview them first, refresh Finder, and reset everything. The final
-verification (light/dark and accent colour, 20 mappings across logout and reboot, leftover audit)
-is still open.
+**Sidebar Icons v1 is done and verified on macOS 27.2.1 (26B131)**: add, turn off, change and
+remove per-folder sidebar icons, preview them first, refresh Finder, and reset everything. Verified
+with 22 mappings across logout and reboot, in light and dark mode, and with a full leftover audit.
 
 | Feature | State |
 |---------|-------|
 | [001 Sidebar icon spike](specs/001-sidebar-icon-spike/spec.md) | Done; chose Path B (Launch Services override), no extension, app not sandboxed. Retired |
-| [002 Mapping manager v1](specs/002-mapping-manager-v1/spec.md) | Stories 1–4 built and checked in Finder; final verification open ([tasks](specs/002-mapping-manager-v1/tasks.md)) |
+| [002 Mapping manager v1](specs/002-mapping-manager-v1/spec.md) | Done, verified on 26B131; follow-ups in [tasks](specs/002-mapping-manager-v1/tasks.md) |
 
 ## Design principles
 
