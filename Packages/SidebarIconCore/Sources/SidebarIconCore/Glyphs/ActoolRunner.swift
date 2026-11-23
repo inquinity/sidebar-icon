@@ -1,5 +1,5 @@
 import Foundation
-import Synchronization
+import Security
 
 /// What a finished (or stopped) process produced.
 public struct ProcessOutput: Sendable, Equatable {
@@ -58,28 +58,60 @@ public struct ActoolRunner: Sendable {
     static let xcrun = URL(fileURLWithPath: "/usr/bin/xcrun")
 
     let runner: any ProcessRunning
-    /// This process's environment; only a few variables are passed on.
+    /// This process's environment; only `HOME` and `TMPDIR` are passed on.
     let inheritedEnvironment: [String: String]
-    let isExecutable: @Sendable (String) -> Bool
+    /// True when the file is an executable signed by Apple (`anchor apple`).
+    let isTrustedTool: @Sendable (String) -> Bool
+    /// The selected developer directory, read without running anything, or nil if none.
+    let developerDirectory: @Sendable () -> String?
 
     public init(runner: any ProcessRunning = SystemProcessRunner(),
                 inheritedEnvironment: [String: String] = ProcessInfo.processInfo.environment,
-                isExecutable: @escaping @Sendable (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }) {
+                isTrustedTool: @escaping @Sendable (String) -> Bool = ActoolRunner.isAppleSignedExecutable,
+                developerDirectory: @escaping @Sendable () -> String? = ActoolRunner.selectedDeveloperDirectory) {
         self.runner = runner
         self.inheritedEnvironment = inheritedEnvironment
-        self.isExecutable = isExecutable
+        self.isTrustedTool = isTrustedTool
+        self.developerDirectory = developerDirectory
     }
 
-    /// `PATH=/usr/bin:/bin`, plus `HOME`, `TMPDIR` and `DEVELOPER_DIR` if set.
+    /// `PATH=/usr/bin:/bin`, plus `HOME` and `TMPDIR` if set. `DEVELOPER_DIR` is not passed on:
+    /// the tool comes from the developer directory chosen with `xcode-select` (review L3).
     var environment: [String: String] {
         var environment = ["PATH": "/usr/bin:/bin"]
-        for key in ["HOME", "TMPDIR", "DEVELOPER_DIR"] {
+        for key in ["HOME", "TMPDIR"] {
             if let value = inheritedEnvironment[key] { environment[key] = value }
         }
         return environment
     }
 
+    /// The developer directory `xcode-select` chose (its link in `/var/db`), or Xcode in
+    /// /Applications when none was chosen. Nothing is run, so a Mac without developer tools never
+    /// sees the "install the command line developer tools" prompt that `/usr/bin/xcrun` shows.
+    public static func selectedDeveloperDirectory() -> String? {
+        let fileManager = FileManager.default
+        if let link = try? fileManager.destinationOfSymbolicLink(atPath: "/var/db/xcode_select_link") {
+            return fileManager.fileExists(atPath: link) ? link : nil
+        }
+        let xcode = "/Applications/Xcode.app/Contents/Developer"
+        return fileManager.fileExists(atPath: xcode) ? xcode : nil
+    }
+
+    /// An executable regular file whose code signature is valid and anchored at Apple.
+    public static func isAppleSignedExecutable(_ path: String) -> Bool {
+        guard FileManager.default.isExecutableFile(atPath: path) else { return false }
+        var code: SecStaticCode?
+        var requirement: SecRequirement?
+        guard SecStaticCodeCreateWithPath(URL(fileURLWithPath: path) as CFURL, [], &code) == errSecSuccess, let code,
+              SecRequirementCreateWithString("anchor apple" as CFString, [], &requirement) == errSecSuccess, let requirement
+        else { return false }
+        return SecStaticCodeCheckValidity(code, [], requirement) == errSecSuccess
+    }
+
     public func toolStatus() -> ToolStatus {
+        guard let developer = developerDirectory(), !developer.contains("/CommandLineTools") else {
+            return .unavailable(GlyphBuildError.needsXcode)
+        }
         let output: ProcessOutput
         do {
             output = try runner.run(Self.xcrun, arguments: ["--find", "actool"], environment: environment, timeout: 30)
@@ -90,8 +122,10 @@ public struct ActoolRunner: Sendable {
             return .unavailable(Self.plainReason(output) ?? GlyphBuildError.needsXcode)
         }
         let path = String(decoding: output.standardOutput, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !path.isEmpty, !path.contains("\n"), path.hasPrefix("/"),
-              !path.contains("/CommandLineTools/"), path.contains("/Developer/"), isExecutable(path) else {
+        // The tool must be inside the selected developer directory and signed by Apple.
+        let developerPrefix = developer.hasSuffix("/") ? developer : developer + "/"
+        guard !path.isEmpty, !path.contains("\n"), path.hasPrefix(developerPrefix), !path.contains("/../"),
+              !path.contains("/CommandLineTools/"), isTrustedTool(path) else {
             return .unavailable(GlyphBuildError.needsXcode)
         }
         return .available(URL(fileURLWithPath: path))
@@ -115,7 +149,7 @@ public struct ActoolRunner: Sendable {
         ]
         let output = try runner.run(actool, arguments: arguments, environment: environment, timeout: Self.timeout)
         if output.timedOut { throw GlyphBuildError.timedOut }
-        if let reason = Self.plainReason(output) { throw GlyphBuildError.toolUnavailable(reason) }
+        if output.exitCode != 0, let reason = Self.plainReason(output) { throw GlyphBuildError.toolUnavailable(reason) }
         let errors = Self.errors(in: output.standardOutput)
         let car = outputDirectory.appending(path: "Assets.car")
         guard output.exitCode == 0, errors.isEmpty, FileManager.default.fileExists(atPath: car.path) else {
@@ -126,9 +160,10 @@ public struct ActoolRunner: Sendable {
         return car
     }
 
-    /// The license and first-launch failures, in plain language.
+    /// The license and first-launch failures, in plain language. Only for a failed run, and only
+    /// from standard error, so a glyph named like "license-doc" in a warning can't match.
     static func plainReason(_ output: ProcessOutput) -> String? {
-        let text = (String(decoding: output.standardError, as: UTF8.self) + String(decoding: output.standardOutput, as: UTF8.self)).lowercased()
+        let text = String(decoding: output.standardError, as: UTF8.self).lowercased()
         if text.contains("license") { return GlyphBuildError.needsLicense }
         if text.contains("runfirstlaunch") || text.contains("first launch") { return GlyphBuildError.needsFirstLaunch }
         if text.contains("commandlinetools") || text.contains("unable to find utility") || text.contains("invalid active developer path") {
@@ -147,45 +182,51 @@ public struct ActoolRunner: Sendable {
     }
 }
 
-/// Runs a program with `Process`; stops it after `timeout` seconds.
+/// Runs a program with `Process`; stops it after `timeout` seconds. Output goes to temporary
+/// files, not pipes, so a helper that inherits them and outlives the program can't keep this
+/// waiting (review M1), and nothing is left blocked if the launch fails (L5).
 public struct SystemProcessRunner: ProcessRunning {
     public init() {}
 
     public func run(_ executable: URL, arguments: [String], environment: [String: String], timeout: TimeInterval) throws -> ProcessOutput {
+        let fileManager = FileManager.default
+        let scratch = fileManager.temporaryDirectory.appending(path: "sidebaricons-run-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try fileManager.createDirectory(at: scratch, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: scratch) }
+        let outURL = scratch.appending(path: "stdout"), errURL = scratch.appending(path: "stderr")
+        for url in [outURL, errURL] {
+            guard fileManager.createFile(atPath: url.path, contents: nil) else { throw CocoaError(.fileWriteUnknown) }
+        }
+        let outHandle = try FileHandle(forWritingTo: outURL)
+        let errHandle = try FileHandle(forWritingTo: errURL)
+        defer {
+            try? outHandle.close()
+            try? errHandle.close()
+        }
+
         let process = Process()
         process.executableURL = executable
         process.arguments = arguments
         process.environment = environment
         process.standardInput = FileHandle.nullDevice
-        let stdout = Pipe(), stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-
+        process.standardOutput = outHandle
+        process.standardError = errHandle
         let finished = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in finished.signal() }
-        // Read both pipes while the process runs, so a full pipe can't block it.
-        let collected = Mutex<(out: Data, err: Data)>((Data(), Data()))
-        let readers = DispatchGroup()
-        for (pipe, isOut) in [(stdout, true), (stderr, false)] {
-            readers.enter()
-            DispatchQueue.global().async {
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                collected.withLock { if isOut { $0.out = data } else { $0.err = data } }
-                readers.leave()
-            }
-        }
         try process.run()
+
         var timedOut = false
         if finished.wait(timeout: .now() + timeout) == .timedOut {
             timedOut = true
             process.terminate()
             if finished.wait(timeout: .now() + 5) == .timedOut {
                 kill(process.processIdentifier, SIGKILL)
-                finished.wait()
+                _ = finished.wait(timeout: .now() + 5)
             }
         }
-        readers.wait()
-        let (out, err) = collected.withLock { ($0.out, $0.err) }
-        return ProcessOutput(exitCode: process.terminationStatus, standardOutput: out, standardError: err, timedOut: timedOut)
+        let limit = 4 * 1024 * 1024
+        func read(_ url: URL) -> Data { ((try? Data(contentsOf: url)) ?? Data()).prefix(limit) }
+        return ProcessOutput(exitCode: process.isRunning ? -1 : process.terminationStatus,
+                             standardOutput: read(outURL), standardError: read(errURL), timedOut: timedOut)
     }
 }

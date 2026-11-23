@@ -111,7 +111,7 @@ public enum SVGShapeReader {
 
     /// XMLParser delegate that collects shapes and the first refusal.
     private final class Collector: NSObject, XMLParserDelegate {
-        struct Paint { var fill: String?; var stroke: String?; var fillRule: String? }
+        struct Paint { var fill: String?; var stroke: String?; var fillRule: String?; var hidden = false }
 
         var shapes: [SVGShapes.Shape] = []
         var viewBox: SVGShapes.ViewBox?
@@ -123,7 +123,9 @@ public enum SVGShapeReader {
         /// Depth inside an ignored element (`title`, `desc`, `metadata`, editor namespaces).
         private var ignoredDepth = 0
 
-        private static let ignoredElements: Set<String> = ["title", "desc", "metadata"]
+        /// Never drawn, so their contents are skipped (a gradient in `defs` is refused only when a
+        /// shape is filled with it).
+        private static let ignoredElements: Set<String> = ["title", "desc", "metadata", "defs"]
         private static let flattenElements: Set<String> = [
             "image", "use", "pattern", "linearGradient", "radialGradient", "mask", "clipPath", "filter",
             "symbol", "foreignObject", "marker", "switch", "a", "svg-nested",
@@ -143,7 +145,7 @@ public enum SVGShapeReader {
             } else if name == "svg" {
                 return refuse(parser, .unsupportedSVG("A nested <svg> element isn't supported. \(SVGReadError.flattenGuidance)"))
             }
-            if attributes["transform"] != nil {
+            if attributes["transform"] != nil || attributes["style"]?.contains("transform") == true {
                 return refuse(parser, .unsupportedSVG("<\(name)> has a transform. \(SVGReadError.transformGuidance)"))
             }
             if attributes["class"] != nil {
@@ -154,7 +156,7 @@ public enum SVGShapeReader {
             paintStack.append(paint)
 
             switch name {
-            case "svg", "g", "defs":
+            case "svg", "g":
                 return
             case "line", "polyline":
                 return refuse(parser, .unsupportedSVG("<\(name)> is a stroke. \(SVGReadError.strokeGuidance)"))
@@ -186,6 +188,7 @@ public enum SVGShapeReader {
         }
 
         private func addShape(_ parser: XMLParser, name: String, attributes: [String: String], paint: Paint) {
+            if paint.hidden { return }  // display="none", hidden or fully transparent: not drawn.
             let fill = (paint.fill ?? "black").trimmingCharacters(in: .whitespaces)
             let stroke = (paint.stroke ?? "none").trimmingCharacters(in: .whitespaces)
             let hasStroke = stroke != "none" && stroke != "transparent"
@@ -216,6 +219,12 @@ public enum SVGShapeReader {
                 }
             }
             if let fill = values["fill"] { paint.fill = fill }
+            if values["display"] == "none" || ["hidden", "collapse"].contains(values["visibility"] ?? "")
+                || values["opacity"].flatMap(Double.init) == 0 || values["fill-opacity"].flatMap(Double.init) == 0 {
+                paint.hidden = true
+            } else if values["visibility"] == "visible" {
+                paint.hidden = false
+            }
             if let stroke = values["stroke"] { paint.stroke = stroke }
             if let rule = values["fill-rule"] { paint.fillRule = rule }
         }
@@ -223,12 +232,17 @@ public enum SVGShapeReader {
         static func parseViewBox(_ text: String?) -> SVGShapes.ViewBox? {
             guard let text else { return nil }
             let numbers = SVGShapeReader.numbers(in: text)
-            guard numbers.count == 4, numbers[2] > 0, numbers[3] > 0 else { return nil }
+            guard numbers.count == 4, numbers.allSatisfy(\.isFinite), numbers[2] > 0, numbers[3] > 0 else { return nil }
             return .init(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3])
         }
 
         static func pathData(_ name: String, _ a: [String: String]) -> String? {
-            func number(_ key: String) -> Double? { a[key].flatMap { Double($0.trimmingCharacters(in: .whitespaces)) } }
+            // Plain numbers or pixels; other units can't be placed in the viewBox.
+            func number(_ key: String) -> Double? {
+                guard var text = a[key]?.trimmingCharacters(in: .whitespaces) else { return nil }
+                if text.hasSuffix("px") { text.removeLast(2) }
+                return Double(text).flatMap { $0.isFinite ? $0 : nil }
+            }
             let f = SVGShapeReader.format
             switch name {
             case "path":
@@ -274,8 +288,9 @@ public enum SVGShapeReader {
         }
     }
 
-    /// Numbers separated by whitespace or commas.
+    /// The numbers in an SVG list (`points`, `viewBox`), including compact forms such as
+    /// `10-5` or `.5.5`.
     static func numbers(in text: String) -> [Double] {
-        text.split(whereSeparator: { $0 == "," || $0.isWhitespace }).compactMap { Double($0) }
+        text.matches(of: /[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/).compactMap { Double(text[$0.range]) }
     }
 }

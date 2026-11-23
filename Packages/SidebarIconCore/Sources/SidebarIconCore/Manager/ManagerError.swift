@@ -20,6 +20,8 @@ public enum ManagerError: Error, Sendable, Equatable {
     case unknownSymbol(String)
     /// A custom glyph name that breaks the naming rules (004 data-model.md).
     case invalidGlyphName(String)
+    /// The glyph no longer exists.
+    case unknownGlyph
     /// The glyph is used by mappings and no replacement style was given (FR-010).
     case glyphInUse(String)
     /// A custom glyph couldn't be built; nothing was changed.
@@ -51,6 +53,8 @@ public enum ManagerError: Error, Sendable, Equatable {
             "That mapping no longer exists."
         case .invalidGlyphName(let name):
             "\"\(name)\" can't be a glyph name: use lowercase letters, digits, dots and hyphens (up to 48), starting with a letter or digit."
+        case .unknownGlyph:
+            "That glyph no longer exists."
         case .glyphInUse(let name):
             "The glyph \(name) is used by a folder; choose another style for it first."
         case .glyphBuild(let error):

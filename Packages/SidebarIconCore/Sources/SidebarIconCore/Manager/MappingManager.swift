@@ -273,6 +273,10 @@ public actor MappingManager {
         try requireWritable()
         let name = rawName.trimmingCharacters(in: .whitespaces)
         guard CustomGlyph.isValidName(name) else { throw ManagerError.invalidGlyphName(name) }
+        // The size is checked before reading, so a huge file is never loaded.
+        if let size = try? template.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > SVGShapeReader.maximumFileSize {
+            throw ManagerError.glyphBuild(.templateUnreadable("\(template.lastPathComponent) is larger than 1 MB"))
+        }
         let data: Data
         do {
             data = try Data(contentsOf: template)
@@ -299,18 +303,34 @@ public actor MappingManager {
             next.glyphs.append(glyph)
         }
         try refuseLinkedGlyphFolders()
+        // The new template and the staged car are the only files written before the save; the
+        // combined car in Glyphs/ changes only after the save succeeds (review M2).
         let templateCopy = container.glyphsDirectory.appending(path: glyph.templateFileName)
+        let staged: StagedCar
         do {
             try FileManager.default.createDirectory(at: container.glyphsDirectory, withIntermediateDirectories: true)
             try data.write(to: templateCopy)
-            try buildCar(for: next.glyphs)
+            staged = try stageCar(for: next.glyphs)
+        } catch {
+            try? FileManager.default.removeItem(at: templateCopy)
+            throw Self.managerError(error)
+        }
+        defer { staged.discard() }
+        do {
             config = try store.save(next)
         } catch {
             try? FileManager.default.removeItem(at: templateCopy)
             throw Self.managerError(error)
         }
+        var installNote: String?
+        do {
+            try installCar(staged)
+        } catch {
+            installNote = "The glyph was saved, but its build couldn't be stored (\(error.localizedDescription)); Apply Now builds it again."
+        }
         var result = await applyAfterSave()
         result.messages.insert("Imported the glyph \(name).", at: 0)
+        if let installNote { result.messages.insert(installNote, at: 1) }
         return result
     }
 
@@ -322,7 +342,7 @@ public actor MappingManager {
 
     private func performDeleteGlyph(_ id: UUID, replacement: SidebarStyle?) async throws -> ActionResult {
         try requireWritable()
-        guard let glyph = config.glyph(id) else { throw ManagerError.unknownMapping }
+        guard let glyph = config.glyph(id) else { throw ManagerError.unknownGlyph }
         var next = config
         let users = next.mappings.indices.filter { next.mappings[$0].glyphID == id }
         if !users.isEmpty {
@@ -341,37 +361,62 @@ public actor MappingManager {
         // keeps using it until the next successful build.
         if next.glyphs.isEmpty {
             removeCar()
-        } else if case .available = glyphTool.toolStatus() {
-            try? buildCar(for: next.glyphs)
+        } else if case .available = glyphTool.toolStatus(), let staged = try? stageCar(for: next.glyphs) {
+            try? installCar(staged)
+            staged.discard()
         }
         var result = await applyAfterSave()
         result.messages.insert("Deleted the glyph \(glyph.name).", at: 0)
         return result
     }
 
-    /// Builds the combined car for `glyphs` in `Build/<id>/` and installs it as
-    /// `Glyphs/Assets.car` with `Glyphs/Assets.key` (their sorted version IDs). The previous car
-    /// stays until the new one is built; the build folder is always deleted.
-    private func buildCar(for glyphs: [CustomGlyph]) throws {
+    /// A combined car built in `Build/<id>/`, not yet installed.
+    struct StagedCar {
+        let buildFolder: URL
+        let car: URL
+        let key: String
+
+        func discard() { try? FileManager.default.removeItem(at: buildFolder) }
+    }
+
+    /// Builds the combined car for `glyphs` in `Build/<id>/`. Glyphs/ is not touched; on failure
+    /// the build folder is deleted.
+    private func stageCar(for glyphs: [CustomGlyph]) throws -> StagedCar {
         try refuseLinkedGlyphFolders()
         let fileManager = FileManager.default
         let build = container.buildDirectory.appending(path: UUID().uuidString.lowercased(), directoryHint: .isDirectory)
-        defer { try? fileManager.removeItem(at: build) }
-        let items = glyphs.map {
-            AssetCatalogWriter.Item(symbolName: $0.symbolName, template: container.glyphsDirectory.appending(path: $0.templateFileName))
+        do {
+            let items = glyphs.map {
+                AssetCatalogWriter.Item(symbolName: $0.symbolName, template: container.glyphsDirectory.appending(path: $0.templateFileName))
+            }
+            let output = build.appending(path: "out", directoryHint: .isDirectory)
+            try fileManager.createDirectory(at: output, withIntermediateDirectories: true)
+            let catalog = build.appending(path: "Glyphs.xcassets", directoryHint: .isDirectory)
+            try AssetCatalogWriter.write(items, to: catalog)
+            let car = try glyphTool.compile(catalog: catalog, outputDirectory: output,
+                                            partialInfoPlist: build.appending(path: "partial.plist"))
+            return StagedCar(buildFolder: build, car: car, key: Self.carKey(glyphs))
+        } catch {
+            try? fileManager.removeItem(at: build)
+            throw error
         }
-        let output = build.appending(path: "out", directoryHint: .isDirectory)
-        try fileManager.createDirectory(at: output, withIntermediateDirectories: true)
-        try AssetCatalogWriter.write(items, to: build.appending(path: "Glyphs.xcassets", directoryHint: .isDirectory))
-        let car = try glyphTool.compile(catalog: build.appending(path: "Glyphs.xcassets"), outputDirectory: output,
-                                        partialInfoPlist: build.appending(path: "partial.plist"))
+    }
+
+    /// Installs a staged car as `Glyphs/Assets.car` with `Glyphs/Assets.key` (sorted version
+    /// IDs). The key is removed first and written last, so a failure in between leaves no key:
+    /// the car is then rebuilt rather than trusted.
+    private func installCar(_ staged: StagedCar) throws {
+        try refuseLinkedGlyphFolders()
+        let fileManager = FileManager.default
+        let key = container.glyphsDirectory.appending(path: "Assets.key")
         let target = container.glyphsDirectory.appending(path: "Assets.car")
+        if fileManager.fileExists(atPath: key.path) { try fileManager.removeItem(at: key) }
         if fileManager.fileExists(atPath: target.path) {
-            _ = try fileManager.replaceItemAt(target, withItemAt: car)
+            _ = try fileManager.replaceItemAt(target, withItemAt: staged.car)
         } else {
-            try fileManager.moveItem(at: car, to: target)
+            try fileManager.moveItem(at: staged.car, to: target)
         }
-        try Data(Self.carKey(glyphs).utf8).write(to: container.glyphsDirectory.appending(path: "Assets.key"), options: .atomic)
+        try Data(staged.key.utf8).write(to: key, options: .atomic)
     }
 
     private func removeCar() {
@@ -591,7 +636,10 @@ public actor MappingManager {
         let onDisk = carKeyOnDisk()
         let carExists = FileManager.default.fileExists(atPath: car.path)
         if carExists, onDisk == all { return car }
-        if case .available = glyphTool.toolStatus(), (try? buildCar(for: config.glyphs)) != nil { return car }
+        if case .available = glyphTool.toolStatus(), let staged = try? stageCar(for: config.glyphs) {
+            defer { staged.discard() }
+            if (try? installCar(staged)) != nil { return car }
+        }
         return carExists && needed.isSubset(of: onDisk) ? car : nil
     }
 

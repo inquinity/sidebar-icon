@@ -20,6 +20,9 @@ final class AppModel {
     private(set) var busy = false
     private(set) var statusLine = ""
     var alert: Alert?
+    /// The last action's error, shown inside the style picker, whose sheet would hide the
+    /// window's alert (review M4).
+    private(set) var lastError: String?
     /// The open style picker (Add Folder… or Change Icon…) until Apply or Cancel.
     var styleRequest: StyleRequest?
     /// Set when `config.json` can't be read (research D3).
@@ -142,6 +145,7 @@ final class AppModel {
 
     func cancelStyle() {
         styleRequest = nil
+        lastError = nil
     }
 
     func repoint(_ row: MappingRow) {
@@ -164,6 +168,7 @@ final class AppModel {
         guard let manager, !busy else { return }
         busy = true
         statusLine = "Working…"
+        lastError = nil
         Task {
             defer { busy = false }
             do {
@@ -173,7 +178,11 @@ final class AppModel {
                 statusLine = Self.summary(of: result)
             } catch {
                 statusLine = ""
-                alert = Alert(title: "Sidebar Icons", message: Self.message(for: error))
+                let message = Self.message(for: error)
+                lastError = message
+                if styleRequest == nil {
+                    alert = Alert(title: "Sidebar Icons", message: message)
+                }
                 rows = await manager.rows()
                 glyphs = await manager.glyphs()
             }

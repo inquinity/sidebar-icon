@@ -63,7 +63,8 @@ public enum SymbolTemplateWriter {
     }
 
     /// True when `template` has the glyph `actool` requires (an SF Symbols app export or ours).
+    /// Parsed, not searched: a `Regular-M` group with at least one path (review L7).
     public static func hasRequiredGlyph(_ template: String) -> Bool {
-        template.contains(#"id="Regular-M""#)
+        SymbolTemplatePreview.svg(fromTemplate: template) != nil
     }
 }

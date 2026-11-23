@@ -153,14 +153,29 @@ Each decision: what was chosen, why, and what else was considered.
   1. Locate the tool with `/usr/bin/xcrun --find actool`.
   2. Run it with `Process`, using a fixed argument list:
      `--compile <dir> --platform macosx --minimum-deployment-target 27.0 --output-format xml1 --errors --warnings --output-partial-info-plist <file> <catalog>`.
-  3. Give it an environment of `PATH=/usr/bin:/bin`, plus `HOME`, `TMPDIR`, and `DEVELOPER_DIR`
-     if set.
+  3. Give it an environment of `PATH=/usr/bin:/bin`, plus `HOME` and `TMPDIR`. `DEVELOPER_DIR` is
+     not passed on (review of Story 2): the tool comes from the developer directory chosen with
+     `xcode-select`.
   4. Stop it after 120 s.
   5. Parse the XML output for errors, and map known failures to plain messages: tool missing
      (Command Line Tools only), Xcode license not accepted, first-launch components missing.
 
   Builds run in `Build/` inside the container, and only the resulting `Assets.car` is kept, inside
   the new registry bundle.
+
+  Hardening after the Story 2 review (2026-11-23):
+  - Before running `xcrun`, the selected developer directory is read from
+    `/var/db/xcode_select_link` (or Xcode in /Applications); with none, or only the Command Line
+    Tools, the tool is reported unavailable without running anything, so the `xcrun` shim never
+    shows its install prompt.
+  - The path `xcrun` prints must lie inside that developer directory and be signed by Apple
+    (`anchor apple`, checked with `SecStaticCodeCheckValidity`).
+  - Output goes to temporary files rather than pipes, so a helper that outlives `actool` can't
+    hold the app past the timeout.
+  - The combined car is built in `Build/` and installed into `Glyphs/` only after the
+    configuration is saved; the key is removed before the car is replaced and written last.
+  - A rebuild during apply happens only when the glyph set and `Assets.key` disagree (after a
+    failed install), and apply always follows an explicit owner action (Principle I).
 - **Rationale**: an Apple tool with no shell and a minimal environment, the same discipline as
   `lsregister` (002). Whether it runs from the hardened app is **proof P-1** (Principle IV).
 - **Alternatives**: `xcrun actool` directly (rejected: `xcrun` would run whatever tool name it

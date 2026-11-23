@@ -14,6 +14,8 @@ struct CustomGlyphTab: View {
     @State private var newName = ""
     @State private var template: URL?
     @State private var pendingDelete: CustomGlyph?
+    /// Versions present when Import was clicked, to recognise the one it adds.
+    @State private var versionsBeforeImport: Set<UUID>?
 
     private var toolUnavailableReason: String? {
         if case .unavailable(let reason)? = model.glyphToolStatus { reason } else { nil }
@@ -25,6 +27,12 @@ struct CustomGlyphTab: View {
                 Label(reason, systemImage: "hammer.circle")
                     .font(.callout)
                     .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let error = model.lastError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if model.glyphs.isEmpty {
@@ -81,12 +89,17 @@ struct CustomGlyphTab: View {
                 }
             }
         }
-        .task { if model.glyphToolStatus == nil { await model.checkGlyphTool() } }
+        // Checked each time the tab opens, so installing Xcode or accepting its license is
+        // noticed without a relaunch (review L1). The check never runs xcrun without Xcode.
+        .task { await model.checkGlyphTool() }
         .onChange(of: model.glyphs) { _, glyphs in
-            // Select a glyph just imported under the typed name.
-            if let imported = glyphs.first(where: { $0.name == newName.trimmingCharacters(in: .whitespaces) }) {
+            // Select the version the import just added, and close the form.
+            guard let before = versionsBeforeImport else { return }
+            let name = newName.trimmingCharacters(in: .whitespaces)
+            if let imported = glyphs.first(where: { $0.name == name && !before.contains($0.versionID) }) {
                 selection = imported.id
                 importing = false
+                versionsBeforeImport = nil
             }
         }
         .confirmationDialog("Delete glyph?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -124,9 +137,15 @@ struct CustomGlyphTab: View {
                 Text("This replaces the existing glyph with a new version.").font(.caption).foregroundStyle(.secondary)
             }
             HStack {
-                Button("Cancel") { importing = false }
+                Button("Cancel") {
+                    importing = false
+                    versionsBeforeImport = nil
+                }
                 Button("Import") {
-                    if let template { model.importGlyph(name: newName, template: template) }
+                    if let template {
+                        versionsBeforeImport = Set(model.glyphs.map(\.versionID))
+                        model.importGlyph(name: newName, template: template)
+                    }
                 }
                 .disabled(template == nil || !CustomGlyph.isValidName(newName.trimmingCharacters(in: .whitespaces)) || !model.canChange)
                 if model.busy { ProgressView().controlSize(.small) }

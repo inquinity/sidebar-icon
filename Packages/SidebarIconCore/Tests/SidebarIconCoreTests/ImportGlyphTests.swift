@@ -174,4 +174,52 @@ import Testing
         #expect(try LedgerStore(url: setup.container.ledgerURL).entries().isEmpty)
         #expect(await manager.readOnlyReason == nil)
     }
+
+    // Review M2 and test gaps.
+
+    @Test func failedSaveLeavesTheInstalledCarAlone() async throws {
+        let setup = try ManagerFixture()
+        let manager = try await manager(setup, FakeActool())
+        _ = try await manager.importGlyph(name: "git", template: try fixture("template-regular-m.svg"))
+        let key = setup.container.glyphsDirectory.appending(path: "Assets.key")
+        let keyBefore = try Data(contentsOf: key)
+        let carBefore = try Data(contentsOf: car(setup))
+        // config.json can't be replaced while the container folder is read-only.
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: setup.container.root.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: setup.container.root.path) }
+
+        await #expect(throws: ManagerError.self) {
+            try await manager.importGlyph(name: "git", template: try fixture("template-regular-m.svg"))
+        }
+
+        #expect(try Data(contentsOf: key) == keyBefore)
+        #expect(try Data(contentsOf: car(setup)) == carBefore)
+        #expect(await manager.glyphs().count == 1)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: setup.container.glyphsDirectory.path).count == 3)
+    }
+
+    @Test func deletingTheLastUnusedGlyphRemovesTheCar() async throws {
+        let setup = try ManagerFixture()
+        let manager = try await manager(setup, FakeActool())
+        _ = try await manager.importGlyph(name: "git", template: try fixture("template-regular-m.svg"))
+        let glyph = try #require(await manager.glyphs().first)
+        _ = try await manager.deleteGlyph(glyph.id)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: setup.container.glyphsDirectory.path).isEmpty)
+        await #expect(throws: ManagerError.unknownGlyph) { try await manager.deleteGlyph(glyph.id) }
+    }
+
+    @Test func linkedBuildFolderIsRefused() async throws {
+        let setup = try ManagerFixture()
+        let manager = try await manager(setup, FakeActool())
+        let elsewhere = setup.dir.url.appending(path: "elsewhere")
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: setup.container.root, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: setup.container.buildDirectory, withDestinationURL: elsewhere)
+
+        await #expect(throws: ManagerError.self) {
+            try await manager.importGlyph(name: "git", template: try fixture("template-regular-m.svg"))
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: elsewhere.path).isEmpty)
+        #expect(await manager.glyphs().isEmpty)
+    }
 }

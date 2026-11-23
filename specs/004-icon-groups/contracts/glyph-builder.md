@@ -43,8 +43,8 @@ commands).
   XML output, and `Assets.car` present. Then deletes `Build/<build id>`, except the car, which
   moves into the new registry bundle.
 - `ToolStatus`:
-  - `available(path)`: `xcrun --find actool` printed a path inside a `Developer/` directory and
-    the file is executable;
+  - `available(path)`: a developer directory other than the Command Line Tools is selected,
+    `xcrun --find actool` printed a path inside it, and the file is an Apple-signed executable;
   - otherwise `unavailable(reason)`, with the reason in plain language.
 
 ## Errors → messages

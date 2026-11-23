@@ -34,7 +34,8 @@ final class FakeActool: ProcessRunning {
     }
 
     func runner() -> ActoolRunner {
-        ActoolRunner(runner: self, inheritedEnvironment: ["HOME": "/Users/x", "TMPDIR": "/tmp/x/", "SECRET": "nope"],
-                     isExecutable: { $0 == FakeActool.actoolPath })
+        ActoolRunner(runner: self, inheritedEnvironment: ["HOME": "/Users/x", "TMPDIR": "/tmp/x/", "SECRET": "nope", "DEVELOPER_DIR": "/evil"],
+                     isTrustedTool: { $0 == FakeActool.actoolPath },
+                     developerDirectory: { "/Applications/Xcode.app/Contents/Developer" })
     }
 }
