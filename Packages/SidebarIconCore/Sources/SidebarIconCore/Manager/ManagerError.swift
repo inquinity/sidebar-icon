@@ -20,6 +20,10 @@ public enum ManagerError: Error, Sendable, Equatable {
     case unknownSymbol(String)
     /// A custom glyph name that breaks the naming rules (004 data-model.md).
     case invalidGlyphName(String)
+    /// Another glyph already has this name (004 US3 scenario 2).
+    case glyphNameTaken(String)
+    /// The wizard's drawing can't become a glyph; the reader's message says what to change.
+    case drawingRefused(SVGReadError)
     /// The glyph no longer exists.
     case unknownGlyph
     /// The glyph is used by mappings and no replacement style was given (FR-010).
@@ -53,6 +57,10 @@ public enum ManagerError: Error, Sendable, Equatable {
             "That mapping no longer exists."
         case .invalidGlyphName(let name):
             "\"\(name)\" can't be a glyph name: use lowercase letters, digits, dots and hyphens (up to 48), starting with a letter or digit."
+        case .glyphNameTaken(let name):
+            "You already have a glyph named \(name). Choose another name, or change that glyph's drawing instead."
+        case .drawingRefused(let error):
+            "\(error.message) Nothing was saved."
         case .unknownGlyph:
             "That glyph no longer exists."
         case .glyphInUse(let name):

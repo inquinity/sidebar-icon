@@ -50,10 +50,27 @@ whether a glyph sits well next to the system symbols.
 | Unique | Not used by another of your glyphs |
 | Note | The app adds a version suffix internally, so changing a glyph never shows a stale cached one |
 
-## Manual process (Workflow 1, available now)
+## Wizard (Workflow 1)
 
-Until the wizard arrives, a custom glyph takes three steps. You need Xcode installed (the
-Command Line Tools alone don't include the asset tool) and have opened it once.
+With Xcode installed (not only the Command Line Tools) and opened once:
+
+1. **Draw** the glyph as in section 1 and export it as SVG.
+2. In Sidebar Icons, open **Change Icon…** on a folder (or **Add Folder…**), go to the **Custom
+   glyph** tab and click **New Custom Glyph…**.
+3. The wizard checks for Xcode's asset tool. Then it asks for a name (section 2) and the drawing.
+   It refuses a drawing it can't use, and says what to change; warnings such as "too wide"
+   don't stop it.
+4. It previews the glyph at 16 and 20 pt on light and dark sidebars, next to a system glyph.
+   **Build Glyph** builds it and uses it for the folder.
+
+To change a glyph later, select it in the list and click **New Drawing…**. Every folder that uses
+it shows the new drawing, without restarting Finder.
+
+## Manual process (Workflow 1, without the wizard)
+
+The wizard does these steps for you. Use them for a template made in the SF Symbols app, or to
+work from the command line. You need Xcode installed (the Command Line Tools alone don't include
+the asset tool) and have opened it once.
 
 1. **Draw** the glyph as in section 1 and export it as SVG, for example `~/Icons/git-repo.svg`.
 2. **Make the template**, from the repository folder:

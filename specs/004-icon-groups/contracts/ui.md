@@ -25,10 +25,10 @@ Buttons: Cancel, Apply.
 
 | Step | Content |
 |------|---------|
-| 1 Check | "Checking for Xcode's asset tool…" → ✓ path, or the message from glyph-builder.md, with **Use a system glyph instead** |
+| 1 Check | "Checking for Xcode's asset tool…" → ✓ path, or the message from glyph-builder.md, with **Use a system glyph instead**, **Check Again** and a pointer to the manual process (which also needs Xcode) |
 | 2 Name | Field; lowercase letters, digits, dots and hyphens; uniqueness checked as you type |
 | 3 Drawing | Open panel (SVG). Refusals show the element and the guidance; warnings (proportions, detail) don't block |
-| 4 Folder art (optional) | "Also use full-colour art for this folder's Finder icon" → art picker (opens the opt-in sheet's choices) |
+| 4 Folder art (optional) | "Also use full-colour art for this folder's Finder icon" → art picker (opens the opt-in sheet's choices). Shown disabled until Story 4 (T040) |
 | 5 Preview | Tinted glyph at 16/20 pt, light and dark, next to a system glyph for size comparison |
 | 6 Build | Progress; on success, applies to the mapping. On failure, nothing is saved |
 

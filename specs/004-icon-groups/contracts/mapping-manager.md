@@ -50,8 +50,8 @@ extension ManagerError {
 | `glyphs() -> [GlyphRow]` | 2 | none | |
 | `glyphToolStatus() async -> ToolStatus` | 2 | none | `available(path)` or `unavailable(reason)`; runs `xcrun --find actool` |
 | `importGlyph(name:template:) async throws -> GlyphRow` | 2 | yes (applies) | manual process: a symbol template file (from the helper script or the SF Symbols app); build the combined car with it; apply mappings using that name. A new import under an existing name makes a new version |
-| `createGlyph(name:svg:) async throws -> GlyphRow` | 3 | none (container only) | validate name; read SVG (contract glyph-builder.md); write template; build the combined car to check it compiles; save |
-| `updateGlyph(_:svg:)` | 3 | yes | new `versionID`, rebuild, apply (mappings using it switch to the new registry version) |
+| `createGlyph(name:svg:) async throws -> ActionResult` | 3 | applies, but no mapping uses a new glyph, so the registry is unchanged | validate the name (a name in use throws `glyphNameTaken`); read the SVG (contract glyph-builder.md; a refusal throws `drawingRefused` with the reader's guidance); write the template and keep the SVG as `<versionID>.svg`; build the combined car; save; install the car. A failure before the save leaves `Glyphs/` unchanged |
+| `updateGlyph(_:svg:) async throws -> ActionResult` | 3 | yes | as `createGlyph` for an existing glyph: new `versionID`, rebuild, apply (mappings using it switch to the new registry version); the previous version's files are removed by the save |
 | `deleteGlyph(_:replacement:)` | 2 | yes | mappings using it get `replacement`; rebuild; apply |
 | `setFolderIcon(_:for:confirmReplace:)` | 4 | yes | `FolderIconSetting?`; nil or `enabled = false` turns it off (restores). Throws `folderIconNeedsConfirmation(existing: true)` if the folder has a custom icon and `confirmReplace` is false |
 | `resetAll()` | all | yes | as 002, plus: restore every recorded folder icon (fingerprint rule), unregister every recorded `IconRegistry*` version and any unrecorded one in the container, delete `Glyphs/`, `Build/`, `FolderIconBackups/`, `config.schema1.json` |

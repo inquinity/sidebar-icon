@@ -56,13 +56,28 @@ public enum SVGShapeReader {
     static let detailWarningCommands = 400
 
     public static func read(contentsOf url: URL) throws -> SVGShapes {
+        try read(try boundedData(contentsOf: url))
+    }
+
+    /// The file's bytes, reading at most `maximumFileSize + 1` so a huge or growing file is never
+    /// loaded whole. Only regular files (after following a symlink) are read, so a FIFO or device
+    /// can't block the caller.
+    public static func boundedData(contentsOf url: URL) throws -> Data {
+        let name = url.lastPathComponent
+        guard let values = try? url.resolvingSymlinksInPath().resourceValues(forKeys: [.isRegularFileKey]),
+              values.isRegularFile == true else {
+            throw SVGReadError.unreadable("\(name) isn't a regular file")
+        }
         let data: Data
         do {
-            data = try Data(contentsOf: url)
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            data = try handle.read(upToCount: maximumFileSize + 1) ?? Data()
         } catch {
             throw SVGReadError.unreadable(error.localizedDescription)
         }
-        return try read(data)
+        guard data.count <= maximumFileSize else { throw SVGReadError.tooLarge }
+        return data
     }
 
     public static func read(_ data: Data) throws -> SVGShapes {

@@ -123,6 +123,27 @@ final class AppModel {
         run { try await $0.importGlyph(name: name, template: template) }
     }
 
+    /// The wizard's build (Story 3). `completion` gets the new glyph's id, or nil on failure
+    /// (the error is in `lastError`).
+    func createGlyph(name: String, drawing: Data, completion: @escaping @MainActor (UUID?) -> Void) {
+        let name = name.trimmingCharacters(in: .whitespaces)
+        run({ try await $0.createGlyph(name: name, drawing: drawing) }) { [weak self] succeeded in
+            completion(succeeded ? self?.glyphs.first(where: { $0.name == name })?.id : nil)
+        }
+    }
+
+    /// A new drawing for an existing glyph; its folders switch to the new version.
+    func updateGlyph(_ glyph: CustomGlyph, drawing: Data, completion: @escaping @MainActor (UUID?) -> Void) {
+        let id = glyph.id
+        run({ try await $0.updateGlyph(id, drawing: drawing) }) { succeeded in
+            completion(succeeded ? id : nil)
+        }
+    }
+
+    func clearLastError() {
+        lastError = nil
+    }
+
     /// Deletes a glyph; folders that use it switch to the system folder glyph (FR-010).
     func deleteGlyph(_ glyph: CustomGlyph) {
         run { try await $0.deleteGlyph(glyph.id, replacement: .systemSymbol(name: "folder")) }
@@ -164,18 +185,29 @@ final class AppModel {
         run { try await $0.resetAll() }
     }
 
-    private func run(_ action: @escaping @Sendable (MappingManager) async throws -> ActionResult) {
-        guard let manager, !busy else { return }
+    /// `finished` runs on the main actor after the rows are refreshed, with whether the action
+    /// succeeded. It also runs (with false) when the action couldn't start.
+    private func run(_ action: @escaping @Sendable (MappingManager) async throws -> ActionResult,
+                     finished: (@MainActor (Bool) -> Void)? = nil) {
+        guard let manager, !busy else {
+            finished?(false)
+            return
+        }
         busy = true
         statusLine = "Working…"
         lastError = nil
         Task {
-            defer { busy = false }
+            var succeeded = false
+            defer {
+                busy = false
+                finished?(succeeded)
+            }
             do {
                 let result = try await action(manager)
                 rows = result.rows
                 glyphs = await manager.glyphs()
                 statusLine = Self.summary(of: result)
+                succeeded = true
             } catch {
                 statusLine = ""
                 let message = Self.message(for: error)

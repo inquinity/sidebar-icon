@@ -100,7 +100,13 @@ struct StylePickerView: View {
                 case .system:
                     SymbolSearchView(name: $symbolName, folderName: request.folderName)
                 case .custom:
-                    CustomGlyphTab(model: model, folderName: request.folderName, selection: $selectedGlyph)
+                    CustomGlyphTab(model: model, folderName: request.folderName, selection: $selectedGlyph,
+                                   created: { id in
+                                       // The wizard's last step applies the new glyph (contracts/ui.md).
+                                       selectedGlyph = id
+                                       apply(.customGlyph(id))
+                                   },
+                                   useSystemGlyph: { tab = .system })
                 case .fullColour:
                     fullColourTab
                 }

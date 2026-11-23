@@ -273,18 +273,14 @@ public actor MappingManager {
         try requireWritable()
         let name = rawName.trimmingCharacters(in: .whitespaces)
         guard CustomGlyph.isValidName(name) else { throw ManagerError.invalidGlyphName(name) }
-        // The size is checked before reading, so a huge file is never loaded.
-        if let size = try? template.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > SVGShapeReader.maximumFileSize {
-            throw ManagerError.glyphBuild(.templateUnreadable("\(template.lastPathComponent) is larger than 1 MB"))
-        }
+        // A bounded read: a huge, growing or special file is never loaded whole.
         let data: Data
         do {
-            data = try Data(contentsOf: template)
+            data = try SVGShapeReader.boundedData(contentsOf: template)
+        } catch SVGReadError.tooLarge {
+            throw ManagerError.glyphBuild(.templateUnreadable("\(template.lastPathComponent) is larger than 1 MB"))
         } catch {
             throw ManagerError.glyphBuild(.templateUnreadable(template.lastPathComponent))
-        }
-        guard data.count <= SVGShapeReader.maximumFileSize else {
-            throw ManagerError.glyphBuild(.templateUnreadable("\(template.lastPathComponent) is larger than 1 MB"))
         }
         guard SymbolTemplateWriter.hasRequiredGlyph(String(decoding: data, as: UTF8.self)) else {
             throw ManagerError.glyphBuild(.missingRequiredGlyph(template.lastPathComponent))
@@ -293,33 +289,112 @@ public actor MappingManager {
             throw ManagerError.glyphBuild(.toolUnavailable(reason))
         }
 
+        let existing = config.glyphs.first(where: { $0.name == name })
+        let glyph = CustomGlyph(id: existing?.id ?? UUID(), name: name)
+        return try await storeGlyph(glyph, template: data, source: nil, message: "Imported the glyph \(name).")
+    }
+
+    /// The wizard's path (004 US3): reads the owner's plain SVG, writes the symbol template as
+    /// `make-symbol-template` would, and builds the glyph. The SVG is kept as
+    /// `Glyphs/<versionID>.svg`. A name already in use is refused; `updateGlyph` changes a glyph.
+    public func createGlyph(name: String, svg: URL) async throws -> ActionResult {
+        try await exclusive { try await self.performCreateGlyph(name: name, drawing: { try Self.drawingData(svg) }) }
+    }
+
+    /// The same with the drawing's bytes, so the wizard builds exactly what it previewed.
+    public func createGlyph(name: String, drawing: Data) async throws -> ActionResult {
+        try await exclusive { try await self.performCreateGlyph(name: name, drawing: { drawing }) }
+    }
+
+    private func performCreateGlyph(name rawName: String, drawing: () throws -> Data) async throws -> ActionResult {
+        try requireWritable()
+        let name = rawName.trimmingCharacters(in: .whitespaces)
+        guard CustomGlyph.isValidName(name) else { throw ManagerError.invalidGlyphName(name) }
+        guard !config.glyphs.contains(where: { $0.name == name }) else { throw ManagerError.glyphNameTaken(name) }
+        let (source, template) = try readDrawing(try drawing())
+        let version = UUID()
+        let glyph = CustomGlyph(name: name, versionID: version, sourceFileName: "\(version.uuidString.lowercased()).svg")
+        return try await storeGlyph(glyph, template: template, source: source, message: "Created the glyph \(name).")
+    }
+
+    /// A new drawing for an existing glyph: a new version, so every folder using the glyph shows
+    /// the new drawing without restarting Finder (FR-011).
+    public func updateGlyph(_ id: UUID, svg: URL) async throws -> ActionResult {
+        try await exclusive { try await self.performUpdateGlyph(id, drawing: { try Self.drawingData(svg) }) }
+    }
+
+    public func updateGlyph(_ id: UUID, drawing: Data) async throws -> ActionResult {
+        try await exclusive { try await self.performUpdateGlyph(id, drawing: { drawing }) }
+    }
+
+    private func performUpdateGlyph(_ id: UUID, drawing: () throws -> Data) async throws -> ActionResult {
+        try requireWritable()
+        guard let current = config.glyph(id) else { throw ManagerError.unknownGlyph }
+        let (source, template) = try readDrawing(try drawing())
+        let version = UUID()
+        let glyph = CustomGlyph(id: id, name: current.name, versionID: version,
+                                sourceFileName: "\(version.uuidString.lowercased()).svg")
+        return try await storeGlyph(glyph, template: template, source: source, message: "Updated the glyph \(current.name).")
+    }
+
+    /// The drawing's bytes and its symbol template. Refusals carry the reader's guidance; the tool
+    /// is checked only after the drawing passes, so a refusal is explained even without Xcode.
+    private func readDrawing(_ data: Data) throws -> (source: Data, template: Data) {
+        let template: String
+        do {
+            template = SymbolTemplateWriter.template(for: try SVGShapeReader.read(data))
+        } catch let error as SVGReadError {
+            throw ManagerError.drawingRefused(error)
+        }
+        guard SymbolTemplateWriter.hasRequiredGlyph(template) else {
+            throw ManagerError.glyphBuild(.missingRequiredGlyph("the drawing"))
+        }
+        if case .unavailable(let reason) = glyphTool.toolStatus() {
+            throw ManagerError.glyphBuild(.toolUnavailable(reason))
+        }
+        return (data, Data(template.utf8))
+    }
+
+    /// A drawing file's bytes, read with the reader's size bound (never loaded whole).
+    private static func drawingData(_ svg: URL) throws -> Data {
+        do {
+            return try SVGShapeReader.boundedData(contentsOf: svg)
+        } catch let error as SVGReadError {
+            throw ManagerError.drawingRefused(error)
+        }
+    }
+
+    /// Adds `glyph`, or replaces the glyph with its id, then builds and applies. The new files and
+    /// the staged car are the only things written before the save; the combined car in Glyphs/
+    /// changes only after the save succeeds (review M2). The previous version's files are removed
+    /// by the save.
+    private func storeGlyph(_ glyph: CustomGlyph, template: Data, source: Data?, message: String) async throws -> ActionResult {
         var next = config
-        let glyph: CustomGlyph
-        if let index = next.glyphs.firstIndex(where: { $0.name == name }) {
-            glyph = CustomGlyph(id: next.glyphs[index].id, name: name)
+        if let index = next.glyphs.firstIndex(where: { $0.id == glyph.id }) {
             next.glyphs[index] = glyph
         } else {
-            glyph = CustomGlyph(name: name)
             next.glyphs.append(glyph)
         }
         try refuseLinkedGlyphFolders()
-        // The new template and the staged car are the only files written before the save; the
-        // combined car in Glyphs/ changes only after the save succeeds (review M2).
-        let templateCopy = container.glyphsDirectory.appending(path: glyph.templateFileName)
+        let written = [
+            (glyph.templateFileName, template),
+            glyph.sourceFileName.flatMap { name in source.map { (name, $0) } },
+        ].compactMap { $0 }.map { (container.glyphsDirectory.appending(path: $0.0), $0.1) }
+        let removeWritten = { for (url, _) in written { try? FileManager.default.removeItem(at: url) } }
         let staged: StagedCar
         do {
             try FileManager.default.createDirectory(at: container.glyphsDirectory, withIntermediateDirectories: true)
-            try data.write(to: templateCopy)
+            for (url, data) in written { try data.write(to: url) }
             staged = try stageCar(for: next.glyphs)
         } catch {
-            try? FileManager.default.removeItem(at: templateCopy)
+            removeWritten()
             throw Self.managerError(error)
         }
         defer { staged.discard() }
         do {
             config = try store.save(next)
         } catch {
-            try? FileManager.default.removeItem(at: templateCopy)
+            removeWritten()
             throw Self.managerError(error)
         }
         var installNote: String?
@@ -329,7 +404,7 @@ public actor MappingManager {
             installNote = "The glyph was saved, but its build couldn't be stored (\(error.localizedDescription)); Apply Now builds it again."
         }
         var result = await applyAfterSave()
-        result.messages.insert("Imported the glyph \(name).", at: 0)
+        result.messages.insert(message, at: 0)
         if let installNote { result.messages.insert(installNote, at: 1) }
         return result
     }

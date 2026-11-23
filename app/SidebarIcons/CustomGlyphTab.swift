@@ -3,12 +3,23 @@ import SidebarIconCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Custom glyph tab (contracts/ui.md, 004 Story 2): the owner's glyphs with tinted previews,
-/// Import Glyph… (name and template) and Delete…. Shows why when Xcode's asset tool is missing.
+/// The Custom glyph tab (contracts/ui.md, 004 Stories 2 and 3): the owner's glyphs with tinted
+/// previews, New Custom Glyph… and New Drawing… (the wizard), Import Glyph… (name and template)
+/// and Delete…. Shows why when Xcode's asset tool is missing.
 struct CustomGlyphTab: View {
+    /// Which glyph the wizard is for; `updating` nil makes a new one.
+    struct WizardRequest: Identifiable {
+        let id = UUID()
+        let updating: CustomGlyph?
+    }
+
     let model: AppModel
     let folderName: String
     @Binding var selection: UUID?
+    /// The wizard built a new glyph: use it for the folder.
+    let created: (UUID) -> Void
+    /// The wizard's fallback when Xcode is missing.
+    let useSystemGlyph: () -> Void
 
     @State private var importing = false
     @State private var newName = ""
@@ -16,6 +27,10 @@ struct CustomGlyphTab: View {
     @State private var pendingDelete: CustomGlyph?
     /// Versions present when Import was clicked, to recognise the one it adds.
     @State private var versionsBeforeImport: Set<UUID>?
+    @State private var wizard: WizardRequest?
+    /// A glyph the wizard just created, used once its sheet has closed: closing the picker in
+    /// the same update as the wizard can leave a sheet stuck (review finding 3).
+    @State private var createdGlyph: UUID?
 
     private var toolUnavailableReason: String? {
         if case .unavailable(let reason)? = model.glyphToolStatus { reason } else { nil }
@@ -36,7 +51,7 @@ struct CustomGlyphTab: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if model.glyphs.isEmpty {
-                Text("No custom glyphs yet. Make a template with make-symbol-template (see icon-specification.md, Manual process), then import it here.")
+                Text("No custom glyphs yet. New Custom Glyph… turns an SVG drawing into one. Import Glyph… takes a template made with make-symbol-template (see icon-specification.md, Manual process).")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -76,6 +91,11 @@ struct CustomGlyphTab: View {
                 importForm
             } else {
                 HStack {
+                    Button("New Custom Glyph…") {
+                        model.clearLastError()
+                        wizard = WizardRequest(updating: nil)
+                    }
+                    .disabled(!model.canChange)
                     Button("Import Glyph…") {
                         importing = true
                         newName = ""
@@ -83,6 +103,11 @@ struct CustomGlyphTab: View {
                     }
                     .disabled(toolUnavailableReason != nil || !model.canChange)
                     if let glyph = model.glyphs.first(where: { $0.id == selection }) {
+                        Button("New Drawing…") {
+                            model.clearLastError()
+                            wizard = WizardRequest(updating: glyph)
+                        }
+                        .disabled(toolUnavailableReason != nil || !model.canChange)
                         Button("Delete…", role: .destructive) { pendingDelete = glyph }
                             .disabled(!model.canChange)
                     }
@@ -101,6 +126,27 @@ struct CustomGlyphTab: View {
                 importing = false
                 versionsBeforeImport = nil
             }
+        }
+        .sheet(item: $wizard, onDismiss: {
+            if let id = createdGlyph {
+                createdGlyph = nil
+                created(id)
+            }
+        }) { request in
+            GlyphWizard(model: model, folderName: folderName, updating: request.updating,
+                        finished: { id in
+                            selection = id
+                            if request.updating == nil { createdGlyph = id }
+                            wizard = nil
+                        },
+                        useSystemGlyph: {
+                            wizard = nil
+                            useSystemGlyph()
+                        },
+                        cancel: {
+                            wizard = nil
+                            model.clearLastError()
+                        })
         }
         .confirmationDialog("Delete glyph?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
                             presenting: pendingDelete) { glyph in

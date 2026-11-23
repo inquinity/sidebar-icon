@@ -196,12 +196,12 @@ and previews.
 
 **Independent Test**: quickstart checks 6–7.
 
-- [ ] T031 [P] [US3] Tests in `Tests/CreateGlyphTests.swift`:
+- [X] T031 [P] [US3] Tests in `Tests/CreateGlyphTests.swift`:
   - `createGlyph(name:svg:)` runs reader → writer → import and keeps the source as `Glyphs/<versionID>.svg`;
   - refusals return `unsupportedSVG` with guidance;
   - `updateGlyph(_:svg:)` makes a new version and switches the mappings that use it.
-- [ ] T032 [US3] In `Core/Manager/MappingManager.swift`, add `createGlyph(name:svg:)` and `updateGlyph(_:svg:)` on top of the T028 import path. Makes T031 pass
-- [ ] T033 [US3] Create `app/SidebarIcons/GlyphWizard.swift`, a sheet with steps per contracts/ui.md:
+- [X] T032 [US3] In `Core/Manager/MappingManager.swift`, add `createGlyph(name:svg:)` and `updateGlyph(_:svg:)` on top of the T028 import path. Makes T031 pass
+- [X] T033 [US3] Create `app/SidebarIcons/GlyphWizard.swift`, a sheet with steps per contracts/ui.md:
   1. tool check, with fallbacks to a system glyph or the manual process;
   2. name;
   3. drawing (refusal guidance and non-blocking warnings);
