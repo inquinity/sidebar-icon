@@ -4,13 +4,18 @@
 
 **Created**: 2026-11-22
 
-**Status**: Draft (target release 0.3.0)
+**Status**: Approved with addendum (2026-11-23), target release 0.3.0
 
 **Input**: User description: "Sidebar Favorites should show outline-blue glyphs like the system ones
 instead of full-colour art, and each folder can optionally get matching full-colour art as its own
 Finder icon (opt-in per folder). Two workflows: users with Xcode build their own glyphs with a
 wizard; users without Xcode pick an SF Symbol. Existing full-colour mappings keep working;
 everything is reversible."
+
+**Owner addendum (2026-11-23)**: no migration of 0.2.0 configurations. Order: a manual process
+(owner follows directions, the app imports the glyph), then the `actool` wizard, then system
+glyphs, except that system glyphs come first because they take under a day once the shared
+foundation exists. The owner is the primary user and has Xcode.
 
 Background: [research.md](research.md) (spike results, 26B131) and
 [icon-specification.md](icon-specification.md) (the resources the owner creates per folder).
@@ -44,7 +49,38 @@ blue at system size without restarting Finder.
 
 ---
 
-### User Story 2 - Build a custom outline glyph with a wizard (Priority: P2)
+### User Story 2 - Import a custom glyph made by hand (Priority: P2)
+
+The owner, who has Xcode, makes a custom outline glyph by following written directions: draw the
+outline with filled shapes, turn it into a symbol template (with the included helper script, or
+Apple's SF Symbols app), then choose **Import Glyph…** in the app, give it a name, and pick the
+template. The app builds the glyph and applies it; the Favorite shows it outline blue, like a
+system glyph.
+
+**Why this priority**: It gives the primary user personal glyphs soonest, using steps they can
+follow by hand, before the wizard automates them.
+
+**Independent Test**: Follow the directions for one drawing, import the template; the Favorite
+shows the custom glyph outline blue at system size without restarting Finder.
+
+**Acceptance Scenarios**:
+
+1. **Given** the directions and a filled-shape drawing, **When** the owner runs the helper script,
+   **Then** it writes a symbol template, or refuses the drawing and explains why (strokes, text,
+   images).
+2. **Given** a symbol template, **When** the owner imports it with a unique name, **Then** within 30
+   seconds the Favorite shows the glyph in the accent colour at system size, with no Finder
+   restart.
+3. **Given** a template the build tool rejects (for example, no Regular-weight Medium glyph),
+   **When** the owner imports it, **Then** the app shows the tool's reason and nothing is saved.
+4. **Given** Xcode's build tool is not available, **When** the owner chooses Import Glyph…, **Then**
+   the app says so and how to fix it, and nothing changes.
+5. **Given** imported glyphs, **When** the owner imports a new version under the same name, **Then**
+   mappings using it show the new glyph without a Finder restart.
+
+---
+
+### User Story 3 - Build a custom outline glyph with a wizard (Priority: P3)
 
 A developer with Xcode installed wants their own outline glyph (for example a git-repository or
 dev-folder shape). A wizard walks them through it: it checks that the needed Xcode tool is
@@ -52,8 +88,8 @@ available, asks for a glyph name, asks for the outline drawing and (optionally) 
 shows a preview, and builds the glyph. The Favorite then shows the custom glyph outline blue, like
 a system glyph.
 
-**Why this priority**: It is what makes the sidebar truly personal, but it needs Xcode and a
-prepared drawing, so it comes after the system-glyph path.
+**Why this priority**: It automates the manual process of Story 2 (template generation, tool
+checks, previews), so it follows it.
 
 **Independent Test**: On a Mac with Xcode, run the wizard with a filled-path outline drawing; the
 Favorite shows the custom glyph outline blue at system size without restarting Finder.
@@ -61,7 +97,7 @@ Favorite shows the custom glyph outline blue at system size without restarting F
 **Acceptance Scenarios**:
 
 1. **Given** Xcode's asset tool is not available, **When** the owner starts the wizard, **Then** it
-   says so, explains how to get it, and offers the system-glyph path (Story 1) instead.
+   says so, explains how to get it, and offers the system-glyph path (Story 1) or the manual process (Story 2) instead.
 2. **Given** the tool is available, **When** the owner enters a glyph name already used by another
    of their glyphs, **Then** the wizard asks for a different name.
 3. **Given** an outline drawing made only of filled shapes, **When** the owner selects it, **Then**
@@ -76,15 +112,15 @@ Favorite shows the custom glyph outline blue at system size without restarting F
 
 ---
 
-### User Story 3 - Give the folder a matching Finder icon (Priority: P3)
+### User Story 4 - Give the folder a matching Finder icon (Priority: P4)
 
 When setting up a Favorite (with either kind of glyph), the owner can also choose full-colour art,
 the colour counterpart of the glyph, as the folder's own icon, so Finder windows, Get Info and open
 dialogs show the same design. This is a separate, clearly labeled choice per folder, because it
 writes a small hidden file into the folder.
 
-**Why this priority**: It completes the look but changes the folder itself, so it is opt-in and
-comes after the sidebar glyphs.
+**Why this priority**: It completes the look but changes the folder itself, so it is opt-in. The
+owner's order covers the glyph paths; the folder icon comes after them.
 
 **Independent Test**: Opt one folder in with a 1024 × 1024 image; its Finder icon shows the art at
 every size; Remove restores the plain folder icon and leaves nothing behind in the folder.
@@ -104,27 +140,6 @@ every size; Remove restores the plain folder icon and leaves nothing behind in t
 5. **Given** the owner turns the option off, removes the mapping, or uses Reset All, **When** that
    completes, **Then** the folder's icon goes back to what it was before (the plain folder icon, or
    its earlier custom icon), and the hidden file is gone if the app created it.
-
----
-
-### User Story 4 - Keep existing mappings working and move them to the new look (Priority: P4)
-
-Mappings made with 0.2.0 (full-colour art in the sidebar) keep working after the upgrade. The owner
-can switch any of them to a system or custom glyph, and can still choose the full-colour sidebar
-style for a folder if they prefer it.
-
-**Why this priority**: No one should lose their current icons by upgrading; switching is a
-convenience.
-
-**Independent Test**: Upgrade with existing full-colour mappings; they still show; switch one to a
-system glyph and it shows the glyph.
-
-**Acceptance Scenarios**:
-
-1. **Given** full-colour mappings from 0.2.0, **When** 0.3.0 starts, **Then** they are listed with
-   their style shown as "Full colour" and keep their icons.
-2. **Given** such a mapping, **When** the owner switches it to a glyph, **Then** the sidebar shows
-   the glyph and the old full-colour sidebar icon is no longer used.
 
 ---
 
@@ -149,6 +164,8 @@ system glyph and it shows the glyph.
   separate from system names, so the right one is shown.
 - Many custom glyphs (20 or more): they are built together; changing one does not disturb the
   others.
+- A 0.2.0 configuration is found: the app shows that it was made by 0.2.0 and isn't migrated, and
+  offers Reset All; nothing else changes.
 - The macOS build is not one the feature was verified on: the existing non-blocking warning banner
   is shown.
 
@@ -159,12 +176,20 @@ system glyph and it shows the glyph.
 **Sidebar glyphs**
 
 - **FR-001**: The app MUST let the owner choose, per mapping, one sidebar style: a system glyph
-  (by name), a custom glyph, or full colour (the 0.2.0 style).
+  (by name), a custom glyph, or full colour (the 0.2.0 style, still selectable).
 - **FR-002**: The app MUST show system and custom glyphs in the sidebar drawn the way the system
   Favorites are drawn (tinted with the accent colour, same size class), and MUST preview them that
   way, in light and dark appearance, before applying.
 - **FR-003**: The app MUST validate a system glyph name as the owner types and refuse unknown names.
 - **FR-004**: A changed glyph MUST appear in the sidebar without restarting Finder.
+
+**Manual custom glyphs (Xcode)**
+
+- **FR-020**: The project MUST include written directions and a helper script that turn a
+  filled-shape SVG into a symbol template, with the same rules and messages as the wizard (FR-007,
+  FR-008).
+- **FR-021**: The app MUST import a symbol template under a name (FR-006 rules), build it, and apply
+  it; a template the build tool rejects MUST show the tool's reason and save nothing.
 
 **Custom glyph wizard (Xcode)**
 
@@ -200,7 +225,8 @@ system glyph and it shows the glyph.
 
 **Compatibility and reversibility**
 
-- **FR-016**: Mappings from 0.2.0 MUST keep working after the upgrade without any action.
+- **FR-016**: 0.3.0 MUST NOT migrate a 0.2.0 configuration. If it finds one, it MUST say so, change
+  nothing, and keep Reset All available, which undoes everything 0.2.0 recorded.
 - **FR-017**: Reset All MUST undo every change 0.3.0 can make: sidebar overrides, all registered
   glyph and icon definitions (including earlier versions), and folder icons, and MUST delete the
   stored drawings, art and built glyphs.
@@ -235,7 +261,8 @@ system glyph and it shows the glyph.
 - **SC-005**: After Reset All (and deleting the app and its storage), no sidebar override, no
   registered definition from the app, and no hidden icon file or icon flag set by the app remains
   on any folder; folders that had their own custom icon before show it again.
-- **SC-006**: Every 0.2.0 mapping still shows its icon after upgrading, with no action by the owner.
+- **SC-006**: Following the directions, the owner turns a prepared drawing into a glyph in the
+  sidebar in under 5 minutes.
 - **SC-007**: For folders not opted in to a folder icon, nothing about the folder changes (name,
   location, contents, permissions, icon, modification date).
 
@@ -245,8 +272,8 @@ system glyph and it shows the glyph.
   Line Tools alone do not include it (spike S7). Building is the only step that needs it.
 - Outline drawings are SVG files with filled shapes; converting strokes is done by the owner in a
   drawing app (icon-specification.md lists the commands for common apps).
-- The full-colour sidebar style stays available, both for 0.2.0 mappings and as a choice, because
-  it costs little and some owners may prefer it.
+- No migration from 0.2.0 (owner addendum): the owner resets 0.2.0 before upgrading; the full-colour
+  sidebar style stays available as a choice because the engine already has it.
 - A folder with an existing custom icon is left alone unless the owner explicitly replaces it; the
   previous icon is restored on Remove or Reset All.
 - Folder icons are set with the public macOS mechanism; the sidebar glyphs extend the existing

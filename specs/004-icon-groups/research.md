@@ -73,17 +73,16 @@ What to create per folder is in [icon-specification.md](icon-specification.md).
 
 Each decision: what was chosen, why, and what else was considered.
 
-## D1 — Config schema 2 and migration
+## D1 — Config schema 2, no migration
 
-- **Decision**: `config.json` schema 2 adds, per mapping, a `sidebarStyle` (`systemSymbol(name)`,
-  `customGlyph(glyphID)` or `fullColour(assetID)`) and an optional `folderIcon` setting, and at the
-  top level a `glyphs` list. Loading schema 1 migrates in memory: every mapping becomes
-  `fullColour(iconAssetID)`, with no folder icon. The first save writes schema 2, after copying the
-  original to `config.schema1.json` once.
-- **Rationale**: Story 4 (no action on upgrade); the backup allows a manual downgrade; 0.2.0 reading
-  schema 2 goes read-only with Reset All available (002 D3), so a downgrade is never destructive.
-- **Alternatives**: a separate styles file (rejected: two files to keep consistent); in-place
-  rewrite without backup (rejected: no way back to 0.2.0).
+- **Decision** (owner addendum, 2026-11-23): `config.json` schema 2 adds, per mapping, a
+  `sidebarStyle` (`systemSymbol(name)`, `customGlyph(glyphID)` or `fullColour(assetID)`) and an
+  optional `folderIcon`, and at the top level a `glyphs` list. **No migration**: a schema 1 file
+  (0.2.0) loads as read-only with the message "This configuration was made by Sidebar Icons 0.2.0
+  and isn't converted. Use Reset All to start fresh"; Reset All works from the shared ledger.
+- **Rationale**: the owner is the only user and resets before upgrading; a migration is code that
+  would run once.
+- **Alternatives**: in-memory migration with a backup (planned first, dropped by the owner).
 
 ## D2 — Versioned registry bundles
 
@@ -137,6 +136,16 @@ Each decision: what was chosen, why, and what else was considered.
   says so.
 - **Alternatives**: converting strokes to fills ourselves (rejected: needs path offsetting, error
   prone); requiring a template from Apple's SF Symbols app (rejected: much harder for the owner).
+
+## D4b — Manual process (owner addendum)
+
+- **Decision**: the template writer and SVG reader live in the package, so `scripts/make-symbol-template`
+  (a small Swift command-line target in the package, run with `swift run`) and the wizard share
+  them. Directions in icon-specification.md: draw with filled shapes, run the script, then Import
+  Glyph… in the app (name and template). Import also accepts a template exported from Apple's SF
+  Symbols app, as long as it has a `Regular-M` glyph.
+- **Rationale**: the owner gets custom glyphs before the wizard exists, and the wizard later only
+  adds guidance around the same engine.
 
 ## D5 — Running `actool`
 
@@ -212,4 +221,5 @@ Each decision: what was chosen, why, and what else was considered.
 
 - **Decision**: `SidebarIconCoreInfo.verifiedBuilds` gets each build where quickstart passes (the
   work Mac's build when the owner reports it). Release 0.3.0 with `scripts/release.sh all` after the
-  reviews; CHANGELOG notes the schema migration and the folder-icon opt-in.
+  reviews; CHANGELOG says 0.2.0 configurations aren't converted (reset first) and describes the
+  folder-icon opt-in.

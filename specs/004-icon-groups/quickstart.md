@@ -38,30 +38,35 @@ scripts/release.sh build --dry-run
    restart (SC-001). An invalid name is refused.
 2. Change the style to `externaldrive`: updates without a restart; the code is unchanged (ledger).
 
-**Story 2, custom glyph**
-3. Without Xcode selected (or simulate `toolUnavailable`): the wizard explains and offers a system
-   glyph.
-4. The stroked SVG is refused with the Outline Stroke guidance; nothing saved.
-5. A filled SVG builds; the glyph shows outline blue at system size (compare with a system glyph:
-   within 10 %, SC-002) within 30 s (SC-004).
-6. Change the drawing: the new glyph shows without a restart; 20 other custom mappings keep theirs.
+**Story 2, manual process**
+3. Follow icon-specification.md "Manual process": `swift run make-symbol-template` turns the filled
+   SVG into a template; the stroked SVG is refused with the Outline Stroke guidance.
+4. Import Glyph… with a name and the template: the glyph shows outline blue at system size within
+   30 s (SC-002, SC-004); the whole procedure takes under 5 minutes (SC-006).
+5. Import a new version under the same name: it replaces the old glyph without a Finder restart.
 
-**Story 3, folder icon**
-7. Opt in with a 1024 PNG: Finder list, column and icon views show the art; `Icon\r` exists.
-8. With an `.iconset` override for 16 pt: list view uses the hand-tuned image.
-9. A folder that already has a custom icon: a warning; Replace keeps a backup; Off restores the
+**Story 3, wizard**
+6. Without Xcode selected (or simulate `toolUnavailable`): the wizard explains and offers the other
+   paths.
+7. A plain filled SVG builds through the wizard; previews show the warnings; 20 other custom
+   mappings keep their glyphs when one changes.
+
+**Story 4, folder icon**
+8. Opt in with a 1024 PNG: Finder list, column and icon views show the art; `Icon\r` exists.
+9. With an `.iconset` override for 16 pt: list view uses the hand-tuned image.
+10. A folder that already has a custom icon: a warning; Replace keeps a backup; Off restores the
    previous icon.
-10. Change the folder's icon in Get Info, then Remove: the app leaves it and says so.
-11. A git repository folder: `git status` shows `Icon\r` while set, clean after Off.
+11. Change the folder's icon in Get Info, then Remove: the app leaves it and says so.
+12. A git repository folder: `git status` shows `Icon\r` while set, clean after Off.
 
-**Story 4, upgrade**
-12. Start 0.3.0 with a 0.2.0 configuration: every mapping still shows its icon, style "Full colour";
-    `config.schema1.json` exists after the first change.
+**0.2.0 configuration**
+13. Start 0.3.0 with a 0.2.0 configuration: the window says it was made by 0.2.0 and isn't
+    converted; nothing changes; Reset All undoes 0.2.0's recorded changes.
 
 **Reset and leftovers (SC-005, SC-007)**
-13. Reset All with every style and folder icons set: no overrides, no `IconRegistry*` in
+14. Reset All with every style and folder icons set: no overrides, no `IconRegistry*` in
     `lsregister -dump`, no `Icon\r` or icon flag left by the app, previous custom icons back.
-14. Folders never opted in: modification date and contents unchanged across the whole pass.
+15. Folders never opted in: modification date and contents unchanged across the whole pass.
 
 ## Rollback
 

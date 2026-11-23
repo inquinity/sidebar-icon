@@ -17,9 +17,8 @@ config.json
 
 - Valid when 002's rules hold, every `sidebarStyle` reference resolves (asset or glyph), every
   `folderIcon.artAssetID` resolves, and glyph names are unique.
-- **Migration from schema 1** (research D1): each mapping gets `sidebarStyle = fullColour(iconAssetID)`
-  and no `folderIcon`; `glyphs` is empty. The original file is copied once to
-  `config.schema1.json` before the first schema-2 save.
+- **Schema 1 (0.2.0)**: not migrated (research D1). It loads read-only with a message naming 0.2.0;
+  Reset All works.
 - Schema greater than 2 or invalid: read-only, Reset All available (002 D3).
 
 ## SidebarMapping (changed)
@@ -27,7 +26,7 @@ config.json
 | Field | Type | Rules |
 |-------|------|-------|
 | `id`, `folderPath`, `osType`, `enabled` | as 002 | unchanged; `osType` stays stable across style changes |
-| `sidebarStyle` | SidebarStyle | **new**; replaces `iconAssetID` (kept only in schema 1) |
+| `sidebarStyle` | SidebarStyle | **new**; replaces `iconAssetID` |
 | `folderIcon` | FolderIconSetting? | **new**; nil means the folder is not touched |
 
 ## SidebarStyle (new)
@@ -96,7 +95,6 @@ Inside the container (`…/45GJWJVQN2.com.altmansoftwaredesign.sidebaricons/Libr
 | Path | Purpose | Removed by |
 |------|---------|------------|
 | `config.json` (+ `.tmp`) | schema 2 | Reset All |
-| `config.schema1.json` | one-time pre-migration backup | Reset All |
 | `ledger.json` (+ `.tmp`) | change records | emptied by Reset All |
 | `Icons/<id>.<ext>`, `Icons/<id>.icns` (+ `.tmp`) | sidebar art (full colour), folder art master and sizes, built `.icns` | Remove, Reset All |
 | `Glyphs/<versionID>.svg`, `Glyphs/<versionID>.template.svg` | custom glyph sources and templates | glyph delete, Reset All |

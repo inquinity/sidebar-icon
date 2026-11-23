@@ -21,8 +21,11 @@ and each folder can opt in to **matching full-colour art as its own Finder icon*
 - **Folder icon (opt-in)**: set with the public `NSWorkspace.setIcon` from the full-colour art
   (1024 master plus optional hand-tuned sizes). Recorded in the ledger with a fingerprint, so undo
   only touches an icon that is still ours. An existing custom icon is kept and restored.
-- **Compatibility**: config schema 2 migrates 0.2.0 mappings to the full-colour style, with no
-  owner action.
+- **Compatibility**: no migration (owner addendum). A 0.2.0 configuration (schema 1) is reported and
+  left untouched; Reset All still undoes everything it recorded.
+- **Order** (owner addendum, 2026-11-23): foundation, then system glyph (under a day on top of the
+  foundation), then the **manual process** (directions + helper script + Import Glyph…), then the
+  **`actool` wizard**, then the opt-in **folder icon**.
 - **Release**: 0.3.0 through `scripts/release.sh`.
 
 ## Technical Context
@@ -37,7 +40,7 @@ and each folder can opt in to **matching full-colour art as its own Finder icon*
 Optional at runtime, wizard only: Xcode's `actool`, found with `/usr/bin/xcrun --find actool`.
 
 **Storage**: the App Group container, as in 002:
-- `config.json` (schema 2) and a one-time `config.schema1.json` backup;
+- `config.json` (schema 2);
 - `ledger.json`;
 - `Icons/` (art, `.icns`);
 - `Glyphs/` (custom glyph SVG sources and generated templates);
@@ -46,7 +49,7 @@ Optional at runtime, wizard only: Xcode's `actool`, found with `/usr/bin/xcrun -
 - `FolderIconBackups/` (previous custom folder icons as `.icns`).
 
 **Testing**:
-- Swift Testing for the package: config migration, glyph template writer, SVG validation, registry
+- Swift Testing for the package: schema 2 and the 0.2.0 refusal, glyph template writer, SVG validation, registry
   versioning, folder-icon ownership logic, manager actions with fakes.
 - A fake `actool` runner and a fake folder-icon writer for tests.
 - The Finder-visible checks are manual (quickstart).
@@ -76,9 +79,9 @@ glyph wizard, folder-art opt-in)
 
 | Principle | Check | Result |
 |-----------|-------|--------|
-| I. Inspectable and Boring | Apple frameworks only; no network, helper or daemon. **`actool` is an optional Apple developer tool** run only by the wizard, on an explicit action; nothing else needs it. Every file written is listed in data-model.md | **Pass after amendment A** (Principle I gains a sentence permitting optional, user-invoked Apple developer tools) |
+| I. Inspectable and Boring | Apple frameworks only; no network, helper or daemon. **`actool` is an optional Apple developer tool** run only by the wizard, on an explicit action; nothing else needs it. Every file written is listed in data-model.md | **Pass** (amendment A applied: constitution 1.2.0, 2026-11-23) |
 | II. Public API first; private behind one adapter | Folder icons use public `NSWorkspace.setIcon` (option 1), in `FolderIconProvider` (public, not the private adapter). Sidebar glyphs extend option-2 behavior already proven (S1, S4b) and stay in `LaunchServicesOverrideProvider` | Pass |
-| III. User data never modified | The opt-in folder icon writes `Icon\r` into the folder and sets its icon flag, which the current text forbids except when "the user explicitly asks in a separate, clearly labeled action", and that covers only changing an *existing* custom icon | **Pass after amendment A** (Principle III allows a per-folder, opt-in, labeled folder icon that is recorded, fingerprinted, and restored on undo; nothing else in the folder) |
+| III. User data never modified | The opt-in folder icon writes `Icon\r` into the folder and sets its icon flag, which the current text forbids except when "the user explicitly asks in a separate, clearly labeled action", and that covers only changing an *existing* custom icon | **Pass** (amendment A applied: constitution 1.2.0, 2026-11-23) |
 | IV. Prove before building | S1–S6 passed (research.md). Not proven yet: **P-1** `actool` launched from the signed, hardened app; **P-2** `setIcon` from the app on a folder under `~/Documents` (privacy prompt); **P-3** dark mode and a non-default accent colour with custom glyphs (owner) | **Gated**: tasks for P2/P3 work MUST NOT start until P-1/P-2 pass; P-3 is recorded before release |
 | V. Explicit, reversible side effects | New outside changes: registry versions (ledger `iconRegistration` per path) and folder icons (new ledger kind `folderIcon` with fingerprint and backup). All undone by Remove/Off/Reset All; applied only on explicit actions | Pass |
 | VI. Private API documented | PA-04 gains: Finder draws a registered type's `UTTypeSymbolName` from the registering bundle's `Assets.car` and caches it per bundle path; versioned bundles. Updated in the same commit as the adapter change | Pass (task) |
@@ -95,8 +98,8 @@ Re-check after Phase 1 design: unchanged. The contracts keep all sidebar-registr
 the adapter and folder writes in `FolderIconProvider`. data-model.md lists every file and the new
 `folderIcon` ledger kind. The quickstart holds proofs P-1 to P-3.
 
-The amendment needs the owner's written approval and a Sync Impact Report (task T001). No P3 code
-merges before it.
+The owner approved the amendment on 2026-11-23; it is applied in `.specify/memory/constitution.md`
+(1.2.0, with a Sync Impact Report).
 
 ## Project Structure
 
@@ -124,9 +127,8 @@ specs/004-icon-groups/
 Packages/SidebarIconCore/Sources/SidebarIconCore/
 ├── Config/
 │   ├── AppConfiguration.swift        # schema 2: styles, glyphs, folder icons
-│   ├── ConfigStore.swift             # + migration 1 → 2 with backup
-│   └── ConfigMigration.swift         # NEW
-├── Glyphs/                           # NEW
+│   └── ConfigStore.swift             # schema 2; schema 1 reported as "made by 0.2.0"
+├── Glyphs/                           # NEW (also used by scripts/make-symbol-template)
 │   ├── SVGShapeReader.swift          # paths + rect/circle/ellipse/polygon → path data; refuses strokes etc.
 │   ├── SymbolTemplateWriter.swift    # Regular/Ultralight/Black-M, 150-unit box (S2, S2b)
 │   ├── AssetCatalogWriter.swift      # temporary .xcassets with one .symbolset per glyph
@@ -154,28 +156,33 @@ beyond sidebar behavior (Principle II).
 
 ## Phasing
 
-0. **Gate 0**:
-   - amendment A approved (T001);
-   - proofs P-1 (`actool` from the signed, hardened app) and P-2 (`setIcon` on a `~/Documents`
-     subfolder from the app) recorded in research.md.
-1. **P1, system glyph (Story 1)**, plus the foundations:
-   - schema 2 and migration (Story 4's data part);
-   - the `SidebarStyle` model and versioned registry bundles;
-   - the style picker with SF Symbol search.
+Owner order (addendum 2026-11-23); system glyph first because it is under a day once the foundation
+exists.
 
-   Release candidate **0.3.0-beta** possible here.
-2. **P2, custom glyph wizard (Story 2)**:
-   - SVG reader and template writer, the `actool` runner, and the combined car;
-   - glyph management (change, delete).
-3. **P3, folder icon (Story 3)**:
+0. **Gate 0**:
+   - amendment A approved (owner, 2026-11-23) and applied (T001);
+   - proof P-1 (`actool` from the signed, hardened app) before Story 2's import ships;
+   - proof P-2 (`setIcon` on a `~/Documents` subfolder from the app) before Story 4.
+1. **Foundation**: schema 2 (no migration; schema 1 refused with a message), the `SidebarStyle`
+   model, type declarations per style, versioned registry bundles.
+2. **US1, system glyph**: SF Symbol validation and search, the style picker.
+3. **US2, manual process**:
+   - the SVG reader and template writer in the package;
+   - `scripts/make-symbol-template`, a CLI over them;
+   - directions in icon-specification.md;
+   - the `actool` runner and combined car;
+   - **Import Glyph…** with name and template;
+   - glyph versions and deletion.
+4. **US3, wizard**: the guided sheet (tool check, name, plain SVG, preview, build) on top of US2's
+   engine.
+5. **US4, folder icon**:
    - art builder with overrides or `.iconset`;
    - `FolderIconProvider` with fingerprint and backup;
    - the opt-in sheet;
    - Remove, Off and Reset All restore.
-4. **P4, switching legacy mappings (Story 4 UI)** and the full-colour choice.
-5. **Verification and release**:
-   - quickstart checks and proof P-3;
-   - reviews: code and security (adapter, folder writes, `Process`);
+6. **Verification and release**:
+   - quickstart checks and P-3 (owner);
+   - code and security reviews;
    - `PRIVATE_API.md`, README and CHANGELOG;
    - `scripts/release.sh all` for **0.3.0**.
 
@@ -185,7 +192,7 @@ beyond sidebar behavior (Principle II).
   icon the app set, then restores backed-up icons.
 - Then quit, delete the app and the container, and follow README "Undoing everything".
 - Installing 0.2.0 again: it reads schema 2 as unreadable (read-only mode, Reset All still works).
-  `config.schema1.json` holds the pre-migration copy for a manual downgrade.
+  There is no downgrade path for mappings; reset first.
 - A folder icon left by a crash: the ledger keeps it; Reset All restores it. By hand: Finder
   **Get Info → select the icon → Delete**.
 

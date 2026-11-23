@@ -1,3 +1,20 @@
+<!--
+Sync Impact Report
+- Version change: 1.1.0 → 1.2.0 (MINOR: materially expanded guidance in two principles)
+- Modified principles:
+  - I. Inspectable and Boring: optional Apple developer tools (for example Xcode's actool) allowed
+    on an explicit user action, with the utility working without them.
+  - III. User Data Is Never Modified: a folder's own Finder icon may be set only as a per-folder,
+    clearly labeled opt-in that is recorded, fingerprinted, undone only while still the utility's,
+    and restores any previous custom icon; nothing else in the folder may change.
+- Added sections: none. Removed sections: none.
+- Rationale: feature 004 (icon groups, 0.3.0): custom tinted sidebar glyphs need a compiled asset
+  catalog (only actool makes one), and the owner wants Finder windows to show matching folder art,
+  which macOS only shows from the hidden icon file inside the folder. Approved by the owner on
+  2026-11-23 (specs/004-icon-groups/plan.md, amendment A).
+- Templates: plan-template.md and tasks-template.md need no change (they reference the
+  Constitution Check generically). Follow-up: none.
+-->
 # Sidebar Icons Constitution
 
 ## Core Principles
@@ -7,7 +24,10 @@
 The utility MUST be small enough to read in one sitting and MUST be built locally from source with
 Xcode. It MUST NOT include networking, telemetry, analytics, crash reporting, an auto-updater, a
 privileged helper, root access, SIP changes, a long-running daemon, or a login item. It MUST NOT
-depend on third-party runtime libraries, Homebrew, or Python. Every file the utility writes MUST be
+depend on third-party runtime libraries, Homebrew, or Python. Optional Apple developer tools (for
+example Xcode's `actool`) MAY be run only when the user explicitly starts the feature that needs
+them; everything else MUST work without them, and a feature that needs a missing tool MUST say how
+to install it. Every file the utility writes MUST be
 enumerable from documentation.
 
 Rationale: the target is a work machine, where an opaque third-party tool is not acceptable.
@@ -31,13 +51,20 @@ Isolating private behavior keeps breakage after a macOS update contained and vis
 
 ### III. User Data Is Never Modified
 
-The utility MUST NOT rename, move, delete, or change the contents or permissions of a user's folder.
-It MUST NOT change a folder's existing custom Finder icon unless the user explicitly asks in a
-separate, clearly labeled action. Removing a mapping MUST remove only the utility's own
-configuration and assets. Icon files chosen by the user MUST be copied into the utility's own
-container; originals MUST NOT be modified or required afterwards.
+The utility MUST NOT rename, move, delete, or change the contents or permissions of a user's folder,
+except for the opt-in folder icon below. Removing a mapping MUST remove only the utility's own
+configuration and assets, and undo its own changes. Icon files chosen by the user MUST be copied
+into the utility's own container; originals MUST NOT be modified or required afterwards.
 
-Rationale: the folder icon and the sidebar icon are separate layers, and user data is out of scope.
+A folder's own Finder icon MAY be set only when the user opts that folder in through a separate,
+clearly labeled action that explains the effect first. Such an icon MUST be recorded before it is
+set; MUST be undone (on Remove, on turning it off, and on reset) only while it is still the icon the
+utility set; MUST keep and restore any custom icon the folder had before; and MUST NOT change
+anything in the folder other than the hidden icon file and the folder's custom-icon flag.
+
+Rationale: the folder icon and the sidebar icon are separate layers, and user data is out of scope;
+the opt-in exists because the owner wants Finder windows to match the sidebar, and macOS only shows
+a folder's own icon from the hidden file inside it.
 
 ### IV. Prove Before Building
 
@@ -119,4 +146,4 @@ for a new principle or materially expanded guidance, PATCH for clarifications. R
 and pull request MUST check compliance; any deviation MUST appear in Complexity Tracking with the
 simpler alternative that was rejected and why.
 
-**Version**: 1.1.0 | **Ratified**: 2026-11-17 | **Last Amended**: 2026-11-17
+**Version**: 1.2.0 | **Ratified**: 2026-11-17 | **Last Amended**: 2026-11-23

@@ -49,17 +49,17 @@ extension ManagerError {
 | `setStyle(_:for:)` | 1, 2, 4 | yes | save, then apply (new type, new registry version if needed; code unchanged) |
 | `glyphs() -> [GlyphRow]` | 2 | none | |
 | `glyphToolStatus() async -> ToolStatus` | 2 | none | `available(path)` or `unavailable(reason)`; runs `xcrun --find actool` |
-| `createGlyph(name:svg:) async throws -> GlyphRow` | 2 | none (container only) | validate name; read SVG (contract glyph-builder.md); write template; build the combined car to check it compiles; save |
-| `updateGlyph(_:svg:)` | 2 | yes | new `versionID`, rebuild, apply (mappings using it switch to the new registry version) |
+| `importGlyph(name:template:) async throws -> GlyphRow` | 2 | yes (applies) | manual process: a symbol template file (from the helper script or the SF Symbols app); build the combined car with it; apply mappings using that name. A new import under an existing name makes a new version |
+| `createGlyph(name:svg:) async throws -> GlyphRow` | 3 | none (container only) | validate name; read SVG (contract glyph-builder.md); write template; build the combined car to check it compiles; save |
+| `updateGlyph(_:svg:)` | 3 | yes | new `versionID`, rebuild, apply (mappings using it switch to the new registry version) |
 | `deleteGlyph(_:replacement:)` | 2 | yes | mappings using it get `replacement`; rebuild; apply |
-| `setFolderIcon(_:for:confirmReplace:)` | 3 | yes | `FolderIconSetting?`; nil or `enabled = false` turns it off (restores). Throws `folderIconNeedsConfirmation(existing: true)` if the folder has a custom icon and `confirmReplace` is false |
+| `setFolderIcon(_:for:confirmReplace:)` | 4 | yes | `FolderIconSetting?`; nil or `enabled = false` turns it off (restores). Throws `folderIconNeedsConfirmation(existing: true)` if the folder has a custom icon and `confirmReplace` is false |
 | `resetAll()` | all | yes | as 002, plus: restore every recorded folder icon (fingerprint rule), unregister every recorded `IconRegistry*` version and any unrecorded one in the container, delete `Glyphs/`, `Build/`, `FolderIconBackups/`, `config.schema1.json` |
-| `load()` | all | none | migrates schema 1 in memory; never writes |
+| `load()` | all | none | schema 2; a schema 1 file is read-only with the 0.2.0 message (research D1); never writes |
 
 ## Guarantees (tested)
 
-- Migration: a schema 1 file loads with every mapping `fullColour(sameAsset)`; the first save writes
-  schema 2 and `config.schema1.json` with the original bytes; loading never writes.
+- A schema 1 file loads read-only with the 0.2.0 message; nothing is written; Reset All works.
 - Same configuration → same registry bundle path (content hash); apply twice changes nothing.
 - A style or glyph change never changes a mapping's `osType`.
 - After a registry switch, exactly one `IconRegistry*` registration remains recorded.
