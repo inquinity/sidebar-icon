@@ -71,7 +71,11 @@ struct MainView: View {
             Button("Reset All", role: .destructive) { model.resetAll() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Remove all custom sidebar icons and delete this app's mappings and copied images? Your folders are not changed.")
+            if model.rows.contains(where: \.hasFolderIcon) {
+                Text("Remove all custom sidebar icons and delete this app's mappings and copied images? Folder icons set by this app are put back as they were; nothing else in your folders changes.")
+            } else {
+                Text("Remove all custom sidebar icons and delete this app's mappings and copied images? Your folders are not changed.")
+            }
         }
         .sheet(item: $model.styleRequest) { request in
             StylePickerView(request: request, model: model, apply: model.applyStyle, cancel: model.cancelStyle)

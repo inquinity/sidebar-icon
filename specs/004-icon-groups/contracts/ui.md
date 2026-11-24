@@ -45,6 +45,12 @@ Opened from **Folder Icon…** in a row's context menu (or by the wizard's step 
 - Pickers: master art (required); optional small sizes (individual PNGs or an `.iconset` folder);
   preview at 16, 32, 128 and 512 pt.
 - Buttons: Cancel, Set Folder Icon.
+- Confirmations when a folder icon is opted in or recorded (found in P-2; 002's "not changed"
+  wording would be wrong):
+  - Remove…: "Remove the mapping for <folder>? Its folder icon is put back as it was; nothing
+    else in the folder changes."
+  - Reset All…: "Remove all custom sidebar icons and delete this app's mappings and copied images?
+    Folder icons set by this app are put back as they were; nothing else in your folders changes."
 
 ## Messages
 

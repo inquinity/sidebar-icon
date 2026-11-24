@@ -18,6 +18,9 @@ public struct MappingRow: Sendable, Equatable, Identifiable {
     public var folderIcon: FolderIconState = .notSet
     /// Whether the owner opted in to a folder icon for this mapping.
     public var folderIconOptedIn = false
+
+    /// Remove or Reset All would touch the folder: its icon is opted in or still recorded.
+    public var hasFolderIcon: Bool { folderIconOptedIn || folderIcon != .notSet }
 }
 
 /// The owner's folder art (004 Story 4): a master (PNG of at least 1024 px, PDF or SVG) and

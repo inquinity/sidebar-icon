@@ -44,7 +44,11 @@ struct MappingListView: View {
                 Button("Remove", role: .destructive) { model.remove(row) }
                 Button("Cancel", role: .cancel) {}
             } message: { row in
-                Text("Remove the mapping for \(row.displayName)? The folder itself is not changed.")
+                if row.hasFolderIcon {
+                    Text("Remove the mapping for \(row.displayName)? Its folder icon is put back as it was; nothing else in the folder changes.")
+                } else {
+                    Text("Remove the mapping for \(row.displayName)? The folder itself is not changed.")
+                }
             }
         }
     }

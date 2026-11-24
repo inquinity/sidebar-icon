@@ -287,6 +287,49 @@ Found and fixed:
     stored form are never touched, including targets read from the ledger.
   - **The master must be square**; a PNG must be at least 1024 × 1024.
 
+## P-2 — folder icon in a protected location, and quickstart checks 8–12 (2026-11-24)
+
+Developer ID build of `bd77b9f` (hardened, timestamped), macOS 27.2 (26B131). Test folders:
+`~/Documents/p2-documents` (plain), `~/tmp/p2-git` (a git repository) and `~/tmp/p2-existing`
+(already had a custom icon). Each was added to sidebar Favorites and mapped with a system glyph.
+The owner's art `folder-icon/dev/icon.png` was used as the master. "Elsewhere" changes were made
+by a separate process calling `NSWorkspace.setIcon`, as Get Info would.
+
+- **P-2: pass, no privacy prompt.** Setting the icon on `~/Documents/p2-documents` worked straight
+  away: `Icon\r` (1.8 MB resource fork) was written and the FinderInfo custom-icon flag (byte 8,
+  0x04) was set. macOS showed no prompt on either display. The likely reason is that the folder
+  was chosen in the app's Add Folder… open panel: macOS treats that as the user's intent and
+  stamps the folder with `com.apple.macl` for the app. Every mapping's folder is chosen that way
+  (Add Folder…, Re-point…), so the prompt path isn't reachable in normal use. If `setIcon`
+  returns false, the app reports the Privacy & Security error; the `FakeFolderIcons` refusal
+  tests cover this, but it wasn't seen live.
+- **8 (Finder views): pass.** The art showed in list, column and icon views; `Icon\r` exists.
+- **9 (`.iconset` override): pass.** `icon_16x16.png` and `@2x` (a different picture) were chosen
+  through Small Sizes…. The sheet's 16 pt preview showed them, and so did Finder's list view.
+  Setting new art over our own icon needed no confirmation.
+- **10 (replace with a backup, then restore): pass.** The sheet warned and offered Replace, and the
+  new icon was set. Turning the mapping Off put the earlier icon back (the original art,
+  checked by rendering the folder icon). Notes:
+  - the restored resource fork is not byte-identical to the original (1,322,915 bytes against
+    984,698). The backup is a re-encoded `.icns` and `setIcon` encodes it again. It looks the same,
+    and git doesn't track the resource fork, but sync services would upload it again;
+  - Remove afterwards left that icon in place, which is correct.
+- **11 (changed elsewhere, then Remove): pass.** The app said "The icon of
+  ~/Documents/p2-documents was changed by something else, so it was left as it is." The folder's
+  icon bytes were unchanged.
+- **12 (git): pass.** While the icon was set, `git status --short` showed `?? "Icon\r"`. After Turn
+  Off it was clean, with no `Icon\r` and no FinderInfo on the folder.
+- **Fixed from this pass:** the Remove… and Reset All… confirmations said "The folder itself is not
+  changed" / "Your folders are not changed", which is wrong when a folder icon is set. When one
+  is opted in or recorded, they now say the folder icon is put back (contracts/ui.md;
+  `MappingRow.hasFolderIcon`, with a test).
+- **Seen, not changed:** reopening Folder Icon… doesn't show the art already in use, so changing
+  only the small sizes means choosing the master again.
+- **Not checked here:** the wide-glyph width cap in Finder (it needs a wide custom glyph built
+  with this build). It is left for T046.
+- Clean-up: mappings removed (only `dev` is left), the three Favorites removed, the test folders
+  moved to the Trash.
+
 ## D9 — UI
 
 - **Decision**: the row shows the style (system, custom or full colour) and a folder-icon badge.

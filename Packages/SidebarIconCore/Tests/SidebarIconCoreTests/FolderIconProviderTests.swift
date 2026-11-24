@@ -448,6 +448,20 @@ final class FakeFolderIcons: FolderIconWriting {
         #expect(fake.state.withLock { $0.calls }.isEmpty)
     }
 
+    /// The Remove and Reset All confirmations say the folder icon is put back (P-2 finding).
+    @Test func aRowWithAFolderIconSaysSo() async throws {
+        let manager = try await manager()
+        let id = try await addDev(manager)
+        #expect(await manager.rows().first?.hasFolderIcon == false)
+
+        _ = try await manager.setFolderIcon(FolderArt(master: master), for: id)
+        #expect(await manager.rows().first?.hasFolderIcon == true)
+
+        // Off keeps the opt-in, so Remove still touches the folder.
+        _ = try await manager.setEnabled(false, for: id)
+        #expect(await manager.rows().first?.hasFolderIcon == true)
+    }
+
     @Test func removeOfAMissingFolderForgetsItsRecord() async throws {
         let manager = try await manager()
         let id = try await addDev(manager)

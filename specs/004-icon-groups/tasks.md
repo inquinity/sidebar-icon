@@ -257,7 +257,7 @@ kept.
   - a preview at 16, 32, 128 and 512 pt.
 
   Add **Folder Icon…** to the row context menu and a row badge. Enable step 4 of the wizard.
-- [ ] T041 [US4] (live, owner for the prompt) Proof **P-2** and quickstart checks 8–12:
+- [X] T041 [US4] (live, owner for the prompt) Proof **P-2** and quickstart checks 8–12:
   - a folder under `~/Documents`: record the privacy prompt and each answer;
   - Finder views;
   - an `.iconset` override;
@@ -275,7 +275,7 @@ kept.
 - [ ] T043 [P] Add a CHANGELOG 0.3.0 entry: Added (system glyphs, custom glyphs (manual process and wizard), folder icons); Changed (registry versions; no migration from 0.2.0: reset first); Known limitations
 - [ ] T044 Independent code review of `Core/Glyphs/`, `Core/Icons/`, `Core/Providers/`, `Core/Manager/`, `Core/Config/` and `app/SidebarIcons/`, plus a security review (the private adapter, `Process`/`actool`, folder writes, symlinks in the container). Fix the findings; record them in research.md
 - [ ] T045 (owner) Proof **P-3**: dark mode and a non-default accent colour with system and custom glyphs (quickstart)
-- [ ] T046 (live) Quickstart checks 13–15 (0.2.0 configuration refused; Reset All leaves nothing; folders that were not opted in are untouched)
+- [ ] T046 (live) Quickstart checks 13–15 (0.2.0 configuration refused; Reset All leaves nothing; folders that were not opted in are untouched); also check a wide custom glyph stays inside the sidebar slot (width cap, 29422c8)
 - [ ] T047 Release 0.3.0:
   - add any newly verified build to `SidebarIconCoreInfo.verifiedBuilds`;
   - set `MARKETING_VERSION` to 0.3.0;
