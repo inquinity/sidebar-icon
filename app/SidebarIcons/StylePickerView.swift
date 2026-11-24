@@ -129,7 +129,7 @@ struct StylePickerView: View {
 
     @ViewBuilder private var fullColourTab: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("The image is drawn in full colour, as in 0.2.0.")
+            Text("The image is drawn in full colour.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Button(picked == nil ? "Choose Image…" : "Choose Another Image…") {

@@ -175,7 +175,7 @@ struct GlyphWizard: View {
 
     private var nameStep: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("The name identifies the glyph in this app; it isn't shown in Finder.")
+            Text("The name identifies the glyph in this app.")
                 .font(.callout).foregroundStyle(.secondary)
             TextField("Glyph name, for example git-repo", text: $name)
                 .textFieldStyle(.roundedBorder)
@@ -189,7 +189,7 @@ struct GlyphWizard: View {
 
     private var drawingStep: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Choose an SVG made only of filled shapes, about square. Strokes, text, images and transforms are refused, with what to change.")
+            Text("Choose an SVG made only of filled shapes, about square.")
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
@@ -296,7 +296,7 @@ struct GlyphWizard: View {
     private var buildStep: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let updating {
-                Text("Build the new drawing for \(updating.name). Every folder that uses it shows the new drawing; Finder doesn't need a restart.")
+                Text("Build the new drawing for \(updating.name). Every folder that uses it shows the new drawing.")
             } else {
                 Text("Build the glyph \(trimmedName) and use it for \(folderName).")
             }
