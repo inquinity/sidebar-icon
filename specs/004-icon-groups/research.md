@@ -416,6 +416,30 @@ Its open questions, not changed:
 **Not covered by an automated test:** 5 and 7 (they need failure injection the fakes don't
 offer), the `lsregister` timeout, and the app-side changes 3, 4 and 6. Tests: 296 pass.
 
+## P-3 — appearance (2026-11-24, owner)
+
+Developer ID build of `0b0dc8f` (`sidebar-icons.app`), macOS 27.2 (26B131). Test Favorites:
+`~/tmp/p3-system`, mapped to the system glyph `hammer`, and `~/tmp/p3-custom`, mapped to the
+custom glyph `p3-dev`. The wizard built `p3-dev` from `folder-icon/dev/glyph.svg` (3 filled
+shapes, width ratio 1.00). The owner switched the appearance, and the sidebar was captured each
+time.
+
+- **Light, default accent, Finder active: pass.** Both glyphs are drawn in the accent blue at the
+  same size as Documents, Downloads and the other system Favorites.
+- **Dark, Finder inactive: pass.** Every sidebar glyph, the custom one included, turns the same
+  light grey.
+- **Dark, purple accent (`AppleAccentColor` 5), Finder active: pass.** The custom glyph is purple
+  like the system ones. The app's own row previews follow the accent too.
+- **Seen in passing:**
+  - With no folder icon recorded, Reset All showed the plain "Your folders are not changed"
+    text (T044 fix 6).
+  - Reset All left no `sidebaricons.iconregistry` registration in `lsregister -dump`.
+- **Before P-3:** the owner's `dev` mapping and `dev.folder` glyph were found gone. The system log
+  shows the earlier P-2 build (`build.noindex/p2`) was opened from 13:03 to 13:08, consistent with
+  a Reset All there. They were not re-created.
+- **Clean-up:** Reset All of the two test mappings and the glyph; Favorites removed; folders moved
+  to the Trash. The appearance is the owner's to set back.
+
 ## D9 — UI
 
 - **Decision**: the row shows the style (system, custom or full colour) and a folder-icon badge.
