@@ -21,13 +21,20 @@ reads the Favorites list and runs a read-only `lsregister -dump`.
 - **App's first verified build**: macOS 27.2.1 (26B131), 2026-11-21, quickstart checks 1–10
   ([002 research Verification](specs/002-mapping-manager-v1/research.md#verification)). The app
   shows a warning banner on any other build (`SidebarIconCoreInfo.verifiedBuilds`).
+- **Since 0.3.0 (feature 004)**: system and custom glyphs go through the same entries (PA-04
+  gains the symbol name and a compiled `Assets.car`). Verified with a Developer ID build of the
+  app on 27.2.1 (26B131), 2026-11-23: proof P-1 and the batched check T034
+  ([004 research](specs/004-icon-groups/research.md)).
 
 ## What this utility never does
 
 These are prohibited by the constitution and are not in this register because they are not used:
 
 - Reading or editing Finder's sidebar store files (`~/Library/Application Support/com.apple.sharedfilelist/*.sfl*`).
-- Modifying a user's folder, its contents, permissions, or its own Finder icon.
+- Modifying a user's folder, its contents or permissions. Since 0.3.0 a folder's own Finder icon
+  can be set, but only for a folder you opt in (Folder Icon…). That uses the public
+  `NSWorkspace.setIcon(_:forFile:options:)`, so it is not in this register; how it is recorded,
+  backed up and undone is in [004 research D8](specs/004-icon-groups/research.md).
 - Privileged helpers, root access, SIP changes, code injection into Finder, or network access.
 
 ## Status legend
@@ -183,6 +190,10 @@ every entry will be marked **removed**.
   - 004 spike, 2026-11-22: SF Symbol names and custom symbols from an `actool`-built
     `Assets.car` are drawn at system glyph size and tint; a new versioned bundle with the same
     codes switches glyphs within seconds without restarting Finder (S1–S4b).
+  - 004 app, Developer ID build, 2026-11-23: `actool` runs from the signed, hardened app and its
+    custom glyph shows outline blue (P-1); with 20 custom-glyph mappings, changing one switches
+    the registry version and leaves the other 19 unchanged, with one version left registered
+    (T034).
 
   Failed earlier on the same build:
   - Document types with only `CFBundleTypeOSTypes`: the codes became `dyn.…` types, so no icon.

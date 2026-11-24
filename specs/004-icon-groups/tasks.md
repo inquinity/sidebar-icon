@@ -271,14 +271,14 @@ kept.
 
 ## Phase 7: Polish, verification and release
 
-- [ ] T042 [P] Review `PRIVATE_API.md` (PA-04 now covers glyph cars, versioned bundles, the caching behaviour and the verified build) and `README.md` (style picker, manual process, wizard, folder icon, the 0.2.0 reset note)
-- [ ] T043 [P] Add a CHANGELOG 0.3.0 entry: Added (system glyphs, custom glyphs (manual process and wizard), folder icons); Changed (registry versions; no migration from 0.2.0: reset first); Known limitations
+- [X] T042 [P] Review `PRIVATE_API.md` (PA-04 now covers glyph cars, versioned bundles, the caching behaviour and the verified build) and `README.md` (style picker, manual process, wizard, folder icon, the 0.2.0 reset note)
+- [X] T043 [P] Add a CHANGELOG 0.3.0 entry: Added (system glyphs, custom glyphs (manual process and wizard), folder icons); Changed (registry versions; no migration from 0.2.0: reset first); Known limitations
 - [ ] T044 Independent code review of `Core/Glyphs/`, `Core/Icons/`, `Core/Providers/`, `Core/Manager/`, `Core/Config/` and `app/SidebarIcons/`, plus a security review (the private adapter, `Process`/`actool`, folder writes, symlinks in the container). Fix the findings; record them in research.md
 - [ ] T045 (owner) Proof **P-3**: dark mode and a non-default accent colour with system and custom glyphs (quickstart)
 - [ ] T046 (live) Quickstart checks 13–15 (0.2.0 configuration refused; Reset All leaves nothing; folders that were not opted in are untouched); also check a wide custom glyph stays inside the sidebar slot (width cap, 29422c8)
 - [ ] T047 Release 0.3.0:
   - add any newly verified build to `SidebarIconCoreInfo.verifiedBuilds`;
-  - set `MARKETING_VERSION` to 0.3.0;
+  - set `MARKETING_VERSION` to 0.3.0; date the CHANGELOG entry; update the README status (004 released);
   - commit and tag `v0.3.0`;
   - run `scripts/release.sh all`, install and smoke-test;
   - merge to `main`; push on the owner's go-ahead.
