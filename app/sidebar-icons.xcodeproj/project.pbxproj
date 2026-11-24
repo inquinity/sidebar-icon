@@ -11,7 +11,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		5A1D00000000000000000004 /* Sidebar Icons.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Sidebar Icons.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5A1D00000000000000000004 /* sidebar-icons.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "sidebar-icons.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -45,7 +45,7 @@
 		5A1D00000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				5A1D00000000000000000004 /* Sidebar Icons.app */,
+				5A1D00000000000000000004 /* sidebar-icons.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -53,9 +53,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		5A1D00000000000000000010 /* Sidebar Icons */ = {
+		5A1D00000000000000000010 /* sidebar-icons */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 5A1D00000000000000000043 /* Build configuration list for PBXNativeTarget "Sidebar Icons" */;
+			buildConfigurationList = 5A1D00000000000000000043 /* Build configuration list for PBXNativeTarget "sidebar-icons" */;
 			buildPhases = (
 				5A1D00000000000000000011 /* Sources */,
 				5A1D00000000000000000012 /* Frameworks */,
@@ -68,12 +68,12 @@
 			fileSystemSynchronizedGroups = (
 				5A1D00000000000000000006 /* SidebarIcons */,
 			);
-			name = "Sidebar Icons";
+			name = "sidebar-icons";
 			packageProductDependencies = (
 				5A1D00000000000000000031 /* SidebarIconCore */,
 			);
-			productName = "Sidebar Icons";
-			productReference = 5A1D00000000000000000004 /* Sidebar Icons.app */;
+			productName = "sidebar-icons";
+			productReference = 5A1D00000000000000000004 /* sidebar-icons.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -108,7 +108,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				5A1D00000000000000000010 /* Sidebar Icons */,
+				5A1D00000000000000000010 /* sidebar-icons */,
 			);
 		};
 /* End PBXProject section */
@@ -193,16 +193,15 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Sidebar Icons";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.sidebaricons;
+				PRODUCT_MODULE_NAME = SidebarIcons;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -222,10 +221,8 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Sidebar Icons";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -233,6 +230,7 @@
 				MARKETING_VERSION = 0.2.0;
 				OTHER_CODE_SIGN_FLAGS = "--timestamp";
 				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.sidebaricons;
+				PRODUCT_MODULE_NAME = SidebarIcons;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -251,7 +249,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		5A1D00000000000000000043 /* Build configuration list for PBXNativeTarget "Sidebar Icons" */ = {
+		5A1D00000000000000000043 /* Build configuration list for PBXNativeTarget "sidebar-icons" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5A1D00000000000000000044 /* Debug */,

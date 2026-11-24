@@ -1,0 +1,5 @@
+/* The name Finder, the Dock, Spotlight and macOS dialogs show. The bundle file is
+   sidebar-icons.app, without a space, for the command line; macOS uses this localized name
+   only because Info.plist sets LSHasLocalizedDisplayName. */
+"CFBundleDisplayName" = "Sidebar Icons";
+"CFBundleName" = "Sidebar Icons";

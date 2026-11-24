@@ -4,9 +4,9 @@
 #
 #   check -> build -> notarize -> verify      (or: all)
 #
-# The result is build.noindex/release/<version>/Sidebar-Icons-<version>.zip: the Developer ID signed,
+# The result is build.noindex/release/<version>/sidebar-icons-<version>.zip: the Developer ID signed,
 # notarized and stapled app with LICENSE and PRIVATE_API.md, ready to copy to another Mac. Nothing is
-# published or pushed. The version is MARKETING_VERSION in app/SidebarIcons.xcodeproj.
+# published or pushed. The version is MARKETING_VERSION in app/sidebar-icons.xcodeproj.
 #
 # The notary profile (a `xcrun notarytool store-credentials` keychain profile) comes from
 # SIDEBARICONS_NOTARY_PROFILE or NOTARY_PROFILE in the local, git-ignored Secrets.xcconfig. The signing
@@ -37,9 +37,11 @@ print_colored() {
 }
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-project="${repository_root}/app/SidebarIcons.xcodeproj"
-scheme="Sidebar Icons"
-app_name="Sidebar Icons.app"
+# File and command names have no spaces; "Sidebar Icons" is only the name the app shows.
+project="${repository_root}/app/sidebar-icons.xcodeproj"
+scheme="sidebar-icons"
+executable_name="sidebar-icons"
+app_name="${executable_name}.app"
 bundle_identifier="com.altmansoftwaredesign.sidebaricons"
 team_identifier="45GJWJVQN2"
 app_group="${team_identifier}.${bundle_identifier}"
@@ -115,7 +117,7 @@ artifact_directory="${repository_root}/build.noindex/release/${version}"
 payload="${artifact_directory}/payload"
 derived_data="${repository_root}/build.noindex/DerivedData"
 "$dry_run" && derived_data="${derived_data}-dry-run"
-zip_name="Sidebar-Icons-${version}.zip"
+zip_name="sidebar-icons-${version}.zip"
 zip_path="${artifact_directory}/${zip_name}"
 procedure_log="${artifact_directory}/release.log"
 mkdir -p "$artifact_directory"
@@ -258,7 +260,7 @@ stage_build() {
     ditto "$built" "${payload}/${app_name}"
     cp LICENSE PRIVATE_API.md "$payload/"
     local app="${payload}/${app_name}"
-    local executable="${app}/Contents/MacOS/Sidebar Icons"
+    local executable="${app}/Contents/MacOS/${executable_name}"
 
     [[ "$(plutil -extract CFBundleShortVersionString raw -o - "${app}/Contents/Info.plist")" == "$version" ]] \
         || die "the app's Info.plist does not carry version ${version}"

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Written by hand (GENERATE_INFOPLIST_FILE = NO) only so CFBundleName can differ from the
+	     product name: the app file and executable are "sidebar-icons", without a space, for the
+	     command line, while the menu bar and About show "Sidebar Icons". Every other value comes
+	     from the build settings, as the generated file did. Finder, the Dock, Spotlight and
+	     macOS dialogs take the shown name from SidebarIcons/en.lproj/InfoPlist.strings
+	     (LSHasLocalizedDisplayName). macOS uses it only while the plain CFBundleDisplayName
+	     below matches the file name, so it stays "sidebar-icons". -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>sidebar-icons</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Sidebar Icons</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSHasLocalizedDisplayName</key>
+	<true/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+</dict>
+</plist>

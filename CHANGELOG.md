@@ -39,6 +39,11 @@ Verified on macOS 27.2.1 (26B131).
   each change, because Finder caches a bundle's glyphs by its path. Reset All removes every
   version.
 - Full colour is still supported as the legacy style.
+- File and command names have no spaces: the app is `sidebar-icons.app` (executable
+  `sidebar-icons`), built from `app/sidebar-icons.xcodeproj` with the `sidebar-icons` scheme, and
+  the release zip is `sidebar-icons-<version>.zip`. The app still shows its name as "Sidebar
+  Icons", and its bundle ID and App Group are unchanged, so its data and permissions carry over.
+  Delete the old `Sidebar Icons.app` after installing.
 
 ### Known limitations
 

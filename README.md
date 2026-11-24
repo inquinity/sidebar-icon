@@ -70,10 +70,12 @@ cd Packages/SidebarIconCore && swift test
 ```
 
 ```bash
-xcodebuild -project app/SidebarIcons.xcodeproj -scheme "Sidebar Icons" -configuration Debug build
+xcodebuild -project app/sidebar-icons.xcodeproj -scheme sidebar-icons -configuration Debug build
 ```
 
-Or open `app/SidebarIcons.xcodeproj` in Xcode and run the **Sidebar Icons** scheme.
+Or open `app/sidebar-icons.xcodeproj` in Xcode and run the **sidebar-icons** scheme. The built app
+is `sidebar-icons.app`; file and command names have no spaces, and the app itself shows its
+name as "Sidebar Icons".
 
 Using it:
 
@@ -113,9 +115,9 @@ scripts/release.sh all
 ```
 
 It runs `check`, `build`, `notarize` and `verify`, and leaves
-`build.noindex/release/<version>/Sidebar-Icons-<version>.zip`. Copy that zip to the other Mac and
-double-click it: it unpacks to a folder with **Sidebar Icons.app**, `LICENSE` and `PRIVATE_API.md`.
-Move **Sidebar Icons.app** to `/Applications`, and open it. On a macOS build other
+`build.noindex/release/<version>/sidebar-icons-<version>.zip`. Copy that zip to the other Mac and
+double-click it: it unpacks to a folder with **sidebar-icons.app**, `LICENSE` and `PRIVATE_API.md`.
+Move **sidebar-icons.app** to `/Applications`, and open it. On a macOS build other
 than the verified one, the window shows a non-blocking warning banner.
 
 Anyone without the Developer ID certificate can still build and run the Debug configuration from
@@ -126,7 +128,7 @@ Xcode.
 1. In the app, click **Reset All…** and confirm. Every Favorite goes back to its normal icon,
    folder icons the app set go back to what they were, and the app's mappings, copied images,
    glyphs and Launch Services registrations are removed.
-2. Quit the app, delete `Sidebar Icons.app`, and delete its container,
+2. Quit the app, delete `sidebar-icons.app` (0.2.0 and earlier: `Sidebar Icons.app`), and delete its container,
    `~/Library/Group Containers/<team>.com.altmansoftwaredesign.sidebaricons`.
 3. Optionally delete what macOS kept for it (no user data):
    - `~/Library/Preferences/com.altmansoftwaredesign.sidebaricons.plist` (window positions);
