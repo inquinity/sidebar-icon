@@ -199,7 +199,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.sidebaricons;
 				PRODUCT_MODULE_NAME = SidebarIcons;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -227,7 +227,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				OTHER_CODE_SIGN_FLAGS = "--timestamp";
 				PRODUCT_BUNDLE_IDENTIFIER = com.altmansoftwaredesign.sidebaricons;
 				PRODUCT_MODULE_NAME = SidebarIcons;

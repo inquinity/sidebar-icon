@@ -19,9 +19,9 @@ windows. One app can manage any number of folders.
 ## Status
 
 **Version 0.3.0, icon groups**: system and custom glyphs and opt-in folder icons, on top of
-0.1.0's add, turn off, change, remove, preview, refresh and reset. The live checks P-1, T034 and
-P-2 passed on macOS 27.2.1 (26B131); see the [004 tasks](specs/004-icon-groups/tasks.md) for
-what is left before the release. What 1.0.0 still needs is the "1.0.0 gate" in the [002
+0.1.0's add, turn off, change, remove, preview, refresh and reset. The live checks P-1, T034, P-2
+and P-3 passed on macOS 27.2.1 (26B131); see the [004 research](specs/004-icon-groups/research.md).
+What 1.0.0 still needs is the "1.0.0 gate" in the [002
 tasks](specs/002-mapping-manager-v1/tasks.md); changes are in [CHANGELOG.md](CHANGELOG.md).
 
 > [!NOTE]
@@ -33,7 +33,7 @@ tasks](specs/002-mapping-manager-v1/tasks.md); changes are in [CHANGELOG.md](CHA
 |---------|-------|
 | [001 Sidebar icon spike](specs/001-sidebar-icon-spike/spec.md) | Done; chose Path B (Launch Services override), no extension, app not sandboxed. Retired |
 | [002 Mapping manager v1](specs/002-mapping-manager-v1/spec.md) | Done, verified on 26B131; follow-ups in [tasks](specs/002-mapping-manager-v1/tasks.md) |
-| [004 Icon groups](specs/004-icon-groups/spec.md) | Built; P-1, T034 and P-2 verified on 26B131; appearance check and release pending ([tasks](specs/004-icon-groups/tasks.md)) |
+| [004 Icon groups](specs/004-icon-groups/spec.md) | Done, released as 0.3.0; P-1, T034, P-2 and P-3 verified on 26B131 ([tasks](specs/004-icon-groups/tasks.md)) |
 
 ## Design principles
 
