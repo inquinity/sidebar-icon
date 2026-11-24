@@ -284,20 +284,26 @@ kept.
   - run `scripts/release.sh all`, install and smoke-test;
   - merge to `main`; push on the owner's go-ahead.
 
-  **Done 2026-11-24.**
+  **Done 2026-11-24, then redone the same day.** The first build (tag on `268f6e6`, never pushed)
+  was superseded at the owner's request so that 0.3.0 also includes:
+  - the Glyph Library window and the simpler wizard (`ca87e9c`);
+  - the UI text audit (`f5c9c6e`).
+
+  The tag was moved, and the release ran again:
   - 26B131 was already the verified build.
-  - `release: 0.3.0` is commit `268f6e6`, with the annotated tag `v0.3.0`.
+  - The annotated tag `v0.3.0` is on `f5c9c6e`.
   - `scripts/release.sh all` ran from the main checkout:
     - every check gate passed;
     - Developer ID, hardened runtime, App Group only;
     - notarized (Accepted) and stapled;
     - a quarantined copy is accepted by Gatekeeper ("Notarized Developer ID"), and
       `syspolicy_check` found no issues.
-  - Zip `build.noindex/release/0.3.0/sidebar-icons-0.3.0.zip`, SHA-256 `4ec28785…9454`.
-  - Installed as `/Applications/sidebar-icons.app`, and the smoke test passed:
+  - Zip `build.noindex/release/0.3.0/sidebar-icons-0.3.0.zip`, SHA-256 `7864c6d4…8332`.
+  - It replaced `/Applications/sidebar-icons.app` (the earlier build went to the Trash). The smoke
+    test passed:
     - it reports 0.3.0 and is accepted by `spctl`;
-    - Finder names it "Sidebar Icons", the menu says "About/Hide/Quit Sidebar Icons";
-    - it opens without the unverified-build banner and loads the configuration.
+    - the View menu has Main and Glyph Library, and the main window has the Glyph Library button;
+    - it opens without the unverified-build banner and loads the owner's mappings.
   - `main` fast-forwarded locally. Not pushed: waiting for the owner.
 
 ---
