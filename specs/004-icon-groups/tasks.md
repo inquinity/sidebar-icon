@@ -277,12 +277,28 @@ kept.
 - [X] T045 (owner) Proof **P-3**: dark mode and a non-default accent colour with system and custom glyphs (quickstart)
 - [X] T046 ~~ (live) Quickstart checks 13–15 (0.2.0 configuration refused; Reset All leaves nothing; folders that were not opted in are untouched); also check a wide custom glyph stays inside the sidebar slot (width cap, 29422c8)~~
   **Skipped by the owner (2026-11-24):** Sidebar Icons has not left this machine, so there are no other 0.2.0 installs to check. Not verified live as a result: Reset All's leftover audit for 0.3.0 and the wide-glyph cap in Finder (package tests cover the logic, not what Finder shows).
-- [ ] T047 Release 0.3.0:
+- [X] T047 Release 0.3.0:
   - add any newly verified build to `SidebarIconCoreInfo.verifiedBuilds`;
   - set `MARKETING_VERSION` to 0.3.0; date the CHANGELOG entry; update the README status (004 released);
   - commit and tag `v0.3.0`;
   - run `scripts/release.sh all`, install and smoke-test;
   - merge to `main`; push on the owner's go-ahead.
+
+  **Done 2026-11-24.**
+  - 26B131 was already the verified build.
+  - `release: 0.3.0` is commit `268f6e6`, with the annotated tag `v0.3.0`.
+  - `scripts/release.sh all` ran from the main checkout:
+    - every check gate passed;
+    - Developer ID, hardened runtime, App Group only;
+    - notarized (Accepted) and stapled;
+    - a quarantined copy is accepted by Gatekeeper ("Notarized Developer ID"), and
+      `syspolicy_check` found no issues.
+  - Zip `build.noindex/release/0.3.0/sidebar-icons-0.3.0.zip`, SHA-256 `4ec28785…9454`.
+  - Installed as `/Applications/sidebar-icons.app`, and the smoke test passed:
+    - it reports 0.3.0 and is accepted by `spctl`;
+    - Finder names it "Sidebar Icons", the menu says "About/Hide/Quit Sidebar Icons";
+    - it opens without the unverified-build banner and loads the configuration.
+  - `main` fast-forwarded locally. Not pushed: waiting for the owner.
 
 ---
 
