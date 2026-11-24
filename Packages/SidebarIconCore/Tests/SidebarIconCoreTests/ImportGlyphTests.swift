@@ -164,7 +164,7 @@ import Testing
         try ledger.record(OutsideChange(kind: .sidebarOverride, target: setup.dev, osType: "S001")) {}
         let manager = MappingManager(container: setup.container, system: setup.system, restartFinder: {})
         try? await manager.load()
-        #expect(await manager.readOnlyReason?.contains("0.2.0") == true)
+        #expect(await manager.readOnlyReason?.contains("earlier format") == true)
 
         let result = try await manager.resetAll()
 

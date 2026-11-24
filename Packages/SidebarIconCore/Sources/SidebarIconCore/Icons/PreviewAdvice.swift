@@ -14,9 +14,9 @@ public struct PreviewAdvice: Sendable, Equatable {
         public var message: String {
             switch self {
             case .notSquare:
-                "This image isn't square, so it will be shrunk to fit the sidebar's square icon and may look small."
+                "This image is wider or taller than square; it is scaled to fit the sidebar's square icon and looks smaller."
             case .tooDetailed:
-                "This image has a lot of detail, which may not read well at sidebar size."
+                "This image has a lot of detail; check the preview at sidebar size."
             }
         }
     }

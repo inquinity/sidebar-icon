@@ -80,7 +80,7 @@ func fixture(_ name: String) throws -> URL {
         #expect(drawing.shapes.count == 1)
         #expect(drawing.widthRatio == 2)
         #expect(drawing.warnings.contains { $0.contains("wider") })
-        #expect(drawing.warnings.contains { $0.contains("Strokes") })
+        #expect(drawing.warnings.contains { $0.contains("strokes on filled shapes are left out") })
     }
 
     @Test func refusesLargeAndUnreadableFiles() {

@@ -74,15 +74,26 @@ Opened from **Folder Icon…** in a row's context menu (or by the wizard's folde
   (individual PNGs or an `.iconset` folder);
   preview at 16, 32, 128 and 512 pt.
 - Buttons: Cancel, Set Folder Icon.
-- Confirmations when a folder icon is opted in or recorded (found in P-2; 002's "not changed"
-  wording would be wrong):
-  - Remove…: "Remove the mapping for <folder>? Its folder icon is put back as it was; nothing
-    else in the folder changes."
+- Confirmations (the folder-icon wording when a folder icon is opted in or recorded):
+  - Remove…: "Remove the mapping for <folder>? Its Favorite gets its standard icon; the folder
+    stays as it is." / "…Its Favorite gets its standard icon and its folder icon is put back as it
+    was; the rest of the folder stays as it is."
   - Reset All…: "Remove all custom sidebar icons and delete this app's mappings and copied images?
-    Folder icons set by this app are put back as they were; nothing else in your folders changes."
+    Your folders stay as they are." / "…Folder icons set by this app are put back as they were; the
+    rest of your folders stays as it is."
 
 ## Messages
 
+Every text states what the app does or offers now, or what happened and what to do next. It never
+mentions earlier versions or what the app doesn't do (owner, 2026-11-24).
+
+- Read-only configuration: "This configuration uses an earlier format. Reset All undoes the changes
+  it records and clears it; then add your folders again." The main window says "config.json can't be
+  read, so Sidebar Icons is read-only. Reset All undoes every recorded change and deletes the
+  mappings and copied images."
+- Unverified macOS build (banner): "Sidebar Icons is verified on macOS <builds>; this Mac runs
+  <build>. Check that icons appear after Apply; Reset All undoes every change."
+
 - Access denied: "macOS didn't allow changing this folder. Allow Sidebar Icons in System Settings ›
-  Privacy & Security › Files and Folders, then try again. The sidebar glyph is unaffected."
+  Privacy & Security › Files and Folders, then try again. The sidebar glyph stays as it is."
 - Changed elsewhere: "This folder's icon was changed by something else, so it was left as it is."

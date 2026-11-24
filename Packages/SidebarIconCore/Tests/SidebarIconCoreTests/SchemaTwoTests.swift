@@ -56,7 +56,7 @@ import Testing
             _ = try store.load()
             Issue.record("schema 1 must not load")
         } catch let ManagerError.configUnreadable(message) {
-            #expect(message.contains("made by Sidebar Icons 0.2.0"))
+            #expect(message.contains("uses an earlier format"))
         }
         #expect(try String(contentsOf: container.configURL, encoding: .utf8) == original)
         #expect(throws: ManagerError.self) { try store.save(AppConfiguration()) }

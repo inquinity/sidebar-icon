@@ -50,7 +50,7 @@ final class AppModel {
         } catch {
             manager = nil
             unverifiedBuild = false
-            startupError = "This copy of Sidebar Icons isn't signed with its App Group, so it can't store anything. Build it with the project's signing settings."
+            startupError = "Sidebar Icons keeps its data in its App Group, and this copy is signed without it. Build it with the project's signing settings."
         }
     }
 

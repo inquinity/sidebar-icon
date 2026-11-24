@@ -121,7 +121,7 @@ public enum SVGShapeReader {
             result.warnings.append("The drawing is very detailed; fine detail blurs at 16 pt.")
         }
         if collector.ignoredStrokes {
-            result.warnings.append("Strokes on filled shapes are ignored; only fills are used.")
+            result.warnings.append("The fills are used; strokes on filled shapes are left out.")
         }
         return result
     }

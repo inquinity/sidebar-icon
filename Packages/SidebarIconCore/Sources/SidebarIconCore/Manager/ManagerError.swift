@@ -53,7 +53,7 @@ public enum ManagerError: Error, Sendable, Equatable {
     public var message: String {
         switch self {
         case .configUnreadable(let detail):
-            "Your mappings can't be loaded, so nothing will be changed. \(detail) Reset All still works."
+            "Your mappings can't be loaded: \(detail) Sidebar Icons is read-only until Reset All clears them."
         case .saveFailed(let detail):
             "Your mappings could not be saved: \(detail)"
         case .duplicateFolder(let existing):
@@ -65,13 +65,13 @@ public enum ManagerError: Error, Sendable, Equatable {
         case .favoritesUnavailable:
             SidebarIconError.favoritesUnavailable.message
         case .readOnly:
-            "Your mappings can't be loaded, so nothing will be changed. Reset All still works."
+            "Your mappings can't be loaded. Sidebar Icons is read-only until Reset All clears them."
         case .busy:
             "Another action is still running; try again when it finishes."
         case .unknownSymbol(let name):
             "\"\(name)\" isn't a system glyph on this Mac."
         case .unknownMapping:
-            "That mapping no longer exists."
+            "That mapping was removed."
         case .invalidGlyphName(let name):
             "\"\(name)\" can't be a glyph name: use lowercase letters, digits, dots and hyphens (up to 48), starting with a letter or digit."
         case .glyphNameTaken(let name):
@@ -79,7 +79,7 @@ public enum ManagerError: Error, Sendable, Equatable {
         case .drawingRefused(let error):
             "\(error.message) Nothing was saved."
         case .unknownGlyph:
-            "That glyph no longer exists."
+            "That glyph was deleted."
         case .glyphInUse(let name):
             "The glyph \(name) is used by a folder; choose another style for it first."
         case .glyphBuild(let error):
@@ -87,7 +87,7 @@ public enum ManagerError: Error, Sendable, Equatable {
         case .folderIconNeedsConfirmation:
             "This folder already has a custom icon. Replace it? The current icon is kept and restored when you turn this off."
         case .folderIconFailed(let path):
-            "macOS didn't allow changing \(PathStandardizer.abbreviatingHome(path)). Allow Sidebar Icons in System Settings › Privacy & Security › Files and Folders, then try again. The sidebar glyph is unaffected."
+            "macOS didn't allow changing \(PathStandardizer.abbreviatingHome(path)). Allow Sidebar Icons in System Settings › Privacy & Security › Files and Folders, then try again. The sidebar glyph stays as it is."
         case .folderIconBackupFailed(let path):
             "The current icon of \(PathStandardizer.abbreviatingHome(path)) couldn't be saved, so it wasn't replaced. Check that the disk has free space, then try again."
         case .folderIconUnverified(let path):

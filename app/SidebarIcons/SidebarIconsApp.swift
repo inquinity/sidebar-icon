@@ -99,9 +99,9 @@ struct MainView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             if model.folderIconsRecorded || model.rows.contains(where: \.hasFolderIcon) {
-                Text("Remove all custom sidebar icons and delete this app's mappings and copied images? Folder icons set by this app are put back as they were; nothing else in your folders changes.")
+                Text("Remove all custom sidebar icons and delete this app's mappings and copied images? Folder icons set by this app are put back as they were; the rest of your folders stays as it is.")
             } else {
-                Text("Remove all custom sidebar icons and delete this app's mappings and copied images? Your folders are not changed.")
+                Text("Remove all custom sidebar icons and delete this app's mappings and copied images? Your folders stay as they are.")
             }
         }
         .sheet(item: $model.styleRequest) { request in
@@ -135,11 +135,11 @@ struct BannerView: View {
                 banner(reason, symbol: "lock.fill", tint: .orange)
             }
             if model.favoritesUnavailable {
-                banner("Finder's sidebar Favorites can't be read, so Add and Apply are off. Reset All still works.",
+                banner("Finder's sidebar Favorites can't be read; Add and Apply wait until they can. Reset All works.",
                        symbol: "exclamationmark.triangle.fill", tint: .orange)
             }
             if model.unverifiedBuild {
-                banner("Not yet verified on this macOS build (\(SystemInfo.macOSBuild)); icons may not appear. Reset All always works.",
+                banner("Sidebar Icons is verified on macOS \(SidebarIconCoreInfo.verifiedBuilds.sorted().joined(separator: ", ")); this Mac runs \(SystemInfo.macOSBuild). Check that icons appear after Apply; Reset All undoes every change.",
                        symbol: "info.circle.fill", tint: .yellow)
             }
         }

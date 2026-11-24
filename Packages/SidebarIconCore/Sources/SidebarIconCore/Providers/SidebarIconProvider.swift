@@ -110,11 +110,11 @@ public enum SidebarIconError: Error, Sendable, Equatable {
         case .favoritesUnavailable:
             "The Finder sidebar Favorites list could not be read."
         case .folderNotInFavorites(let path):
-            "\(path) is not in the Finder sidebar Favorites. Drag it into the sidebar first."
+            "Drag \(path) into the Finder sidebar Favorites first."
         case .folderInFavoritesMoreThanOnce(let path):
             "\(path) is in Favorites more than once; it was left unchanged."
         case .folderMissing(let path):
-            "\(path) does not exist; it was not created."
+            "\(path) can't be found."
         case .registrationFailed(let status):
             "Launch Services did not accept the icon registration bundle (OSStatus \(status))."
         case .propertyRejected(let path, let status):
@@ -122,7 +122,7 @@ public enum SidebarIconError: Error, Sendable, Equatable {
         case .overrideNotCleared(let path, let code):
             "The sidebar override \(code) on \(path) could not be removed; it is still recorded."
         case .glyphUnavailable(let path):
-            "The glyph for \(path) isn't built yet; build it with Xcode's asset tool (Import Glyph or the wizard)."
+            "Build the glyph for \(path) with New Drawing… or Import Glyph… in the Glyph Library (Xcode's asset tool)."
         case .assetConversionFailed(let id):
             "The image for asset \(id) could not be converted to an icon."
         case .ledgerIOFailed(let detail):

@@ -47,7 +47,7 @@ struct ImagePreview: View {
                 }
             }
             if image == nil {
-                Label("This file can't be shown as an image; adding it will fail.", systemImage: "xmark.octagon.fill")
+                Label("This file isn't an image Sidebar Icons can use. Choose a PDF, PNG or SVG.", systemImage: "xmark.octagon.fill")
                     .foregroundStyle(.red)
             }
             ForEach(Array(picked.advice.warnings.enumerated()), id: \.offset) { _, warning in

@@ -12,7 +12,7 @@ struct MappingListView: View {
             ContentUnavailableView {
                 Label("Mappings can't be shown", systemImage: "lock")
             } description: {
-                Text("config.json can't be read, so its mappings aren't listed and nothing will be changed. Reset All undoes every recorded change and deletes the mappings and copied images.")
+                Text("config.json can't be read, so Sidebar Icons is read-only. Reset All undoes every recorded change and deletes the mappings and copied images.")
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if model.rows.isEmpty {
@@ -45,9 +45,9 @@ struct MappingListView: View {
                 Button("Cancel", role: .cancel) {}
             } message: { row in
                 if row.hasFolderIcon {
-                    Text("Remove the mapping for \(row.displayName)? Its folder icon is put back as it was; nothing else in the folder changes.")
+                    Text("Remove the mapping for \(row.displayName)? Its Favorite gets its standard icon and its folder icon is put back as it was; the rest of the folder stays as it is.")
                 } else {
-                    Text("Remove the mapping for \(row.displayName)? The folder itself is not changed.")
+                    Text("Remove the mapping for \(row.displayName)? Its Favorite gets its standard icon; the folder stays as it is.")
                 }
             }
         }
@@ -182,8 +182,8 @@ struct StateBadge: View {
         case .applied: "The Favorite shows this icon."
         case .off: "This mapping is turned off."
         case .notInSidebar: "Drag the folder into Finder's sidebar Favorites, then click Apply Now."
-        case .folderMissing: "The folder no longer exists."
-        case .notApplied: "The Favorite doesn't have this icon yet. Click Apply Now."
+        case .folderMissing: "The folder can't be found. If it moved, Re-point… finds it."
+        case .notApplied: "Click Apply Now to give the Favorite this icon."
         case .error(let reason): reason
         }
     }
@@ -244,8 +244,8 @@ struct FolderIconBadge: View {
         case .set: "Folder icon set"
         case .notSet:
             mappingOn
-                ? "Folder icon on, but not set. Use Folder Icon… to set it."
-                : "Folder icon on, not set (the mapping is off)"
+                ? "Folder icon on; Folder Icon… sets it."
+                : "Folder icon on; it is set when the mapping is turned on."
         case .changedElsewhere: "This folder's icon was changed by something else, so it was left as it is."
         case .failed(let message): message
         case .folderMissing: "The folder can't be found; its folder icon is put back when it's there again, or forgotten if you remove the mapping."

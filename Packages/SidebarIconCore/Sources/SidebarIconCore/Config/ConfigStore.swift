@@ -18,7 +18,7 @@ public struct ConfigStore: Sendable {
     public var url: URL { container.configURL }
 
     static let schemaOneMessage =
-        "This configuration was made by Sidebar Icons 0.2.0 and isn't converted. Use Reset All to start fresh."
+        "This configuration uses an earlier format. Reset All undoes the changes it records and clears it; then add your folders again."
 
     var tempURL: URL { url.deletingLastPathComponent().appending(path: url.lastPathComponent + ".tmp") }
 
@@ -44,11 +44,11 @@ public struct ConfigStore: Sendable {
                 throw ManagerError.configUnreadable(Self.schemaOneMessage)
             }
             guard header.schemaVersion >= AppConfiguration.currentSchemaVersion else {
-                throw ManagerError.configUnreadable("config.json uses schema \(header.schemaVersion), which this version doesn't read.")
+                throw ManagerError.configUnreadable("config.json uses schema \(header.schemaVersion); Sidebar Icons reads schema \(AppConfiguration.currentSchemaVersion). Reset All clears it.")
             }
             guard header.schemaVersion <= AppConfiguration.currentSchemaVersion else {
                 throw ManagerError.configUnreadable(
-                    "config.json uses schema \(header.schemaVersion), written by a newer version of Sidebar Icons."
+                    "config.json uses schema \(header.schemaVersion); Sidebar Icons reads schema \(AppConfiguration.currentSchemaVersion)."
                 )
             }
             config = try decoder.decode(AppConfiguration.self, from: data)

@@ -186,7 +186,7 @@ public actor MappingManager {
                 if now != mapping.folderPath {
                     resolvesElsewhere = true
                     state = .error(
-                        "\(PathStandardizer.abbreviatingHome(mapping.folderPath)) now resolves to \(PathStandardizer.abbreviatingHome(now)), so this mapping no longer matches its folder."
+                        "\(PathStandardizer.abbreviatingHome(mapping.folderPath)) now resolves to \(PathStandardizer.abbreviatingHome(now)); Re-point… updates the mapping."
                     )
                 }
             }
@@ -275,7 +275,7 @@ public actor MappingManager {
             let shown = PathStandardizer.abbreviatingHome(path)
             result.messages.removeAll { $0 == SidebarIconError.folderNotInFavorites(path).message }
             result.messages.insert(
-                "Saved. \(shown) isn't in Finder's sidebar Favorites yet; drag it there, then click Apply Now.", at: 0
+                "Saved. Drag \(shown) into Finder's sidebar Favorites, then click Apply Now.", at: 0
             )
         }
         return result
