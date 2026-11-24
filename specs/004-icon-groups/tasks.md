@@ -275,7 +275,8 @@ kept.
 - [X] T043 [P] Add a CHANGELOG 0.3.0 entry: Added (system glyphs, custom glyphs (manual process and wizard), folder icons); Changed (registry versions; no migration from 0.2.0: reset first); Known limitations
 - [X] T044 Independent code review of `Core/Glyphs/`, `Core/Icons/`, `Core/Providers/`, `Core/Manager/`, `Core/Config/` and `app/SidebarIcons/`, plus a security review (the private adapter, `Process`/`actool`, folder writes, symlinks in the container). Fix the findings; record them in research.md
 - [ ] T045 (owner) Proof **P-3**: dark mode and a non-default accent colour with system and custom glyphs (quickstart)
-- [ ] T046 (live) Quickstart checks 13–15 (0.2.0 configuration refused; Reset All leaves nothing; folders that were not opted in are untouched); also check a wide custom glyph stays inside the sidebar slot (width cap, 29422c8)
+- [X] T046 ~~ (live) Quickstart checks 13–15 (0.2.0 configuration refused; Reset All leaves nothing; folders that were not opted in are untouched); also check a wide custom glyph stays inside the sidebar slot (width cap, 29422c8)~~
+  **Skipped by the owner (2026-11-24):** Sidebar Icons has not left this machine, so there are no other 0.2.0 installs to check. Not verified live as a result: Reset All's leftover audit for 0.3.0 and the wide-glyph cap in Finder (package tests cover the logic, not what Finder shows).
 - [ ] T047 Release 0.3.0:
   - add any newly verified build to `SidebarIconCoreInfo.verifiedBuilds`;
   - set `MARKETING_VERSION` to 0.3.0; date the CHANGELOG entry; update the README status (004 released);
@@ -320,5 +321,5 @@ Polish:           T042 + T043
 4. US4, folder icons (after the P-2 proof).
 5. Reviews, owner proof P-3, release 0.3.0.
 
-Stop points that need the owner: live-control permission (T030, T034, T041, T046), the privacy
+Stop points that need the owner: live-control permission (T030, T034, T041), the privacy
 prompt (T041), appearance (T045), and the push (T047).
