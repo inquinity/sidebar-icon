@@ -19,26 +19,50 @@ Tabs:
 1. **System glyph**: a name field with suggestions (research D6). Typing shows "✓ available" or
    "Not a system glyph on this Mac". Preview: the glyph at 16 and 20 pt in the accent colour on
    light and dark sidebar swatches, beside the folder name.
-2. **Custom glyph**: a list of existing glyphs with previews; **New Custom Glyph…** opens the
-   wizard. If the tool is unavailable, the tab says why and the list is still usable.
+2. **Custom glyph**: choose a glyph from the Glyph Library, previewed beside the folder name;
+   **New Custom Glyph…** opens the wizard with this folder's art step, and the new glyph is applied
+   when it finishes. Importing, new drawings and deleting are in the Glyph Library window.
 3. **Full colour**: pick an image (002 flow and preview, with warnings).
 
 Buttons: Cancel, Apply.
 
+## Glyph Library (window)
+
+Opened with **View › Glyph Library** (⌘2) or the **Glyph Library** button in the main window;
+**View › Main** (⌘1) brings the main window back. One shared model serves both windows.
+
+- A list of custom glyphs: tinted 20 pt preview, name, and how many folders use it. The selected
+  glyph is previewed at 16 and 20 pt on light and dark sidebar swatches.
+- **New Glyph…** opens the wizard (no folder, so no folder-art step); the new glyph is selected.
+- **Import Glyph…** (sheet): name, **Choose Template…** / **Change Template…**, Import. An existing
+  name gets a new version.
+- **New Drawing…** (also in the row's context menu): the wizard for a new version of the selected
+  glyph.
+- **Delete…**: confirmation; a glyph in use says how many folders use it, and they get the
+  standard folder glyph.
+- Errors show where the action started: a failed delete at the top of this window, Import and
+  the wizard in their own sheets; none of them raises an alert in the main window. The main
+  window's notices (read-only configuration, Favorites unreadable, unverified build) show here too.
+
 ## Glyph wizard (sheet)
+
+Before the wizard or Import opens, Xcode's asset tool is checked. When it isn't ready, an alert
+**Custom Glyphs Use Xcode** says what to do (install Xcode and open it once, or accept its license)
+with a **Close** button, and nothing opens.
 
 | Step | Content |
 |------|---------|
-| 1 Check | "Checking for Xcode's asset tool…" → ✓ path, or the message from glyph-builder.md, with **Use a system glyph instead**, **Check Again** and a pointer to the manual process (which also needs Xcode) |
-| 2 Name | Field; lowercase letters, digits, dots and hyphens; uniqueness checked as you type |
-| 3 Drawing | Open panel (SVG). Refusals show the element and the guidance; warnings (proportions, detail) don't block |
-| 4 Folder art (optional) | "Also use full-colour art for this folder's Finder icon" → Choose Art… (the master). Set after the picker applies the glyph; if the folder already has a custom icon, the opt-in sheet opens with the art chosen and the replace warning. Small sizes are added later with Folder Icon…. Not shown for New Drawing… |
-| 5 Preview | Tinted glyph at 16/20 pt, light and dark, next to a system glyph for size comparison |
-| 6 Build | Progress; on success, applies to the mapping. On failure, nothing is saved |
+| 1 Name | Field; lowercase letters, digits, dots and hyphens; uniqueness checked as you type |
+| 2 Drawing | **Choose Drawing…** / **Change Drawing…** (one SVG per glyph). Refusals show the element and the guidance; warnings (proportions, detail) don't block |
+| 3 Folder art | Only from the style picker. **Choose Art…** / **Change Art…** (the master, with Clear); the footer shows **Skip** until art is chosen, then **Continue**. Set after the picker applies the glyph; a folder with a custom icon opens the opt-in sheet with the art chosen and the replace warning. Folder Icon… adds small sizes |
+| 4 Preview | Tinted glyph at 16/20 pt, light and dark, next to a system glyph for size comparison |
+| 5 Build | Progress; the glyph is saved once the build succeeds. From the style picker it is applied to the folder |
+
+New Drawing… shows only Drawing, Preview and Build.
 
 ## Folder icon opt-in (sheet)
 
-Opened from **Folder Icon…** in a row's context menu (or by the wizard's step 4 when the folder already has a custom icon). The row shows a folder badge: set, on but not set (mapping Off), changed elsewhere, or failed (with the reason as help text).
+Opened from **Folder Icon…** in a row's context menu (or by the wizard's folder-art step when the folder already has a custom icon). The row shows a folder badge: set, on but not set (mapping Off), changed elsewhere, or failed (with the reason as help text).
 
 - Title: **Use full-colour art as this folder's Finder icon**.
 - Text: "Sidebar Icons will add a hidden file named Icon to the folder and mark the folder as having
@@ -46,7 +70,8 @@ Opened from **Folder Icon…** in a row's context menu (or by the wizard's step 
   services copy it. Turning this off, Remove and Reset All put the folder's icon back."
 - If the folder has a custom icon already: "This folder already has a custom icon. Replace it? The
   current icon is kept and restored when you turn this off." The Replace button is destructive.
-- Pickers: master art (required); optional small sizes (individual PNGs or an `.iconset` folder);
+- Pickers: master art (required; **Choose Art…** / **Change Art…**); optional small sizes
+  (individual PNGs or an `.iconset` folder);
   preview at 16, 32, 128 and 512 pt.
 - Buttons: Cancel, Set Folder Icon.
 - Confirmations when a folder icon is opted in or recorded (found in P-2; 002's "not changed"

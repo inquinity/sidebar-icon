@@ -29,7 +29,7 @@ final class AppModel {
     var styleRequest: StyleRequest?
     /// The open folder icon sheet (Folder Icon…), 004 Story 4.
     var folderArtRequest: FolderArtRequest?
-    /// Folder art chosen in the wizard's step 4, set on the folder after the picker applies.
+    /// Folder art chosen in the wizard's folder-art step, set on the folder after the picker applies.
     var pendingFolderArt: URL?
     /// Set when `config.json` can't be read (research D3).
     private(set) var readOnlyReason: String?
@@ -59,10 +59,11 @@ final class AppModel {
     var canReset: Bool { manager != nil && !busy }
 
     /// Launch: reads the config and shows status. Makes no outside change (research D6).
-    /// Runs again if the window is reopened; it never runs during an action and never clears a
-    /// busy flag it didn't set.
+    /// Loads once, from whichever window opens first; it never runs during an action and never
+    /// clears a busy flag it didn't set.
     func start() async {
-        guard let manager, !busy else { return }
+        guard let manager, !busy, !started else { return }
+        started = true
         busy = true
         defer { busy = false }
         do {
@@ -107,7 +108,7 @@ final class AppModel {
         case .add(let folder): PathStandardizer.standardize(folder.path)
         case .change(let row): row.folderPath
         }
-        // The wizard's folder art follows once the mapping exists (step 4).
+        // The wizard's folder art follows once the mapping exists.
         let then: @MainActor (Bool) -> Void = { [weak self] succeeded in
             if succeeded, let folderArt { self?.startFolderIcon(master: folderArt, folderPath: folderPath) }
         }
@@ -179,15 +180,29 @@ final class AppModel {
         glyphToolStatus = await Task.detached { manager.glyphToolStatus() }.value
     }
 
-    func importGlyph(name: String, template: URL) {
-        run { try await $0.importGlyph(name: name, template: template) }
+    /// Checked each time a wizard is about to open, so installing Xcode or accepting its license
+    /// is noticed without a relaunch. Nil when the tool is ready, otherwise what to do.
+    func glyphToolProblem() async -> String? {
+        await checkGlyphTool()
+        switch glyphToolStatus {
+        case .available?: return nil
+        case .unavailable(let reason)?: return reason
+        case nil: return GlyphBuildError.needsXcode
+        }
+    }
+
+    private var started = false
+
+    /// Imports a template (the manual process). `completion` says whether it succeeded.
+    func importGlyph(name: String, template: URL, completion: (@MainActor (Bool) -> Void)? = nil) {
+        run({ try await $0.importGlyph(name: name, template: template) }, alertOnFailure: false, finished: completion)
     }
 
     /// The wizard's build (Story 3). `completion` gets the new glyph's id, or nil on failure
     /// (the error is in `lastError`).
     func createGlyph(name: String, drawing: Data, completion: @escaping @MainActor (UUID?) -> Void) {
         let name = name.trimmingCharacters(in: .whitespaces)
-        run({ try await $0.createGlyph(name: name, drawing: drawing) }) { [weak self] succeeded in
+        run({ try await $0.createGlyph(name: name, drawing: drawing) }, alertOnFailure: false) { [weak self] succeeded in
             completion(succeeded ? self?.glyphs.first(where: { $0.name == name })?.id : nil)
         }
     }
@@ -195,7 +210,7 @@ final class AppModel {
     /// A new drawing for an existing glyph; its folders switch to the new version.
     func updateGlyph(_ glyph: CustomGlyph, drawing: Data, completion: @escaping @MainActor (UUID?) -> Void) {
         let id = glyph.id
-        run({ try await $0.updateGlyph(id, drawing: drawing) }) { succeeded in
+        run({ try await $0.updateGlyph(id, drawing: drawing) }, alertOnFailure: false) { succeeded in
             completion(succeeded ? id : nil)
         }
     }
@@ -204,9 +219,10 @@ final class AppModel {
         lastError = nil
     }
 
-    /// Deletes a glyph; folders that use it switch to the system folder glyph (FR-010).
-    func deleteGlyph(_ glyph: CustomGlyph) {
-        run { try await $0.deleteGlyph(glyph.id, replacement: .systemSymbol(name: "folder")) }
+    /// Deletes a glyph; folders that use it switch to the standard folder glyph (FR-010).
+    func deleteGlyph(_ glyph: CustomGlyph, completion: (@MainActor (Bool) -> Void)? = nil) {
+        run({ try await $0.deleteGlyph(glyph.id, replacement: .systemSymbol(name: "folder")) },
+            alertOnFailure: false, finished: completion)
     }
 
     func folderCount(using glyph: CustomGlyph) -> Int {
@@ -248,7 +264,10 @@ final class AppModel {
 
     /// `finished` runs on the main actor after the rows are refreshed, with whether the action
     /// succeeded. It also runs (with false) when the action couldn't start.
+    /// `alertOnFailure` false: the sheet or window that started the action shows `lastError`
+    /// itself (glyph actions, from the Glyph Library or a wizard), so no alert in the main window.
     private func run(_ action: @escaping @Sendable (MappingManager) async throws -> ActionResult,
+                     alertOnFailure: Bool = true,
                      finished: (@MainActor (Bool) -> Void)? = nil) {
         guard let manager, !busy else {
             finished?(false)
@@ -273,7 +292,7 @@ final class AppModel {
                 statusLine = ""
                 let message = Self.message(for: error)
                 lastError = message
-                if styleRequest == nil && folderArtRequest == nil {
+                if alertOnFailure && styleRequest == nil && folderArtRequest == nil {
                     alert = Alert(title: "Sidebar Icons", message: message)
                 }
                 rows = await manager.rows()

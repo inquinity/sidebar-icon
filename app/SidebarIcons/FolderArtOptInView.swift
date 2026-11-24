@@ -63,7 +63,7 @@ struct FolderArtOptInView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Button(master == nil ? "Choose Art…" : "Choose Other Art…") {
+                    Button(master == nil ? "Choose Art…" : "Change Art…") {
                         if let url = Self.chooseMaster() { pickMaster(url) }
                     }
                     if let master {

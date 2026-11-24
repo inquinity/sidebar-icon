@@ -46,8 +46,8 @@ scripts/release.sh build --dry-run
 5. Import a new version under the same name: it replaces the old glyph without a Finder restart.
 
 **Story 3, wizard**
-6. Without Xcode selected (or simulate `toolUnavailable`): the wizard explains and offers the other
-   paths.
+6. Without Xcode selected (or simulate `toolUnavailable`): New Glyph… shows the "Custom Glyphs Use
+   Xcode" message with Close, and the wizard does not open.
 7. A plain filled SVG builds through the wizard; previews show the warnings; 20 other custom
    mappings keep their glyphs when one changes.
 

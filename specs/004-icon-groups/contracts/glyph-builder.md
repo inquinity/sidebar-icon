@@ -51,7 +51,8 @@ commands).
 
 | Condition | Message |
 |-----------|---------|
-| `xcrun` reports no developer directory, or only Command Line Tools | "Custom glyphs need Xcode (the Command Line Tools don't include the asset tool). Install Xcode, or use a system glyph." |
+| no developer directory | "Custom glyphs are built with Xcode. Install Xcode from the App Store and open it once, then try again." |
+| the Command Line Tools are the selected developer directory | "Custom glyphs are built with Xcode. If Xcode is installed, choose it in Xcode › Settings › Locations › Command Line Tools; otherwise install Xcode from the App Store and open it once. Then try again." |
 | license not accepted | "Open Xcode once and accept its license, then try again." |
 | first-launch components missing | "Open Xcode once to finish installing its components, then try again." |
 | other `actool` error | "The asset tool couldn't build the glyph: <first error line>." |

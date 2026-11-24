@@ -38,9 +38,11 @@ import Testing
 
     @Test func noDeveloperDirectoryMeansNoXcrun() {
         let fake = FakeActool()
-        for developer in [nil, "/Library/Developer/CommandLineTools"] as [String?] {
+        let expected: [(String?, String)] = [(nil, GlyphBuildError.needsXcode),
+                                             ("/Library/Developer/CommandLineTools", GlyphBuildError.needsXcodeSelected)]
+        for (developer, reason) in expected {
             let runner = ActoolRunner(runner: fake, inheritedEnvironment: [:], isTrustedTool: { _ in true }, developerDirectory: { developer })
-            #expect(runner.toolStatus() == .unavailable(GlyphBuildError.needsXcode))
+            #expect(runner.toolStatus() == .unavailable(reason))
         }
         // The xcrun shim, which can show an install prompt, never ran.
         #expect(fake.state.withLock { $0.calls.isEmpty })

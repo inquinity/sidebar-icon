@@ -105,8 +105,7 @@ struct StylePickerView: View {
                                        // The wizard's last step applies the new glyph (contracts/ui.md).
                                        selectedGlyph = id
                                        apply(.customGlyph(id))
-                                   },
-                                   useSystemGlyph: { tab = .system })
+                                   })
                 case .fullColour:
                     fullColourTab
                 }

@@ -4,18 +4,18 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The glyph wizard (contracts/ui.md, 004 Story 3): a plain SVG drawing in, a custom glyph out,
-/// without running make-symbol-template. Steps: tool check, name, drawing, folder art (not yet
-/// available), preview, build. Nothing is saved until Build, and a failed build saves nothing.
+/// without running make-symbol-template. Steps: name, drawing, folder art (only when opened for a
+/// folder), preview, build. Nothing is saved until Build, and a failed build saves nothing.
+/// Callers open it only once Xcode's asset tool is available (`XcodeNeededAlert`).
 ///
 /// With `updating`, it gives an existing glyph a new drawing (a new version): the name step is
 /// skipped and every folder using the glyph shows the new drawing.
 struct GlyphWizard: View {
     enum Step: Int, CaseIterable {
-        case check, name, drawing, folderArt, preview, build
+        case name, drawing, folderArt, preview, build
 
         var title: String {
             switch self {
-            case .check: "Xcode"
             case .name: "Name"
             case .drawing: "Drawing"
             case .folderArt: "Folder art"
@@ -26,14 +26,14 @@ struct GlyphWizard: View {
     }
 
     let model: AppModel
-    let folderName: String
+    /// The folder the glyph is for (from the style picker), or nil from the Glyph Library.
+    let folderName: String?
     let updating: CustomGlyph?
     /// Called with the glyph's id after a successful build.
     let finished: (UUID) -> Void
-    let useSystemGlyph: () -> Void
     let cancel: () -> Void
 
-    @State private var step: Step = .check
+    @State private var step: Step = .name
     @State private var name = ""
     @State private var drawingURL: URL?
     @State private var drawing: Result<SVGShapes, SVGReadError>?
@@ -42,9 +42,10 @@ struct GlyphWizard: View {
     @State private var preview: NSImage?
     @State private var reading = false
     @State private var building = false
-    @State private var useFolderArt = false
     @State private var folderArt: URL?
     @State private var folderArtProblem: String?
+    /// The chosen art is still being checked; Continue waits for it (review 7).
+    @State private var checkingArt = false
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
 
@@ -54,7 +55,7 @@ struct GlyphWizard: View {
             return "Use lowercase letters, digits, dots and hyphens (up to 48), starting with a letter or digit."
         }
         if model.glyphs.contains(where: { $0.name == trimmedName }) {
-            return "You already have a glyph named \(trimmedName). Choose another name, or select that glyph and click New Drawing…"
+            return "The Glyph Library has a glyph named \(trimmedName). Choose another name, or give it a new drawing in the Glyph Library."
         }
         return nil
     }
@@ -64,14 +65,21 @@ struct GlyphWizard: View {
     }
 
     /// A new drawing keeps the glyph's name, and folder art belongs to a folder, not a glyph.
-    private var steps: [Step] { updating == nil ? Step.allCases : Step.allCases.filter { $0 != .name && $0 != .folderArt } }
+    private var steps: [Step] {
+        Step.allCases.filter { each in
+            switch each {
+            case .name: updating == nil
+            case .folderArt: updating == nil && folderName != nil
+            default: true
+            }
+        }
+    }
 
     private var canContinue: Bool {
         switch step {
-        case .check: if case .available? = model.glyphToolStatus { true } else { false }
         case .name: !trimmedName.isEmpty && nameProblem == nil
         case .drawing: shapes != nil && drawingData != nil && !reading
-        case .folderArt: !useFolderArt || (folderArt != nil && folderArtProblem == nil)
+        case .folderArt: folderArt != nil && folderArtProblem == nil && !checkingArt
         case .preview: true
         case .build: false
         }
@@ -79,11 +87,10 @@ struct GlyphWizard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(updating.map { "New drawing for \($0.name)" } ?? "New Custom Glyph").font(.headline)
+            Text(updating.map { "New Drawing for \($0.name)" } ?? "New Glyph").font(.headline)
             stepIndicator
             Group {
                 switch step {
-                case .check: checkStep
                 case .name: nameStep
                 case .drawing: drawingStep
                 case .folderArt: folderArtStep
@@ -93,7 +100,7 @@ struct GlyphWizard: View {
             }
             .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)
 
-            if let error = model.lastError, step == .build || step == .check {
+            if let error = model.lastError, step == .build {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
                     .foregroundStyle(.red)
@@ -112,6 +119,9 @@ struct GlyphWizard: View {
                     Button("Build Glyph", action: build)
                         .keyboardShortcut(.defaultAction)
                         .disabled(building || !model.canChange || shapes == nil)
+                } else if step == .folderArt && folderArt == nil {
+                    Button("Skip") { move(by: 1) }
+                        .keyboardShortcut(.defaultAction)
                 } else {
                     Button("Continue") { move(by: 1) }
                         .keyboardShortcut(.defaultAction)
@@ -121,7 +131,6 @@ struct GlyphWizard: View {
         }
         .padding(20)
         .frame(width: 480)
-        .task { await model.checkGlyphTool() }
     }
 
     // MARK: - Steps
@@ -139,38 +148,6 @@ struct GlyphWizard: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Step \((steps.firstIndex(of: step) ?? 0) + 1) of \(steps.count): \(step.title)")
-    }
-
-    @ViewBuilder private var checkStep: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            switch model.glyphToolStatus {
-            case nil:
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Checking for Xcode's asset tool…")
-                }
-            case .available(let tool)?:
-                Label("Xcode's asset tool is available.", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                Text(tool.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                Text("Next you'll name the glyph and choose an SVG drawing made of filled shapes.")
-                    .font(.callout).foregroundStyle(.secondary)
-            case .unavailable(let reason)?:
-                Label(reason, systemImage: "hammer.circle")
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("Custom glyphs need Xcode. Without it, a system glyph gives the same outline-blue look.")
-                    .font(.callout).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Button("Use a System Glyph Instead", action: useSystemGlyph)
-                    Button("Check Again") { Task { await model.checkGlyphTool() } }
-                }
-                Text("Once Xcode is installed, you can also make a template by hand: see Manual process in icon-specification.md.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
     }
 
     private var nameStep: some View {
@@ -193,7 +170,7 @@ struct GlyphWizard: View {
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button(drawingURL == nil ? "Choose Drawing…" : "Choose Another Drawing…") {
+                Button(drawingURL == nil ? "Choose Drawing…" : "Change Drawing…") {
                     if let url = Self.chooseDrawing() { read(url) }
                 }
                 .disabled(reading)
@@ -228,23 +205,26 @@ struct GlyphWizard: View {
 
     private var folderArtStep: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle("Also use full-colour art for this folder's Finder icon", isOn: $useFolderArt)
-            Text("Optional. The art becomes \(folderName)'s own icon in Finder windows, set after the glyph is built. If the folder already has a custom icon, you're asked first. Small sizes can be added later with Folder Icon….")
+            Text("Choose full-colour art to use as \(folderName ?? "the folder")'s own icon in Finder windows, or skip this step. The icon is set after the glyph is built; a folder with a custom icon asks before replacing it. Folder Icon… adds hand-tuned small sizes.")
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if useFolderArt {
-                HStack {
-                    Button(folderArt == nil ? "Choose Art…" : "Choose Other Art…") {
-                        if let url = FolderArtOptInView.chooseMaster() { checkFolderArt(url) }
-                    }
-                    if let folderArt {
-                        Text(folderArt.lastPathComponent).font(.caption).foregroundStyle(.secondary)
-                            .lineLimit(1).truncationMode(.middle)
-                    }
+            HStack {
+                Button(folderArt == nil ? "Choose Art…" : "Change Art…") {
+                    if let url = FolderArtOptInView.chooseMaster() { checkFolderArt(url) }
                 }
-                if let folderArtProblem {
-                    Text(folderArtProblem).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                if let folderArt {
+                    Text(folderArt.lastPathComponent).font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.middle)
+                    Button("Clear") {
+                        self.folderArt = nil
+                        folderArtProblem = nil
+                        checkingArt = false
+                    }
+                    .buttonStyle(.link)
                 }
+            }
+            if let folderArtProblem {
+                Text(folderArtProblem).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -252,6 +232,7 @@ struct GlyphWizard: View {
     private func checkFolderArt(_ url: URL) {
         folderArt = url
         folderArtProblem = nil
+        checkingArt = true
         Task {
             let problem = await Task.detached { () -> String? in
                 do {
@@ -263,7 +244,10 @@ struct GlyphWizard: View {
                     return error.localizedDescription
                 }
             }.value
-            if folderArt == url { folderArtProblem = problem }
+            if folderArt == url {
+                folderArtProblem = problem
+                checkingArt = false
+            }
         }
     }
 
@@ -297,10 +281,12 @@ struct GlyphWizard: View {
         VStack(alignment: .leading, spacing: 10) {
             if let updating {
                 Text("Build the new drawing for \(updating.name). Every folder that uses it shows the new drawing.")
-            } else {
+            } else if let folderName {
                 Text("Build the glyph \(trimmedName) and use it for \(folderName).")
+            } else {
+                Text("Build the glyph \(trimmedName) and add it to the Glyph Library.")
             }
-            Text("This runs Xcode's asset tool and can take a few seconds. If it fails, nothing is saved.")
+            Text("Xcode's asset tool builds it in a few seconds. The glyph is saved once the build succeeds.")
                 .font(.callout).foregroundStyle(.secondary)
             if building {
                 HStack(spacing: 8) {
@@ -314,7 +300,8 @@ struct GlyphWizard: View {
 
     // MARK: - Actions
 
-    private var displayName: String { folderName }
+    /// The name beside the preview: the folder's, or the glyph's when there is no folder.
+    private var displayName: String { folderName ?? updating?.name ?? trimmedName }
 
     private func move(by offset: Int) {
         guard let index = steps.firstIndex(of: step) else { return }
@@ -360,11 +347,11 @@ struct GlyphWizard: View {
     private func build() {
         guard let drawingData else { return }
         building = true
-        let art = useFolderArt ? folderArt : nil
+        let art = folderArt
         let completion: @MainActor (UUID?) -> Void = { id in
             building = false
             guard let id else { return }
-            // Picked up by the picker's Apply, once the mapping exists (step 4).
+            // Picked up by the picker's Apply, once the mapping exists.
             if let art, updating == nil { model.pendingFolderArt = art }
             finished(id)
         }

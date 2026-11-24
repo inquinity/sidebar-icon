@@ -36,7 +36,9 @@ public enum GlyphBuildError: Error, Sendable, Equatable {
     case missingRequiredGlyph(String)
     case templateUnreadable(String)
 
-    public static let needsXcode = "Custom glyphs need Xcode (the Command Line Tools don't include the asset tool). Install Xcode, or use a system glyph."
+    public static let needsXcode = "Custom glyphs are built with Xcode. Install Xcode from the App Store and open it once, then try again."
+    /// The Command Line Tools are the selected developer folder (Xcode may be installed too).
+    public static let needsXcodeSelected = "Custom glyphs are built with Xcode. If Xcode is installed, choose it in Xcode › Settings › Locations › Command Line Tools; otherwise install Xcode from the App Store and open it once. Then try again."
     public static let needsLicense = "Open Xcode once and accept its license, then try again."
     public static let needsFirstLaunch = "Open Xcode once to finish installing its components, then try again."
 
@@ -109,9 +111,8 @@ public struct ActoolRunner: Sendable {
     }
 
     public func toolStatus() -> ToolStatus {
-        guard let developer = developerDirectory(), !developer.contains("/CommandLineTools") else {
-            return .unavailable(GlyphBuildError.needsXcode)
-        }
+        guard let developer = developerDirectory() else { return .unavailable(GlyphBuildError.needsXcode) }
+        guard !developer.contains("/CommandLineTools") else { return .unavailable(GlyphBuildError.needsXcodeSelected) }
         let output: ProcessOutput
         do {
             output = try runner.run(Self.xcrun, arguments: ["--find", "actool"], environment: environment, timeout: 30)

@@ -55,16 +55,18 @@ whether a glyph sits well next to the system symbols.
 With Xcode installed (not only the Command Line Tools) and opened once:
 
 1. **Draw** the glyph as in section 1 and export it as SVG.
-2. In Sidebar Icons, open **Change Icon…** on a folder (or **Add Folder…**), go to the **Custom
-   glyph** tab and click **New Custom Glyph…**.
-3. The wizard checks for Xcode's asset tool. Then it asks for a name (section 2) and the drawing.
-   It refuses a drawing it can't use, and says what to change; warnings such as "too wide"
-   don't stop it.
+2. In Sidebar Icons, open the **Glyph Library** (View › Glyph Library, or the button in the main
+   window) and click **New Glyph…**. Or, while choosing a folder's icon (**Change Icon…** or
+   **Add Folder…**), go to the **Custom glyph** tab and click **New Custom Glyph…**.
+3. The wizard asks for a name (section 2) and the drawing. It refuses a drawing it can't use, and
+   says what to change; warnings such as "too wide" don't stop it. From a folder, it also offers
+   the folder art (section 3), or **Skip**.
 4. It previews the glyph at 16 and 20 pt on light and dark sidebars, next to a system glyph.
-   **Build Glyph** builds it and uses it for the folder.
+   **Build Glyph** builds it; from a folder, it is also used for that folder.
 
-To change a glyph later, select it in the list and click **New Drawing…**. Every folder that uses
-it shows the new drawing, without restarting Finder.
+To change a glyph later, select it in the Glyph Library and click **New Drawing…**. Every folder
+that uses it shows the new drawing, without restarting Finder. **Delete…** removes a glyph; folders
+that use it get the standard folder glyph.
 
 ## Manual process (Workflow 1, without the wizard)
 
@@ -88,10 +90,10 @@ the asset tool) and have opened it once.
    **Alternative**: in Apple's SF Symbols app, select a similar symbol and export it as a template
    (**File › Export Symbol…**; the menu name can differ between versions), then draw into it. The template must contain a **Regular-Medium**
    (`Regular-M`) glyph; other weights and sizes are optional.
-3. **Import** it: in Sidebar Icons, open **Change Icon…** on a folder (or **Add Folder…**), go to
-   the **Custom glyph** tab and click **Import Glyph…**. Enter the glyph name (section 2), choose
-   the `.template.svg` and click **Import**. The app checks for the `Regular-M` glyph, builds it
-   with Xcode's asset tool and selects it in the list; click **Apply**.
+3. **Import** it: in Sidebar Icons, open the **Glyph Library** and click **Import Glyph…**. Enter
+   the glyph name (section 2), choose the `.template.svg` and click **Import**. The app checks for
+   the `Regular-M` glyph, builds it with Xcode's asset tool and selects it in the library. Then
+   choose it for a folder on the **Custom glyph** tab of **Change Icon…** and click **Apply**.
 
 To change a glyph later, edit the drawing, repeat step 2 and import it again under the **same
 name**: the app makes a new version, and the sidebar updates without restarting Finder.

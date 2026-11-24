@@ -89,11 +89,14 @@ Using it:
 3. Each row has an On/Off switch; right-click a row for **Change Icon…**, **Folder Icon…**,
    **Remove…** and **Re-point…**.
 
-**Custom glyphs.** On the **Custom glyph** tab, **New Custom Glyph…** opens a wizard: it checks
-for Xcode, asks for a name and an outline drawing (an SVG of filled shapes), and can take folder
-art too. It previews the glyph at sidebar size and builds it. **Import Glyph…** takes a symbol
-template you made yourself. [icon-specification.md](specs/004-icon-groups/icon-specification.md)
-says what to draw and has the manual process.
+**Custom glyphs.** The **Glyph Library** window (View › Glyph Library, or the button in the main
+window) holds the glyphs you make. **New Glyph…** opens a wizard that asks for a name and an
+outline drawing (an SVG of filled shapes), previews it at sidebar size and builds it; **Import
+Glyph…** takes a symbol template you made yourself; **New Drawing…** and **Delete…** manage
+existing glyphs. On a folder's **Custom glyph** tab you choose a glyph from the library, or make
+one there with **New Custom Glyph…**, which can also take the folder's art. Both need Xcode.
+[icon-specification.md](specs/004-icon-groups/icon-specification.md) says what to draw and has the
+manual process.
 
 **Folder icons.** **Folder Icon…** sets full-colour art (a square PNG of at least 1024 pixels, a
 PDF or an SVG, with optional hand-tuned small sizes or an `.iconset`) as the folder's own Finder

@@ -6,7 +6,8 @@ struct SidebarIconsApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
-        // One window, so there is one model and one ledger writer (contracts/ui.md).
+        // Single-instance windows sharing one model, so there is one ledger writer
+        // (contracts/ui.md).
         Window("Sidebar Icons", id: "main") {
             MainView(model: model)
                 .task { await model.start() }
@@ -16,7 +17,17 @@ struct SidebarIconsApp: App {
             CommandGroup(replacing: .appInfo) {
                 AboutMenuItem()
             }
+            CommandGroup(before: .toolbar) {
+                WindowMenuItems()
+                Divider()
+            }
         }
+
+        Window("Glyph Library", id: "library") {
+            GlyphLibraryView(model: model)
+                .task { await model.start() }
+        }
+        .defaultSize(width: 560, height: 460)
 
         Window("About Sidebar Icons", id: "about") {
             AboutView()
@@ -26,8 +37,21 @@ struct SidebarIconsApp: App {
     }
 }
 
+/// View › Main and View › Glyph Library: open the window, or bring it to the front.
+struct WindowMenuItems: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Main") { openWindow(id: "main") }
+            .keyboardShortcut("1")
+        Button("Glyph Library") { openWindow(id: "library") }
+            .keyboardShortcut("2")
+    }
+}
+
 struct MainView: View {
     @Bindable var model: AppModel
+    @Environment(\.openWindow) private var openWindow
     @State private var confirmingRefresh = false
     @State private var confirmingReset = false
 
@@ -41,6 +65,9 @@ struct MainView: View {
                     AddMappingFlow.run(model: model)
                 }
                 .disabled(!model.canChange)
+                Button("Glyph Library", systemImage: "square.stack") {
+                    openWindow(id: "library")
+                }
                 Spacer()
                 if model.busy {
                     ProgressView().controlSize(.small)

@@ -14,13 +14,17 @@ Verified on macOS 27.2.1 (26B131).
 - **System glyphs**: any SF Symbol name as a Favorite's icon, with search and a live preview at
   sidebar size in light and dark.
 - **Custom glyphs**, drawn like SF Symbols. They need Xcode (its asset tool).
-  - **New Custom Glyph…** opens a wizard: it checks for Xcode, takes a name and an outline SVG of
-    filled shapes, shows warnings and a preview, and builds the glyph.
+  - A **Glyph Library** window (View › Glyph Library, ⌘2, or the button in the main window) lists
+    them with previews and how many folders use each, and offers New Glyph…, Import Glyph…,
+    New Drawing… and Delete….
+  - **New Glyph…** (or **New Custom Glyph…** while choosing a folder's icon) opens a wizard: a
+    name, an outline SVG of filled shapes with warnings, optional folder art (from a folder), a
+    preview, and the build. Without Xcode, a message says what to install.
   - **Import Glyph…** takes a symbol template you made yourself, with
     `swift run make-symbol-template` or the SF Symbols app (the manual process in
     `specs/004-icon-groups/icon-specification.md`).
-  - Importing again under the same name updates every Favorite that uses it, without restarting
-    Finder.
+  - A new drawing, or importing again under the same name, updates every Favorite that uses the
+    glyph, without restarting Finder.
 - **Folder icons** (opt in per folder, **Folder Icon…**). Full-colour art becomes the folder's own
   Finder icon:
   - the master is a square PNG of at least 1024 pixels, a PDF or an SVG; hand-tuned small sizes

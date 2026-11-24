@@ -96,8 +96,9 @@ Favorite shows the custom glyph outline blue at system size without restarting F
 
 **Acceptance Scenarios**:
 
-1. **Given** Xcode's asset tool is not available, **When** the owner starts the wizard, **Then** it
-   says so, explains how to get it, and offers the system-glyph path (Story 1) or the manual process (Story 2) instead.
+1. **Given** Xcode's asset tool is not available, **When** the owner starts the wizard, **Then** a
+   message explains how to get it (install Xcode, or select it when the Command Line Tools are
+   selected), with a Close button, and the wizard does not open.
 2. **Given** the tool is available, **When** the owner enters a glyph name already used by another
    of their glyphs, **Then** the wizard asks for a different name.
 3. **Given** an outline drawing made only of filled shapes, **When** the owner selects it, **Then**
@@ -193,8 +194,9 @@ every size; Remove restores the plain folder icon and leaves nothing behind in t
 
 **Custom glyph wizard (Xcode)**
 
-- **FR-005**: The wizard MUST check that Xcode's asset tool is available before asking for anything
-  and, if it is not, explain how to install it and offer the system-glyph path.
+- **FR-005**: The app MUST check that Xcode's asset tool is available before opening the wizard or
+  Import Glyph, and, if it is not, explain how to install or select it, with a Close button,
+  without opening the wizard. (Amended 2026-11-24 by the owner: the check is not a wizard step.)
 - **FR-006**: The wizard MUST ask for a glyph name, require it to be unique among the owner's
   custom glyphs and limited to lowercase letters, digits, dots and hyphens.
 - **FR-007**: The wizard MUST accept an outline drawing (SVG) made of filled shapes, and MUST refuse
