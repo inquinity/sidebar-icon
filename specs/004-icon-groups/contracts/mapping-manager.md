@@ -39,7 +39,9 @@ extension ManagerError {
 }
 ```
 
-`MappingRow` gains `style: SidebarStyle`, `folderIcon: FolderIconState`.
+`MappingRow` gains `style: SidebarStyle`, `folderIcon: FolderIconState` (`notSet`, `set`, `changedElsewhere`, `failed(message)`; a refusal by macOS is `failed` with the access-denied text) and `folderIconOptedIn`.
+
+Folder icons follow the mapping: Off and Remove put the folder back, On and Re-point set it again (a replacement the owner confirmed for this mapping is repeated, with a new backup; otherwise a foreign icon is left and the row says so). Apply Now never touches folders.
 
 ## Methods
 
@@ -53,7 +55,8 @@ extension ManagerError {
 | `createGlyph(name:svg:) async throws -> ActionResult` | 3 | applies, but no mapping uses a new glyph, so the registry is unchanged | validate the name (a name in use throws `glyphNameTaken`); read the SVG (contract glyph-builder.md; a refusal throws `drawingRefused` with the reader's guidance); write the template and keep the SVG as `<versionID>.svg`; build the combined car; save; install the car. A failure before the save leaves `Glyphs/` unchanged |
 | `updateGlyph(_:svg:) async throws -> ActionResult` | 3 | yes | as `createGlyph` for an existing glyph: new `versionID`, rebuild, apply (mappings using it switch to the new registry version); the previous version's files are removed by the save |
 | `deleteGlyph(_:replacement:)` | 2 | yes | mappings using it get `replacement`; rebuild; apply |
-| `setFolderIcon(_:for:confirmReplace:)` | 4 | yes | `FolderIconSetting?`; nil or `enabled = false` turns it off (restores). Throws `folderIconNeedsConfirmation(existing: true)` if the folder has a custom icon and `confirmReplace` is false |
+| `setFolderIcon(_:for:confirmReplace:)` | 4 | yes | `FolderArt?` (master URL plus optional overrides keyed by `.iconset` name); the art is checked (`folderArtRefused`), copied into `Icons/`, built in `Build/` and set (ledger first), then saved; a failed save puts the folder back. nil turns it off (restores, FR-014). Throws `folderIconNeedsConfirmation(existing: true)` if the folder has a custom icon that isn't ours and `confirmReplace` is false; `folderIconFailed(path)` when macOS refuses. For a mapping that is Off the art is saved and set on On |
+| `folderIconNeedsConfirmation(atPath:)` | 4 | none | read-only, for the sheet's replace warning |
 | `resetAll()` | all | yes | as 002, plus: restore every recorded folder icon (fingerprint rule), unregister every recorded `IconRegistry*` version and any unrecorded one in the container, delete `Glyphs/`, `Build/`, `FolderIconBackups/`, `config.schema1.json` |
 | `load()` | all | none | schema 2; a schema 1 file is read-only with the 0.2.0 message (research D1); never writes |
 

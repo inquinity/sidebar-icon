@@ -57,6 +57,22 @@ public struct LedgerStore: Sendable {
         }
     }
 
+    /// Replaces the entry with `change`'s id, for details learned after the change was made (a
+    /// folder icon's fingerprint). Throws if there is no such entry.
+    public func update(_ change: OutsideChange) throws {
+        var all = try entries()
+        guard let index = all.firstIndex(where: { $0.id == change.id }) else {
+            throw SidebarIconError.ledgerIOFailed("no ledger entry \(change.id) to update")
+        }
+        all[index] = change
+        try write(all)
+    }
+
+    /// Removes the entry with `change`'s id without undoing anything.
+    public func forget(_ change: OutsideChange) throws {
+        try write(try entries().filter { $0.id != change.id })
+    }
+
     /// Runs `undo` for `change`, then removes the entry. If `undo` throws, the entry stays and the
     /// error is rethrown.
     public func undo(_ change: OutsideChange, using undo: () throws -> Void) throws {

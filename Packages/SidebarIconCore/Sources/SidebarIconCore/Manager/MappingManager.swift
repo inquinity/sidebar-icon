@@ -14,6 +14,22 @@ public struct MappingRow: Sendable, Equatable, Identifiable {
     public var enabled: Bool
     public var osType: String
     public var state: MappingState
+    /// The opted-in folder icon (004 Story 4).
+    public var folderIcon: FolderIconState = .notSet
+    /// Whether the owner opted in to a folder icon for this mapping.
+    public var folderIconOptedIn = false
+}
+
+/// The owner's folder art (004 Story 4): a master (PNG of at least 1024 px, PDF or SVG) and
+/// optional hand-tuned sizes keyed by `.iconset` name (`icon_16x16`, …).
+public struct FolderArt: Sendable, Equatable {
+    public var master: URL
+    public var overrides: [String: URL]
+
+    public init(master: URL, overrides: [String: URL] = [:]) {
+        self.master = master
+        self.overrides = overrides
+    }
 }
 
 /// What an action did, for the window (contracts/mapping-manager.md).
@@ -49,6 +65,8 @@ public actor MappingManager {
     let isValidSystemSymbol: @Sendable (String) -> Bool
     /// Xcode's asset tool, for custom glyphs only (004 research D5); injectable for tests.
     nonisolated let glyphTool: ActoolRunner
+    /// The opt-in folder icons (004 Story 4, research D8).
+    let folderIcons: FolderIconProvider
 
     private var config = AppConfiguration()
     /// Set when `config.json` can't be read (D3). No method writes the config then, except
@@ -58,6 +76,8 @@ public actor MappingManager {
     public private(set) var favoritesReadable = true
     /// Why the last apply failed, per mapping, for the status column.
     private var lastFailures: [UUID: String] = [:]
+    /// Why the folder icon couldn't be set, per mapping, for the row badge.
+    private var folderIconFailures: [UUID: String] = [:]
     /// True while an action runs (see `exclusive`).
     private var actionInProgress = false
 
@@ -66,9 +86,12 @@ public actor MappingManager {
         system: any LaunchServicesSystem = SystemLaunchServices(),
         restartFinder: @escaping @Sendable () async throws -> Void = { _ = try await FinderRestarter.restart() },
         isValidSystemSymbol: @escaping @Sendable (String) -> Bool = MappingManager.systemSymbolExists,
-        glyphTool: ActoolRunner = ActoolRunner()
+        glyphTool: ActoolRunner = ActoolRunner(),
+        folderIconWriter: any FolderIconWriting = SystemFolderIconWriter()
     ) {
         self.glyphTool = glyphTool
+        self.folderIcons = FolderIconProvider(writer: folderIconWriter, ledger: LedgerStore(url: container.ledgerURL),
+                                              backupsDirectory: container.folderIconBackupsDirectory)
         self.container = container
         self.store = ConfigStore(container: container)
         self.provider = LaunchServicesOverrideProvider(container: container, system: system)
@@ -122,7 +145,10 @@ public actor MappingManager {
 
         // An Off mapping whose override is still recorded could not be cleared. Taken from the
         // ledger, so it survives a relaunch (final review M-2).
-        let recordedCodes = Set(((try? provider.ledgerEntries()) ?? []).filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+        let ledgerEntries = (try? provider.ledgerEntries()) ?? []
+        let recordedCodes = Set(ledgerEntries.filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+        let folderIconEntries = Dictionary(ledgerEntries.filter { $0.kind == .folderIcon }.map { ($0.target, $0) },
+                                           uniquingKeysWith: { first, _ in first })
 
         return mappings.map { mapping in
             let status = statuses[mapping.id] ?? MappingStatus(
@@ -154,9 +180,20 @@ public actor MappingManager {
                 style: mapping.sidebarStyle,
                 enabled: mapping.enabled,
                 osType: mapping.osType,
-                state: state
+                state: state,
+                folderIcon: folderIconState(for: mapping, entry: folderIconEntries[mapping.folderPath]),
+                folderIconOptedIn: mapping.folderIcon?.enabled == true
             )
         }
+    }
+
+    private func folderIconState(for mapping: SidebarMapping, entry: OutsideChange?) -> FolderIconState {
+        if let entry {
+            if entry.fingerprint == nil { return .failed(ManagerError.folderIconUnverified(entry.target).message) }
+            return folderIcons.isUnchanged(entry) ? .set : .changedElsewhere
+        }
+        if let failure = folderIconFailures[mapping.id] { return .failed(failure) }
+        return .notSet
     }
 
     // MARK: - Story 1
@@ -502,7 +539,8 @@ public actor MappingManager {
     }
 
     private func refuseLinkedGlyphFolders() throws {
-        for folder in [container.glyphsDirectory, container.buildDirectory] where container.isSymbolicLink(folder) {
+        for folder in [container.glyphsDirectory, container.buildDirectory, container.folderIconBackupsDirectory]
+        where container.isSymbolicLink(folder) {
             throw ManagerError.sidebar(.unexpectedLedgerTarget(folder.path))
         }
     }
@@ -523,7 +561,14 @@ public actor MappingManager {
     public func setEnabled(_ enabled: Bool, for id: UUID) async throws -> ActionResult {
         try await exclusive {
             try await self.change(id) { $0.mappings[$1].enabled = enabled }
-            return await self.applyAfterSave()
+            var result = await self.applyAfterSave()
+            // An opted-in folder icon follows the mapping: Off puts the folder back (FR-014), On sets it again.
+            if let mapping = await self.config.mappings.first(where: { $0.id == id }) {
+                let notes = enabled ? await self.applyFolderIcon(for: mapping) : await self.undoFolderIcon(for: mapping)
+                result.messages += notes
+                result.rows = await self.rows()
+            }
+            return result
         }
     }
 
@@ -531,11 +576,19 @@ public actor MappingManager {
     /// changed. Removing the last enabled mapping also unregisters the registry bundle.
     public func remove(_ id: UUID) async throws -> ActionResult {
         try await exclusive {
+            // The folder is put back first; if macOS refuses, the mapping stays so it can be tried again.
+            var notes: [String] = []
+            if let mapping = await self.config.mappings.first(where: { $0.id == id }) {
+                notes = try await self.undoFolderIconOrThrow(at: mapping.folderPath)
+                await self.clearFolderIconFailure(id)
+            }
             try await self.change(id) { config, index in
                 let mapping = config.mappings.remove(at: index)
                 self.lastFailures[mapping.id] = nil
             }
-            return await self.applyAfterSave()
+            var result = await self.applyAfterSave()
+            result.messages = notes + result.messages
+            return result
         }
     }
 
@@ -566,8 +619,30 @@ public actor MappingManager {
         try await exclusive {
             try await self.requireWritable()
             let path = try await self.validatedNewFolder(folder, excluding: id)
-            try await self.change(id) { $0.mappings[$1].folderPath = path }
-            return await self.applyAfterSave()
+            let oldPath = await self.config.mappings.first(where: { $0.id == id })?.folderPath
+            // A folder that moved and still shows our icon keeps its record (review H2); otherwise the
+            // old folder is put back before the mapping moves (FR-014).
+            var notes: [String] = []
+            var followed = false
+            if let oldPath {
+                followed = try await self.followFolderIcon(from: oldPath, to: path)
+                if !followed { notes = try await self.undoFolderIconOrThrow(at: oldPath) }
+            }
+            try await self.change(id) { config, index in
+                config.mappings[index].folderPath = path
+                // A yes to replace one folder's icon is not a yes for another folder (review M1).
+                if !followed {
+                    config.mappings[index].folderIcon?.replaceExisting = false
+                    config.mappings[index].folderIcon?.confirmedFingerprint = nil
+                }
+            }
+            var result = await self.applyAfterSave()
+            if let mapping = await self.config.mappings.first(where: { $0.id == id }) {
+                notes += await self.applyFolderIcon(for: mapping)
+            }
+            result.messages = notes + result.messages
+            result.rows = await self.rows()
+            return result
         }
     }
 
@@ -579,6 +654,243 @@ public actor MappingManager {
         edit(&next, index)
         do {
             config = try store.save(next)
+        } catch {
+            throw Self.managerError(error)
+        }
+    }
+
+    // MARK: - Folder icons (004 Story 4)
+
+    /// Sets the folder's own Finder icon from `art`, or turns it off with nil (which puts the
+    /// folder back, FR-014). A custom icon that isn't ours is replaced only with `confirmReplace`
+    /// (FR-013); without it the call throws `folderIconNeedsConfirmation` and changes nothing.
+    /// For a mapping that is Off, the art is saved and set when it is turned on.
+    public func setFolderIcon(_ art: FolderArt?, for id: UUID, confirmReplace: Bool = false) async throws -> ActionResult {
+        try await exclusive { try await self.performSetFolderIcon(art, for: id, confirmReplace: confirmReplace) }
+    }
+
+    private func performSetFolderIcon(_ art: FolderArt?, for id: UUID, confirmReplace: Bool) async throws -> ActionResult {
+        try requireWritable()
+        guard let index = config.mappings.firstIndex(where: { $0.id == id }) else { throw ManagerError.unknownMapping }
+        let mapping = config.mappings[index]
+        let name = PathStandardizer.abbreviatingHome(mapping.folderPath)
+
+        guard let art else {
+            let notes = try undoFolderIconOrThrow(at: mapping.folderPath)
+            folderIconFailures[id] = nil
+            try change(id) { $0.mappings[$1].folderIcon = nil }
+            return ActionResult(rows: await rows(), messages: ["Turned off the folder icon of \(name)."] + notes)
+        }
+
+        // 1. The art and the folder are checked before anything is copied.
+        do {
+            try FolderArtBuilder.checkMaster(art.master)
+            for (slot, url) in art.overrides { try FolderArtBuilder.checkOverride(url, name: slot) }
+        } catch let error as FolderArtError {
+            throw ManagerError.folderArtRefused(error)
+        }
+        if mapping.enabled, try folderIconsNeedConfirmation(mapping.folderPath), !confirmReplace {
+            throw ManagerError.folderIconNeedsConfirmation(existing: true)
+        }
+
+        // 2. The art is copied into Icons/, so the icon no longer depends on the originals.
+        var imported: [IconAsset] = []
+        let discard = { for asset in imported { self.store.deleteFiles(of: asset) } }
+        var overrideIDs: [String: UUID] = [:]
+        do {
+            let master = try copyArt(art.master)
+            imported.append(master)
+            for (slot, url) in art.overrides {
+                let asset = try copyArt(url)
+                imported.append(asset)
+                overrideIDs[slot] = asset.id
+            }
+        } catch {
+            discard()
+            throw Self.managerError(error)
+        }
+        let wasOurs = (try? folderIcons.entry(for: mapping.folderPath)).flatMap { $0 }.map(folderIcons.isUnchanged) ?? false
+        let setting = FolderIconSetting(enabled: true, artAssetID: imported[0].id, overrideAssetIDs: overrideIDs,
+                                        replaceExisting: confirmReplace,
+                                        confirmedFingerprint: confirmReplace ? (folderIcons.currentFingerprint(of: mapping.folderPath) ?? Self.flagOnlyIcon) : nil)
+        var next = config
+        next.mappings[index].folderIcon = setting
+        next.assets += imported
+
+        // 3. The icon is set (recorded in the ledger first), then the setting is saved. A failed
+        //    save puts the folder back, so the two never disagree.
+        if mapping.enabled {
+            do {
+                try setFolderIcon(setting, assets: next.assets, on: mapping.folderPath, confirmReplace: confirmReplace)
+            } catch {
+                discard()
+                throw Self.managerError(error)
+            }
+        }
+        do {
+            config = try store.save(next)
+        } catch {
+            if mapping.enabled {
+                // The folder goes back to what the saved setting says (review M3): our earlier
+                // picture if there was one, otherwise its own icon.
+                if wasOurs, let previous = mapping.folderIcon {
+                    try? setFolderIcon(previous, assets: config.assets, on: mapping.folderPath, confirmReplace: false)
+                } else {
+                    _ = try? undoFolderIconOrThrow(at: mapping.folderPath)
+                }
+            }
+            discard()
+            throw Self.managerError(error)
+        }
+        folderIconFailures[id] = nil
+        let message = mapping.enabled
+            ? "Set the folder icon of \(name)."
+            : "Saved the folder icon of \(name); it is set when the mapping is turned on."
+        return ActionResult(rows: await rows(), messages: [message])
+    }
+
+    /// Stands for a confirmed icon that had only the Finder flag and no `Icon\r`, so it never equals
+    /// "no fingerprint" and a later flag-only icon needs a new yes (review N3).
+    static let flagOnlyIcon = "finder-flag-only"
+
+    /// Read-only, for the opt-in sheet: whether setting a folder icon at `path` would replace a
+    /// custom icon that isn't ours, so the sheet shows the replace warning up front.
+    public func folderIconNeedsConfirmation(atPath path: String) -> Bool {
+        (try? folderIcons.needsConfirmation(folderPath: PathStandardizer.standardize(path))) ?? false
+    }
+
+    private func folderIconsNeedConfirmation(_ path: String) throws -> Bool {
+        do {
+            return try folderIcons.needsConfirmation(folderPath: path)
+        } catch {
+            throw Self.managerError(error)
+        }
+    }
+
+    /// Builds the `.icns` in `Build/<id>/` from the stored art and sets it on the folder.
+    private func setFolderIcon(_ setting: FolderIconSetting, assets: [IconAsset], on path: String, confirmReplace: Bool) throws {
+        try refuseLinkedGlyphFolders()
+        let build = container.buildDirectory.appending(path: UUID().uuidString.lowercased(), directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: build) }
+        func file(_ id: UUID) throws -> URL {
+            guard let asset = assets.first(where: { $0.id == id }) else { throw ManagerError.imageUnreadable("the folder art") }
+            return container.iconsDirectory.appending(path: asset.fileName)
+        }
+        let icns = build.appending(path: "folder.icns")
+        try FileManager.default.createDirectory(at: build, withIntermediateDirectories: true)
+        try FolderArtBuilder.build(master: try file(setting.artAssetID),
+                                   overrides: try setting.overrideAssetIDs.mapValues(file), to: icns)
+        try folderIcons.set(icns, on: path, confirmReplace: confirmReplace)
+    }
+
+    /// Copies one art file into `Icons/` as it is (no `.icns` is made from it).
+    private func copyArt(_ url: URL) throws -> IconAsset {
+        guard !container.iconsDirectoryIsSymbolicLink else {
+            throw ManagerError.sidebar(.unexpectedLedgerTarget(container.iconsDirectory.path))
+        }
+        do {
+            return try AssetImporter.importFile(at: url, into: container.iconsDirectory)
+        } catch {
+            throw ManagerError.imageUnreadable(url.lastPathComponent)
+        }
+    }
+
+    /// Sets an opted-in mapping's folder icon again (On, Re-point). A custom icon that isn't ours is
+    /// replaced only if the owner confirmed that for this mapping (it is backed up and put back on
+    /// Off); otherwise the folder is left and the row says so. Problems are reported, not thrown.
+    private func applyFolderIcon(for mapping: SidebarMapping) -> [String] {
+        guard mapping.enabled, let setting = mapping.folderIcon, setting.enabled else { return [] }
+        let name = PathStandardizer.abbreviatingHome(mapping.folderPath)
+        do {
+            let confirmed = setting.replaceExisting
+                && folderIcons.currentFingerprint(of: mapping.folderPath) == setting.confirmedFingerprint
+            if !confirmed, try folderIcons.needsConfirmation(folderPath: mapping.folderPath) {
+                let message = "\(name) has a custom icon now, so its folder icon wasn't set. Use Folder Icon… to replace it."
+                folderIconFailures[mapping.id] = message
+                return [message]
+            }
+            try setFolderIcon(setting, assets: config.assets, on: mapping.folderPath, confirmReplace: confirmed)
+            folderIconFailures[mapping.id] = nil
+            return []
+        } catch {
+            let message = Self.managerError(error).message
+            folderIconFailures[mapping.id] = message
+            return [message]
+        }
+    }
+
+    /// What to do when the folder of a recorded icon can't be found.
+    enum MissingFolder {
+        /// Off: keep the entry, so the icon is put back once the folder is there again.
+        case keep
+        /// Remove, turning the icon off, Reset All: drop the entry and say so.
+        case forget
+    }
+
+    /// Puts a folder back (Off); problems are reported, not thrown. A confirmed replacement is
+    /// remembered as the icon that was put back, so On replaces only that one (review M2).
+    private func undoFolderIcon(for mapping: SidebarMapping) -> [String] {
+        folderIconFailures[mapping.id] = nil
+        var notes: [String] = []
+        do {
+            let (undoNotes, outcome) = try undoFolderIconReporting(at: mapping.folderPath, missing: .keep)
+            notes = undoNotes
+            if var setting = mapping.folderIcon, setting.replaceExisting,
+               let index = config.mappings.firstIndex(where: { $0.id == mapping.id }) {
+                if outcome == .restored {
+                    setting.confirmedFingerprint = folderIcons.currentFingerprint(of: mapping.folderPath)
+                } else if outcome == .leftChangedElsewhere {
+                    setting.replaceExisting = false
+                    setting.confirmedFingerprint = nil
+                }
+                if setting != mapping.folderIcon {
+                    var next = config
+                    next.mappings[index].folderIcon = setting
+                    config = try store.save(next)
+                }
+            }
+            return notes
+        } catch {
+            return notes + [Self.managerError(error).message]
+        }
+    }
+
+    private func followFolderIcon(from oldPath: String, to newPath: String) throws -> Bool {
+        do {
+            return try folderIcons.follow(oldPath, to: newPath)
+        } catch {
+            throw Self.managerError(error)
+        }
+    }
+
+    private func clearFolderIconFailure(_ id: UUID) {
+        folderIconFailures[id] = nil
+    }
+
+    /// Puts the folder back if a folder icon is recorded for it, by the fingerprint rule.
+    private func undoFolderIconOrThrow(at path: String, missing: MissingFolder = .forget) throws -> [String] {
+        try undoFolderIconReporting(at: path, missing: missing).notes
+    }
+
+    private func undoFolderIconReporting(at path: String, missing: MissingFolder) throws -> (notes: [String], outcome: FolderIconUndo?) {
+        let name = PathStandardizer.abbreviatingHome(path)
+        do {
+            guard let entry = try folderIcons.entry(for: path) else { return ([], nil) }
+            let outcome = try folderIcons.undo(entry)
+            switch outcome {
+            case .restored: return (["Put back the earlier icon of \(name)."], outcome)
+            case .cleared, .nothingWasSet: return ([], outcome)
+            case .leftChangedElsewhere:
+                return (["The icon of \(name) was changed by something else, so it was left as it is."], outcome)
+            case .folderMissing:
+                switch missing {
+                case .keep:
+                    return (["\(name) can't be found; its folder icon is put back when it's there again."], outcome)
+                case .forget:
+                    try folderIcons.forget(entry)
+                    return (["\(name) can't be found, so its folder icon couldn't be put back. If the folder moved, it still shows that icon; remove it in Get Info."], outcome)
+                }
+            }
         } catch {
             throw Self.managerError(error)
         }
@@ -618,6 +930,25 @@ public actor MappingManager {
     }
 
     private func performResetAll() async throws -> ActionResult {
+        // Folder icons first (FR-014, FR-017): each folder is put back by the fingerprint rule.
+        var folderNotes: [String] = []
+        var folderFailures: [String] = []
+        var foldersUndone = 0
+        let folderEntries: [OutsideChange]
+        do {
+            folderEntries = try provider.ledgerEntries().filter { $0.kind == .folderIcon }
+        } catch {
+            throw Self.managerError(error)
+        }
+        for entry in folderEntries {
+            do {
+                folderNotes += try undoFolderIconOrThrow(at: entry.target)
+                foldersUndone += 1
+            } catch {
+                folderFailures.append((error as? ManagerError)?.message ?? String(describing: error))
+            }
+        }
+
         let report: ResetReport
         do {
             report = try await provider.reset()
@@ -625,9 +956,10 @@ public actor MappingManager {
             throw Self.managerError(error)
         }
         lastFailures = [:]
-        var messages: [String] = []
+        folderIconFailures = [:]
+        var messages: [String] = folderNotes
 
-        if report.succeeded {
+        if report.succeeded && folderFailures.isEmpty {
             messages += provider.removeUnrecordedRegistryFiles()
             try store.remove()
             if FileManager.default.fileExists(atPath: container.iconsDirectory.path) {
@@ -637,7 +969,7 @@ public actor MappingManager {
                     messages.append("The copied images could not all be deleted: \(error.localizedDescription)")
                 }
             }
-            for folder in [container.glyphsDirectory, container.buildDirectory]
+            for folder in [container.glyphsDirectory, container.buildDirectory, container.folderIconBackupsDirectory]
             where FileManager.default.fileExists(atPath: folder.path) || container.isSymbolicLink(folder) {
                 do {
                     try FileManager.default.removeItem(at: folder)
@@ -648,19 +980,21 @@ public actor MappingManager {
             config = AppConfiguration()
             readOnlyReason = nil
             messages.insert(
-                report.undone.isEmpty
+                report.undone.isEmpty && foldersUndone == 0
                     ? "Nothing to reset; your mappings and copied images were removed."
                     : "Removed every custom sidebar icon, mapping and copied image.",
                 at: 0
             )
         } else {
-            messages += report.failed.map(\.reason.message)
+            messages += report.failed.map(\.reason.message) + folderFailures
             if readOnlyReason == nil {
                 // Errors here are added to the messages so the list of failures above is kept.
                 do {
-                    let recorded = Set(try provider.ledgerEntries().filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+                    let entries = try provider.ledgerEntries()
+                    let recorded = Set(entries.filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+                    let recordedFolders = Set(entries.filter { $0.kind == .folderIcon }.map(\.target))
                     var next = config
-                    next.mappings = config.mappings.filter { recorded.contains($0.osType) }
+                    next.mappings = config.mappings.filter { recorded.contains($0.osType) || recordedFolders.contains($0.folderPath) }
                     config = try store.save(next)
                 } catch {
                     messages.append(Self.managerError(error).message)
@@ -668,7 +1002,8 @@ public actor MappingManager {
             }
             messages.append("Some changes could not be undone and are still recorded. Fix the cause, then click Reset All again.")
         }
-        return ActionResult(rows: await rows(), messages: messages, needsRefresh: report.succeeded && !report.undone.isEmpty)
+        return ActionResult(rows: await rows(), messages: messages,
+                            needsRefresh: report.succeeded && folderFailures.isEmpty && !report.undone.isEmpty)
     }
 
     // MARK: - Helpers
@@ -840,6 +1175,13 @@ public actor MappingManager {
         case let error as ManagerError: error
         case let error as SidebarIconError: .sidebar(error)
         case let error as GlyphBuildError: .glyphBuild(error)
+        case let error as FolderArtError: .folderArtRefused(error)
+        case FolderIconError.needsConfirmation: .folderIconNeedsConfirmation(existing: true)
+        case FolderIconError.setFailed(let path): .folderIconFailed(path)
+        case FolderIconError.backupFailed(let path): .folderIconBackupFailed(path)
+        case FolderIconError.unverified(let path): .folderIconUnverified(path)
+        case FolderIconError.unsafeTarget(let path): .folderIconUnsafe(path)
+        case FolderIconError.folderMissing(let path): .folderIconMissing(path)
         case OSTypeAllocationError.exhausted: .sidebar(.invalidMapping("no unused type code is left"))
         default: .sidebar(.toolFailed(String(describing: error)))
         }

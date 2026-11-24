@@ -1,5 +1,17 @@
 import Foundation
 
+/// The opted-in folder icon's status (004 data-model.md), shown as a row badge.
+public enum FolderIconState: Sendable, Equatable {
+    /// No folder icon is set (not opted in, or the mapping is off).
+    case notSet
+    /// The folder shows the icon the app set.
+    case set
+    /// Something else changed the folder's icon since; the app leaves it.
+    case changedElsewhere
+    /// The opt-in is on but the icon couldn't be set; the message says why.
+    case failed(String)
+}
+
 /// A mapping's status as shown in the list (FR-008, research D7). Derived, never stored; computing
 /// it is read-only.
 public enum MappingState: Sendable, Equatable {

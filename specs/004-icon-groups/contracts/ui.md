@@ -28,11 +28,13 @@ Buttons: Cancel, Apply.
 | 1 Check | "Checking for Xcode's asset tool…" → ✓ path, or the message from glyph-builder.md, with **Use a system glyph instead**, **Check Again** and a pointer to the manual process (which also needs Xcode) |
 | 2 Name | Field; lowercase letters, digits, dots and hyphens; uniqueness checked as you type |
 | 3 Drawing | Open panel (SVG). Refusals show the element and the guidance; warnings (proportions, detail) don't block |
-| 4 Folder art (optional) | "Also use full-colour art for this folder's Finder icon" → art picker (opens the opt-in sheet's choices). Shown disabled until Story 4 (T040) |
+| 4 Folder art (optional) | "Also use full-colour art for this folder's Finder icon" → Choose Art… (the master). Set after the picker applies the glyph; if the folder already has a custom icon, the opt-in sheet opens with the art chosen and the replace warning. Small sizes are added later with Folder Icon…. Not shown for New Drawing… |
 | 5 Preview | Tinted glyph at 16/20 pt, light and dark, next to a system glyph for size comparison |
 | 6 Build | Progress; on success, applies to the mapping. On failure, nothing is saved |
 
 ## Folder icon opt-in (sheet)
+
+Opened from **Folder Icon…** in a row's context menu (or by the wizard's step 4 when the folder already has a custom icon). The row shows a folder badge: set, on but not set (mapping Off), changed elsewhere, or failed (with the reason as help text).
 
 - Title: **Use full-colour art as this folder's Finder icon**.
 - Text: "Sidebar Icons will add a hidden file named Icon to the folder and mark the folder as having

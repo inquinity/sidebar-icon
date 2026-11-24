@@ -76,6 +76,9 @@ struct MainView: View {
         .sheet(item: $model.styleRequest) { request in
             StylePickerView(request: request, model: model, apply: model.applyStyle, cancel: model.cancelStyle)
         }
+        .sheet(item: $model.folderArtRequest) { request in
+            FolderArtOptInView(request: request, model: model, close: model.closeFolderIcon)
+        }
         .alert(
             model.alert?.title ?? "",
             isPresented: Binding(get: { model.alert != nil }, set: { if !$0 { model.alert = nil } }),

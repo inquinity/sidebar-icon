@@ -9,8 +9,13 @@ public struct FolderIconSetting: Codable, Sendable, Hashable {
     public var overrideAssetIDs: [String: UUID]
     /// True only after the owner confirmed replacing the folder's existing custom icon (FR-013).
     public var replaceExisting: Bool
+    /// The fingerprint of the icon the owner agreed to replace. Turning the mapping on again
+    /// replaces only that icon (as put back by Off); any other needs a new yes (review M2).
+    public var confirmedFingerprint: String?
 
-    public init(enabled: Bool = true, artAssetID: UUID, overrideAssetIDs: [String: UUID] = [:], replaceExisting: Bool = false) {
+    public init(enabled: Bool = true, artAssetID: UUID, overrideAssetIDs: [String: UUID] = [:], replaceExisting: Bool = false,
+                confirmedFingerprint: String? = nil) {
+        self.confirmedFingerprint = confirmedFingerprint
         self.enabled = enabled
         self.artAssetID = artAssetID
         self.overrideAssetIDs = overrideAssetIDs

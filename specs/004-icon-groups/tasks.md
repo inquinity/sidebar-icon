@@ -226,32 +226,32 @@ kept.
 
 **Independent Test**: quickstart checks 8–12.
 
-- [ ] T035 [P] [US4] Tests in `Tests/FolderArtBuilderTests.swift`:
+- [X] T035 [P] [US4] Tests in `Tests/FolderArtBuilderTests.swift`:
   - a master (PNG ≥ 1024 px, PDF, SVG) produces a 10-representation `.icns`;
   - an override replaces exactly its representation;
   - an `.iconset` folder is read by Apple file names (`icon_16x16.png` … `icon_512x512@2x.png`);
   - a wrong pixel size is refused.
-- [ ] T036 [P] [US4] Tests in `Tests/FolderIconProviderTests.swift` with a fake `FolderIconWriting`:
+- [X] T036 [P] [US4] Tests in `Tests/FolderIconProviderTests.swift` with a fake `FolderIconWriting`:
   - the ledger entry (`folderIcon`) is written before `setIcon`, then gets the fingerprint;
   - an existing custom icon without `confirmReplace` throws `folderIconNeedsConfirmation(existing: true)`;
   - with confirmation, a backup `.icns` is written to `FolderIconBackups/`;
   - undo with a matching fingerprint restores the backup or clears the icon;
   - a mismatch leaves the folder and notes it;
   - `setIcon` returning false → `folderIconFailed` and no ledger entry left.
-- [ ] T037 [US4] Implement `Core/Icons/FolderArtBuilder.swift` (research D7; reuse `ICNSConverter.render`). Makes T035 pass
-- [ ] T038 [US4] Implement:
+- [X] T037 [US4] Implement `Core/Icons/FolderArtBuilder.swift` (research D7; reuse `ICNSConverter.render`). Makes T035 pass
+- [X] T038 [US4] Implement:
   - `Core/Providers/FolderIconProvider.swift`: `FolderIconWriting` protocol; real implementation with `NSWorkspace.setIcon`, `NSWorkspace.icon(forFile:)`, the `FinderInfo` flag check, and the SHA-256 of `Icon\r`'s `com.apple.ResourceFork`;
   - `OutsideChange.Kind.folderIcon` with `fingerprint` and `backupFileName` in `Core/Model/OutsideChange.swift`.
 
   Makes T036 pass.
-- [ ] T039 [US4] In `Core/Manager/MappingManager.swift`:
+- [X] T039 [US4] In `Core/Manager/MappingManager.swift`:
   - add `setFolderIcon(_:for:confirmReplace:)`;
   - Remove, Off, `setFolderIcon(nil)` and `resetAll` restore folder icons by the fingerprint rule;
   - `MappingRow.folderIcon` state (`notSet`, `set`, `changedElsewhere`, `accessDenied`, `failed`);
   - `resetAll` deletes `FolderIconBackups/`.
 
   Add manager tests to `Tests/FolderIconProviderTests.swift`.
-- [ ] T040 [US4] Create `app/SidebarIcons/FolderArtOptInView.swift`, the opt-in sheet with the exact texts from contracts/ui.md:
+- [X] T040 [US4] Create `app/SidebarIcons/FolderArtOptInView.swift`, the opt-in sheet with the exact texts from contracts/ui.md:
   - the replace warning;
   - pickers for the master and for small sizes or an `.iconset`;
   - a preview at 16, 32, 128 and 512 pt.

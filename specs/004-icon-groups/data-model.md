@@ -74,7 +74,7 @@ as in 002 (new pick, new ID).
 
 ## MappingState (changed)
 
-Adds per-row detail: `folderIcon` = `notSet`, `set`, `changedElsewhere`, `accessDenied`, `failed(String)`.
+Adds per-row detail: `folderIcon` = `notSet`, `set`, `changedElsewhere`, `failed(String)` (macOS refusing, for example access denied, is `failed` with that message).
 A custom glyph whose built car is missing shows `notApplied` with "Rebuild needs Xcode" when
 `actool` is unavailable.
 

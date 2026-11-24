@@ -27,6 +27,7 @@ struct MappingListView: View {
                 MappingRowView(row: row, model: model)
                     .contextMenu {
                         Button("Change Icon…") { model.changeIcon(for: row) }
+                        Button("Folder Icon…") { model.openFolderIcon(for: row) }
                         if row.state == .folderMissing {
                             Button("Re-point…") { model.repoint(row) }
                         }
@@ -71,6 +72,9 @@ struct MappingRowView: View {
                     .truncationMode(.middle)
             }
             Spacer()
+            if row.folderIconOptedIn || row.folderIcon != .notSet {
+                FolderIconBadge(state: row.folderIcon)
+            }
             StateBadge(state: row.state)
             if row.state == .folderMissing {
                 Button("Re-point…") { model.repoint(row) }
@@ -195,6 +199,45 @@ struct StateBadge: View {
         case .off: .secondary
         case .notInSidebar, .notApplied: .orange
         case .folderMissing, .error: .red
+        }
+    }
+}
+
+/// The folder icon's status next to the row's state (004 Story 4).
+struct FolderIconBadge: View {
+    let state: FolderIconState
+
+    var body: some View {
+        Image(systemName: symbol)
+            .foregroundStyle(tint)
+            .help(help)
+            .accessibilityLabel(help)
+    }
+
+    private var symbol: String {
+        switch state {
+        case .set: "folder.fill"
+        case .notSet: "folder"
+        case .changedElsewhere: "folder.badge.questionmark"
+        case .failed: "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch state {
+        case .set: .accentColor
+        case .notSet: .secondary
+        case .changedElsewhere: .orange
+        case .failed: .red
+        }
+    }
+
+    private var help: String {
+        switch state {
+        case .set: "Folder icon set"
+        case .notSet: "Folder icon on, not set (the mapping is off)"
+        case .changedElsewhere: "This folder's icon was changed by something else, so it was left as it is."
+        case .failed(let message): message
         }
     }
 }

@@ -26,10 +26,20 @@ public enum ICNSConverter {
         guard let image = NSImage(contentsOf: source), image.size.width > 0, image.size.height > 0 else {
             throw ICNSConversionError.unreadableImage(source.lastPathComponent)
         }
+        try write(image, to: destination)
+    }
+
+    /// Renders `image` at every standard size and writes the `.icns`.
+    public static func write(_ image: NSImage, to destination: URL) throws {
         var renders: [Int: CGImage] = [:]
         for size in pixelSizes {
             renders[size] = try render(image, size: size)
         }
+        try write(representations.map { (renders[$0.pixels]!, $0.dpi) }, to: destination)
+    }
+
+    /// Writes one representation per (image, dpi), in order, as an `.icns`.
+    static func write(_ images: [(image: CGImage, dpi: Int)], to destination: URL) throws {
 
         // Written to `<name>.tmp` and moved into place, so a crash never leaves a truncated
         // `.icns` under the real name (research D5).
@@ -39,13 +49,13 @@ public enum ICNSConverter {
         try? fileManager.removeItem(at: temp)
         do {
             guard let output = CGImageDestinationCreateWithURL(
-                temp as CFURL, UTType.icns.identifier as CFString, representations.count, nil
+                temp as CFURL, UTType.icns.identifier as CFString, images.count, nil
             ) else {
                 throw ICNSConversionError.writeFailed(destination.lastPathComponent)
             }
-            for (pixels, dpi) in representations {
+            for (image, dpi) in images {
                 let properties = [kCGImagePropertyDPIWidth: dpi, kCGImagePropertyDPIHeight: dpi] as CFDictionary
-                CGImageDestinationAddImage(output, renders[pixels]!, properties)
+                CGImageDestinationAddImage(output, image, properties)
             }
             guard CGImageDestinationFinalize(output) else {
                 throw ICNSConversionError.writeFailed(destination.lastPathComponent)

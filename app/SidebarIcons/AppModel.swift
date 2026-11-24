@@ -25,6 +25,10 @@ final class AppModel {
     private(set) var lastError: String?
     /// The open style picker (Add Folder… or Change Icon…) until Apply or Cancel.
     var styleRequest: StyleRequest?
+    /// The open folder icon sheet (Folder Icon…), 004 Story 4.
+    var folderArtRequest: FolderArtRequest?
+    /// Folder art chosen in the wizard's step 4, set on the folder after the picker applies.
+    var pendingFolderArt: URL?
     /// Set when `config.json` can't be read (research D3).
     private(set) var readOnlyReason: String?
     private(set) var favoritesUnavailable = false
@@ -95,19 +99,73 @@ final class AppModel {
     func applyStyle(_ choice: StyleChoice) {
         guard let request = styleRequest else { return }
         styleRequest = nil
+        let folderArt = pendingFolderArt
+        pendingFolderArt = nil
+        let folderPath: String = switch request.purpose {
+        case .add(let folder): PathStandardizer.standardize(folder.path)
+        case .change(let row): row.folderPath
+        }
+        // The wizard's folder art follows once the mapping exists (step 4).
+        let then: @MainActor (Bool) -> Void = { [weak self] succeeded in
+            if succeeded, let folderArt { self?.startFolderIcon(master: folderArt, folderPath: folderPath) }
+        }
         switch (request.purpose, choice) {
         case (.add(let folder), .systemSymbol(let name)):
-            run { try await $0.add(folder: folder, style: .systemSymbol(name: name)) }
+            run({ try await $0.add(folder: folder, style: .systemSymbol(name: name)) }, finished: then)
         case (.add(let folder), .image(let image)):
-            add(folder: folder, image: image)
+            run({ try await $0.add(folder: folder, image: image) }, finished: then)
         case (.change(let row), .systemSymbol(let name)):
-            run { try await $0.setStyle(.systemSymbol(name: name), for: row.id) }
+            run({ try await $0.setStyle(.systemSymbol(name: name), for: row.id) }, finished: then)
         case (.change(let row), .image(let image)):
-            run { try await $0.changeIcon(for: row.id, image: image) }
+            run({ try await $0.changeIcon(for: row.id, image: image) }, finished: then)
         case (.add(let folder), .customGlyph(let id)):
-            run { try await $0.add(folder: folder, style: .customGlyph(glyphID: id)) }
+            run({ try await $0.add(folder: folder, style: .customGlyph(glyphID: id)) }, finished: then)
         case (.change(let row), .customGlyph(let id)):
-            run { try await $0.setStyle(.customGlyph(glyphID: id), for: row.id) }
+            run({ try await $0.setStyle(.customGlyph(glyphID: id), for: row.id) }, finished: then)
+        }
+    }
+
+    // MARK: - Folder icons (Story 4)
+
+    func openFolderIcon(for row: MappingRow) {
+        lastError = nil
+        folderArtRequest = FolderArtRequest(rowID: row.id, folderName: row.displayName, folderPath: row.folderPath,
+                                            isOn: row.folderIconOptedIn)
+    }
+
+    func closeFolderIcon() {
+        folderArtRequest = nil
+        lastError = nil
+    }
+
+    func folderNeedsConfirmation(_ path: String) async -> Bool {
+        await manager?.folderIconNeedsConfirmation(atPath: path) ?? false
+    }
+
+    /// Sets (or with nil turns off) a mapping's folder icon; `completion` says whether it worked.
+    func setFolderIcon(_ art: FolderArt?, forRow id: UUID, confirmReplace: Bool, completion: @escaping @MainActor (Bool) -> Void) {
+        run({ try await $0.setFolderIcon(art, for: id, confirmReplace: confirmReplace) }, finished: completion)
+    }
+
+    /// After the wizard: sets the art directly, or opens the sheet when the folder already has a
+    /// custom icon, so the owner sees the replace warning (FR-013).
+    private func startFolderIcon(master: URL, folderPath: String) {
+        guard let row = rows.first(where: { $0.folderPath == folderPath }) else { return }
+        Task {
+            if await folderNeedsConfirmation(folderPath) {
+                var request = FolderArtRequest(rowID: row.id, folderName: row.displayName, folderPath: row.folderPath,
+                                               isOn: row.folderIconOptedIn)
+                request.master = master
+                folderArtRequest = request
+            } else {
+                setFolderIcon(FolderArt(master: master), forRow: row.id, confirmReplace: false) { [weak self] succeeded in
+                    // A failure already shows its own alert; one that never started (another action
+                    // was running) says so here, so the art isn't dropped without a word (review L5).
+                    guard let self, !succeeded, self.alert == nil else { return }
+                    self.alert = Alert(title: "Sidebar Icons",
+                                       message: "The folder art for \(row.displayName) wasn't set. Use Folder Icon… on its row to set it.")
+                }
+            }
         }
     }
 
@@ -166,6 +224,7 @@ final class AppModel {
 
     func cancelStyle() {
         styleRequest = nil
+        pendingFolderArt = nil
         lastError = nil
     }
 
@@ -212,7 +271,7 @@ final class AppModel {
                 statusLine = ""
                 let message = Self.message(for: error)
                 lastError = message
-                if styleRequest == nil {
+                if styleRequest == nil && folderArtRequest == nil {
                     alert = Alert(title: "Sidebar Icons", message: message)
                 }
                 rows = await manager.rows()

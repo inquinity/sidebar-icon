@@ -30,6 +30,20 @@ public enum ManagerError: Error, Sendable, Equatable {
     case glyphInUse(String)
     /// A custom glyph couldn't be built; nothing was changed.
     case glyphBuild(GlyphBuildError)
+    /// The folder has a custom icon that isn't ours; the owner must confirm replacing it (FR-013).
+    case folderIconNeedsConfirmation(existing: Bool)
+    /// macOS refused to change the folder's icon (for example a protected location).
+    case folderIconFailed(String)
+    /// The folder's current icon couldn't be saved, so it wasn't replaced.
+    case folderIconBackupFailed(String)
+    /// The app can't tell whether the folder's icon is still the one it set, so it left it.
+    case folderIconUnverified(String)
+    /// The path isn't a plain folder (for example a link), so its icon isn't touched.
+    case folderIconUnsafe(String)
+    /// The folder can't be found, so its icon wasn't set.
+    case folderIconMissing(String)
+    /// The folder art can't be used; the message says what to change.
+    case folderArtRefused(FolderArtError)
     /// The adapter's error, passed through with its message.
     case sidebar(SidebarIconError)
 
@@ -67,6 +81,20 @@ public enum ManagerError: Error, Sendable, Equatable {
             "The glyph \(name) is used by a folder; choose another style for it first."
         case .glyphBuild(let error):
             error.message
+        case .folderIconNeedsConfirmation:
+            "This folder already has a custom icon. Replace it? The current icon is kept and restored when you turn this off."
+        case .folderIconFailed(let path):
+            "macOS didn't allow changing \(PathStandardizer.abbreviatingHome(path)). Allow Sidebar Icons in System Settings › Privacy & Security › Files and Folders, then try again. The sidebar glyph is unaffected."
+        case .folderIconBackupFailed(let path):
+            "The current icon of \(PathStandardizer.abbreviatingHome(path)) couldn't be saved, so it wasn't replaced. Check that the disk has free space, then try again."
+        case .folderIconUnverified(let path):
+            "Sidebar Icons can't tell whether the icon of \(PathStandardizer.abbreviatingHome(path)) is still the one it set, so it left the folder as it is. In Get Info, select the folder's icon and press Delete to remove it, then try again; its earlier icon is put back if Sidebar Icons saved one."
+        case .folderIconMissing(let path):
+            "\(PathStandardizer.abbreviatingHome(path)) can't be found, so its folder icon wasn't set."
+        case .folderIconUnsafe(let path):
+            "\(PathStandardizer.abbreviatingHome(path)) isn't a plain folder (it may be a link), so its icon wasn't changed."
+        case .folderArtRefused(let error):
+            "\(error.message) Nothing was changed."
         case .sidebar(let error):
             error.message
         }

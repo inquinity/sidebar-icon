@@ -269,6 +269,23 @@ Found and fixed:
      leave the folder, keep a note, and remove the entry.
 - **Rationale**: FR-013 to FR-015, S6 (set and clear are clean). The fingerprint makes undo safe if
   something else changed the icon since.
+- **Hardening after the Story 4 review (2026-11-23)**:
+  - **Interrupted sets.** The entry records the intent before `setIcon` (no fingerprint yet, the
+    fingerprint before, and whether that icon was ours). After `setIcon` the icon is read back; if
+    it can't be read, or the ledger can't be updated, the folder is put back at once.
+  - **Undo of an interrupted entry.** A folder with no custom icon at all gets its backup back (or
+    its plain icon) and the entry goes; this is also what removing the icon in Get Info does. An
+    icon equal to the one before means the set never happened. Anything else is "unverified": the
+    folder, the entry and the backup are all kept, and the message says what to do.
+  - **A missing folder is not "changed elsewhere".** Off keeps the record. Remove, turning the icon
+    off and Reset All forget it and say so. Re-point follows a moved folder that still shows our
+    icon.
+  - **A confirmed replacement belongs to one icon in one folder.** It is remembered by that icon's
+    fingerprint, updated when Off restores it, and cleared on re-point or when the icon changed
+    elsewhere.
+  - **Paths are checked.** Links (the folder, its `Icon\r`, `FolderIconBackups/`) and paths not in
+    stored form are never touched, including targets read from the ledger.
+  - **The master must be square**; a PNG must be at least 1024 × 1024.
 
 ## D9 — UI
 

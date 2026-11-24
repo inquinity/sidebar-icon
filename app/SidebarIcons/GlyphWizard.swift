@@ -42,6 +42,9 @@ struct GlyphWizard: View {
     @State private var preview: NSImage?
     @State private var reading = false
     @State private var building = false
+    @State private var useFolderArt = false
+    @State private var folderArt: URL?
+    @State private var folderArtProblem: String?
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
 
@@ -60,14 +63,16 @@ struct GlyphWizard: View {
         if case .success(let shapes)? = drawing { shapes } else { nil }
     }
 
-    private var steps: [Step] { updating == nil ? Step.allCases : Step.allCases.filter { $0 != .name } }
+    /// A new drawing keeps the glyph's name, and folder art belongs to a folder, not a glyph.
+    private var steps: [Step] { updating == nil ? Step.allCases : Step.allCases.filter { $0 != .name && $0 != .folderArt } }
 
     private var canContinue: Bool {
         switch step {
         case .check: if case .available? = model.glyphToolStatus { true } else { false }
         case .name: !trimmedName.isEmpty && nameProblem == nil
         case .drawing: shapes != nil && drawingData != nil && !reading
-        case .folderArt, .preview: true
+        case .folderArt: !useFolderArt || (folderArt != nil && folderArtProblem == nil)
+        case .preview: true
         case .build: false
         }
     }
@@ -223,11 +228,42 @@ struct GlyphWizard: View {
 
     private var folderArtStep: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle("Also use full-colour art for this folder's Finder icon", isOn: .constant(false))
-                .disabled(true)
-            Text("Not available yet: folder icons come in a later update. The sidebar glyph doesn't need it.")
+            Toggle("Also use full-colour art for this folder's Finder icon", isOn: $useFolderArt)
+            Text("Optional. The art becomes \(folderName)'s own icon in Finder windows, set after the glyph is built. If the folder already has a custom icon, you're asked first. Small sizes can be added later with Folder Icon….")
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if useFolderArt {
+                HStack {
+                    Button(folderArt == nil ? "Choose Art…" : "Choose Other Art…") {
+                        if let url = FolderArtOptInView.chooseMaster() { checkFolderArt(url) }
+                    }
+                    if let folderArt {
+                        Text(folderArt.lastPathComponent).font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.middle)
+                    }
+                }
+                if let folderArtProblem {
+                    Text(folderArtProblem).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func checkFolderArt(_ url: URL) {
+        folderArt = url
+        folderArtProblem = nil
+        Task {
+            let problem = await Task.detached { () -> String? in
+                do {
+                    try FolderArtBuilder.checkMaster(url)
+                    return nil
+                } catch let error as FolderArtError {
+                    return error.message
+                } catch {
+                    return error.localizedDescription
+                }
+            }.value
+            if folderArt == url { folderArtProblem = problem }
         }
     }
 
@@ -324,9 +360,13 @@ struct GlyphWizard: View {
     private func build() {
         guard let drawingData else { return }
         building = true
+        let art = useFolderArt ? folderArt : nil
         let completion: @MainActor (UUID?) -> Void = { id in
             building = false
-            if let id { finished(id) }
+            guard let id else { return }
+            // Picked up by the picker's Apply, once the mapping exists (step 4).
+            if let art, updating == nil { model.pendingFolderArt = art }
+            finished(id)
         }
         if let updating {
             model.updateGlyph(updating, drawing: drawingData, completion: completion)
