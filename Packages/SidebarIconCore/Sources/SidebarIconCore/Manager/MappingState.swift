@@ -10,6 +10,9 @@ public enum FolderIconState: Sendable, Equatable {
     case changedElsewhere
     /// The opt-in is on but the icon couldn't be set; the message says why.
     case failed(String)
+    /// The icon is recorded but the folder can't be found; the record is kept until the folder is
+    /// back, re-pointed or removed (not "changed elsewhere", research D8; final review 3).
+    case folderMissing
 }
 
 /// A mapping's status as shown in the list (FR-008, research D7). Derived, never stored; computing

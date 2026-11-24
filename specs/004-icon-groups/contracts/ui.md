@@ -4,7 +4,11 @@ Extends [002's UI contract](../../002-mapping-manager-v1/contracts/ui.md).
 
 ## Row
 
-`[16 pt sidebar preview, tinted][folder-icon preview or —]  name  ~/path  style  state  [On/Off]`
+`[20 pt preview on a light and a dark sidebar swatch]  name  style  ~/path  [folder-icon badge]  state  [Re-point… | Apply Now]  [On/Off]`
+
+The folder-icon badge shows for an opted-in or recorded folder icon: set, not set (worded for
+mapping on or off), changed elsewhere, failed (reason as help text), or folder missing.
+Re-point… is offered when the folder is missing or its path now resolves to another folder.
 
 Context menu: **Change Icon…** (style picker), **Folder Icon…** (opt-in sheet), Remove…, Re-point….
 

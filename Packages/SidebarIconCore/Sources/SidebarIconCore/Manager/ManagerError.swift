@@ -40,6 +40,9 @@ public enum ManagerError: Error, Sendable, Equatable {
     case folderIconUnverified(String)
     /// The path isn't a plain folder (for example a link), so its icon isn't touched.
     case folderIconUnsafe(String)
+    /// The app's data folder, or a folder above it inside the App Group container, is a link
+    /// (security review M1), so nothing is read from or written there.
+    case containerLinked(String)
     /// The folder can't be found, so its icon wasn't set.
     case folderIconMissing(String)
     /// The folder art can't be used; the message says what to change.
@@ -91,6 +94,8 @@ public enum ManagerError: Error, Sendable, Equatable {
             "Sidebar Icons can't tell whether the icon of \(PathStandardizer.abbreviatingHome(path)) is still the one it set, so it left the folder as it is. In Get Info, select the folder's icon and press Delete to remove it, then try again; its earlier icon is put back if Sidebar Icons saved one."
         case .folderIconMissing(let path):
             "\(PathStandardizer.abbreviatingHome(path)) can't be found, so its folder icon wasn't set."
+        case .containerLinked(let path):
+            "Sidebar Icons' data folder \(PathStandardizer.abbreviatingHome(path)) is a symbolic link or lies outside the app's container, so nothing was changed. Quit the app, remove the link, and open it again."
         case .folderIconUnsafe(let path):
             "\(PathStandardizer.abbreviatingHome(path)) isn't a plain folder (it may be a link), so its icon wasn't changed."
         case .folderArtRefused(let error):

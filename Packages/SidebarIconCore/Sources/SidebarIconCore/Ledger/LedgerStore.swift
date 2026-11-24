@@ -20,7 +20,7 @@ public struct LedgerStore: Sendable {
     public func entries() throws -> [OutsideChange] {
         let data: Data
         do {
-            data = try Data(contentsOf: url)
+            data = try ContainerFile.read(url)
         } catch CocoaError.fileReadNoSuchFile {
             return []
         } catch {
@@ -86,11 +86,20 @@ public struct LedgerStore: Sendable {
             let data = try Self.encoder.encode(File(schemaVersion: 1, entries: entries))
             // Temp file, forced to disk, then renamed over the ledger: a crash leaves either the old
             // or the new ledger, never a truncated one (as `ConfigStore.save`).
-            let temp = url.deletingLastPathComponent().appending(path: url.lastPathComponent + ".tmp")
-            try data.write(to: temp)
-            let handle = try FileHandle(forWritingTo: temp)
-            _ = fcntl(handle.fileDescriptor, F_FULLFSYNC)
-            try handle.close()
+            // A new, uniquely named file that must not exist yet and is never a link (security
+            // review L7): a planted `ledger.json.tmp` link can't redirect the write.
+            let temp = url.deletingLastPathComponent().appending(path: ".\(url.lastPathComponent).\(UUID().uuidString).tmp")
+            let fd = open(temp.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o644)
+            guard fd >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+            let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+            do {
+                try handle.write(contentsOf: data)
+                _ = fcntl(fd, F_FULLFSYNC)
+                try handle.close()
+            } catch {
+                try? FileManager.default.removeItem(at: temp)
+                throw error
+            }
             guard rename(temp.path, url.path) == 0 else {
                 let code = POSIXErrorCode(rawValue: errno) ?? .EIO
                 try? FileManager.default.removeItem(at: temp)

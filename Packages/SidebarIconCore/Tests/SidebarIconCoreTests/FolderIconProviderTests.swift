@@ -262,7 +262,19 @@ final class FakeFolderIcons: FolderIconWriting {
 
         #expect(throws: FolderIconError.unsafeTarget(link)) { try provider.set(art, on: link, confirmReplace: true) }
         let tampered = OutsideChange(kind: .folderIcon, target: link, fingerprint: "fp:x")
-        #expect(throws: FolderIconError.unsafeTarget(link)) { try provider.undo(tampered) }
+        // Undo looks at the real folder behind the link, never writes through it, and here finds
+        // no icon of ours, so nothing is touched (final review 2, re-review 1).
+        #expect(try provider.undo(tampered) == .leftChangedElsewhere)
+        #expect(fake.state.withLock { $0.calls }.isEmpty)
+    }
+
+    /// Security review L2: a link above the folder is refused, not only a link at the folder.
+    @Test func aLinkAboveTheFolderIsRefused() throws {
+        let linkedParent = PathStandardizer.standardize(dir.url.path) + "/LinkedParent"
+        try FileManager.default.createSymbolicLink(atPath: linkedParent, withDestinationPath: (folder as NSString).deletingLastPathComponent)
+        let through = linkedParent + "/" + (folder as NSString).lastPathComponent
+
+        #expect(throws: FolderIconError.unsafeTarget(through)) { try provider.set(art, on: through, confirmReplace: true) }
         #expect(fake.state.withLock { $0.calls }.isEmpty)
     }
 
@@ -554,5 +566,87 @@ final class FakeFolderIcons: FolderIconWriting {
 
         _ = try await manager.setEnabled(true, for: id)
         #expect(fake.icon(setup.dev) != nil)
+    }
+
+    // MARK: - Final review (T044)
+
+    /// Final review 1: new art for a folder whose icon replacement was confirmed keeps that yes,
+    /// so Off then On puts our icon back instead of refusing.
+    @Test func newArtKeepsAConfirmedReplace() async throws {
+        let manager = try await manager()
+        let id = try await addDev(manager)
+        fake.preset(setup.dev, icon: "theirs")
+        _ = try await manager.setFolderIcon(FolderArt(master: master), for: id, confirmReplace: true)
+        let other = try writeSolidPNG(in: setup.dir.url, name: "other-art.png", pixels: 1024, red: 0.9)
+
+        // The sheet asks again only for a foreign icon, so it sends no confirmation here.
+        _ = try await manager.setFolderIcon(FolderArt(master: other), for: id)
+        let ours = fake.icon(setup.dev)
+        _ = try await manager.setEnabled(false, for: id)
+        #expect(fake.icon(setup.dev) == "theirs")
+
+        let on = try await manager.setEnabled(true, for: id)
+        #expect(fake.icon(setup.dev) == ours)
+        #expect(on.rows.first?.folderIcon == .set)
+    }
+
+    /// Final review 2 and re-review 1: a folder moved and replaced by a link doesn't block Remove,
+    /// and its earlier icon is put back at the real folder (the backup isn't lost).
+    @Test func removeOfAFolderReplacedByALinkPutsBackTheRealFolder() async throws {
+        let manager = try await manager()
+        let id = try await addDev(manager)
+        fake.preset(setup.dev, icon: "theirs")
+        _ = try await manager.setFolderIcon(FolderArt(master: master), for: id, confirmReplace: true)
+        let moved = PathStandardizer.standardize(setup.dir.url.path) + "/moved-dev"
+        try FileManager.default.moveItem(atPath: setup.dev, toPath: moved)
+        try FileManager.default.createSymbolicLink(atPath: setup.dev, withDestinationPath: moved)
+        fake.preset(moved, icon: try #require(fake.icon(setup.dev)))
+
+        let result = try await manager.remove(id)
+
+        #expect(result.rows.isEmpty)
+        #expect(try ledgerFolderEntries().isEmpty)
+        #expect(fake.icon(moved) == "theirs")
+        #expect(fake.state.withLock { $0.calls }.last?.hasPrefix("set moved-dev ") == true)
+    }
+
+    /// Re-review 1: a recorded icon on a path that now leads to a file is forgotten, untouched.
+    @Test func removeWhenThePathIsNoLongerAFolderForgetsItsRecord() async throws {
+        let manager = try await manager()
+        let id = try await addDev(manager)
+        _ = try await manager.setFolderIcon(FolderArt(master: master), for: id)
+        let file = setup.dir.url.appending(path: "a-file").path
+        try Data().write(to: URL(fileURLWithPath: file))
+        try FileManager.default.removeItem(atPath: setup.dev)
+        try FileManager.default.createSymbolicLink(atPath: setup.dev, withDestinationPath: file)
+        let callsBefore = fake.state.withLock { $0.calls }.count
+
+        let result = try await manager.remove(id)
+
+        #expect(result.rows.isEmpty)
+        #expect(try ledgerFolderEntries().isEmpty)
+        #expect(fake.state.withLock { $0.calls }.count == callsBefore)
+        #expect(result.messages.contains { $0.contains("isn't a plain folder now") })
+    }
+
+    /// Final review 3: a recorded icon on a folder that can't be found isn't "changed elsewhere".
+    @Test func aMissingFolderShowsFolderMissingNotChangedElsewhere() async throws {
+        let manager = try await manager()
+        let id = try await addDev(manager)
+        _ = try await manager.setFolderIcon(FolderArt(master: master), for: id)
+        try FileManager.default.moveItem(atPath: setup.dev, toPath: setup.dir.url.appending(path: "gone").path)
+
+        let row = try #require(await manager.rows().first)
+        #expect(row.folderIcon == .folderMissing)
+        #expect(row.offersRepoint)
+    }
+
+    /// Final review 6: the Reset All wording can see recorded folder icons without any rows.
+    @Test func folderIconRecordsAreReported() async throws {
+        let manager = try await manager()
+        #expect(await manager.hasFolderIconRecords() == false)
+        let id = try await addDev(manager)
+        _ = try await manager.setFolderIcon(FolderArt(master: master), for: id)
+        #expect(await manager.hasFolderIconRecords() == true)
     }
 }

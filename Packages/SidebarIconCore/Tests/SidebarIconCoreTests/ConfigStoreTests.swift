@@ -95,7 +95,8 @@ import Testing
         let victim = dir.url.appending(path: "victim.txt")
         try Data("keep".utf8).write(to: victim)
         let orphan = IconAsset(id: UUID(), sourceFormat: .png, fileName: "../../victim.txt")
-        try store.save(AppConfiguration(mappings: [], assets: [orphan]))
+        // Since the final security review (L1) such a name is refused outright.
+        #expect(throws: ManagerError.self) { try store.save(AppConfiguration(mappings: [], assets: [orphan])) }
         #expect(FileManager.default.fileExists(atPath: victim.path))
         _ = container
     }

@@ -8,6 +8,8 @@ public enum FolderArtError: Error, Sendable, Equatable {
     case unsupportedMaster(String)
     case masterTooSmall(name: String, pixels: Int)
     case masterNotSquare(name: String, width: Int, height: Int)
+    /// Bigger than the app decodes (security review L6): a few MB of PNG can decode to gigabytes.
+    case masterTooLarge(name: String)
     /// A small size whose name is not one of Apple's `.iconset` names.
     case unknownSize(String)
     case wrongSize(name: String, expected: Int, actualWidth: Int, actualHeight: Int)
@@ -22,6 +24,8 @@ public enum FolderArtError: Error, Sendable, Equatable {
             "\(name) is \(pixels) pixels; the master must be at least \(FolderArtBuilder.minimumMasterPixels) pixels square (or a PDF or SVG)."
         case .masterNotSquare(let name, let width, let height):
             "\(name) is \(width) × \(height) pixels; a PNG master must be square (1024 × 1024 or larger)."
+        case .masterTooLarge(let name):
+            "\(name) is too large; use art of at most \(FolderArtBuilder.maximumMasterPixels) pixels square and \(FolderArtBuilder.maximumFileSize / 1_048_576) MB."
         case .unknownSize(let name): "\(name) isn't an icon set size name (icon_16x16 … icon_512x512@2x)."
         case .wrongSize(let name, let expected, let width, let height):
             "\(name) is \(width) × \(height) pixels; it must be exactly \(expected) × \(expected)."
@@ -49,10 +53,16 @@ public enum FolderArtBuilder {
     }
 
     public static let minimumMasterPixels = 1024
+    /// 8192 × 8192 decodes to 256 MB; larger art gains nothing at 512 pt @2x (1024 pixels).
+    public static let maximumMasterPixels = 8192
+    public static let maximumFileSize = 64 * 1_048_576
 
     /// Checks the master without loading it whole into the container.
     public static func checkMaster(_ url: URL) throws {
         let name = url.lastPathComponent
+        if let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, size > maximumFileSize {
+            throw FolderArtError.masterTooLarge(name: name)
+        }
         let format: IconAsset.SourceFormat
         do {
             format = try AssetImporter.detectFormat(of: url)
@@ -66,6 +76,7 @@ public enum FolderArtBuilder {
                 throw FolderArtError.masterNotSquare(name: name, width: size.width, height: size.height)
             }
             guard size.width >= minimumMasterPixels else { throw FolderArtError.masterTooSmall(name: name, pixels: size.width) }
+            guard size.width <= maximumMasterPixels else { throw FolderArtError.masterTooLarge(name: name) }
         case .pdf, .svg:
             guard let image = NSImage(contentsOf: url), image.size.width > 0, image.size.height > 0 else {
                 throw FolderArtError.unreadable(name)

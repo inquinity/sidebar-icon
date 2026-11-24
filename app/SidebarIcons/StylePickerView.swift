@@ -119,7 +119,8 @@ struct StylePickerView: View {
                     .keyboardShortcut(.cancelAction)
                 Button("Apply") { if let choice { apply(choice) } }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(choice == nil)
+                    // Not while a glyph import or build runs: the choice would be dropped (final review 4).
+                    .disabled(choice == nil || !model.canChange)
             }
         }
         .padding(20)

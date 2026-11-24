@@ -84,6 +84,11 @@ public enum FolderIconUndo: Sendable, Equatable {
     /// The folder isn't there (moved or deleted). Nothing was changed and the entry is kept; the
     /// caller decides whether to keep waiting or forget it (review H2).
     case folderMissing
+    /// The path no longer leads to a plain folder (for example it resolves to a file, or the
+    /// folder's `Icon\r` is a link). Nothing was changed and the entry is kept; the caller decides,
+    /// as for `folderMissing` (final review 2). A folder merely reached through a link is undone
+    /// at its real location instead.
+    case folderUnsafe
 }
 
 /// Sets and undoes an opted-in folder's own Finder icon (004 research D8). Every set is recorded in
@@ -219,9 +224,18 @@ public struct FolderIconProvider: Sendable {
     /// folder, or when an interrupted set left it unclear whether the icon is ours; the entry and
     /// backup stay then.
     public func undo(_ entry: OutsideChange) throws -> FolderIconUndo {
-        let folder = URL(fileURLWithPath: entry.target)
         guard FileManager.default.fileExists(atPath: entry.target) else { return .folderMissing }
-        try requireSafeTarget(entry.target, mustExist: true)
+        // A path that now leads elsewhere (a parent moved and replaced by a link, a case-only
+        // rename, the folder itself moved and linked) is undone at the real folder it resolves to,
+        // never through the link; the fingerprint rule still decides (final re-review 1). Losing
+        // the backup there would lose the owner's earlier icon.
+        let path = PathStandardizer.standardize(entry.target)
+        do {
+            try requireSafeTarget(path, mustExist: true)
+        } catch FolderIconError.unsafeTarget {
+            return .folderUnsafe
+        }
+        let folder = URL(fileURLWithPath: path)
         try requirePlainBackupsDirectory()
         let current = writer.fingerprint(of: folder)
         var entry = entry
@@ -288,6 +302,14 @@ public struct FolderIconProvider: Sendable {
         return true
     }
 
+    /// Undoes `follow` when the mapping's new path couldn't be saved (final review 7): the record
+    /// names the old path again, as the config still does. The folder isn't touched.
+    public func unfollow(_ newPath: String, back oldPath: String) throws {
+        guard var entry = try entry(for: newPath) else { return }
+        entry.target = oldPath
+        try ledger.update(entry)
+    }
+
     /// Only a real folder in stored form, never a link, and never a link named `Icon\r` inside it
     /// (review L1, L2): a tampered ledger or a swapped path can't steer the app at another folder.
     func requireSafeTarget(_ path: String, mustExist: Bool) throws {
@@ -298,6 +320,8 @@ public struct FolderIconProvider: Sendable {
             return
         }
         guard info.st_mode & S_IFMT == S_IFDIR else { throw FolderIconError.unsafeTarget(path) }
+        // A link anywhere above the folder changes where the path leads (security review L2).
+        guard PathStandardizer.standardize(path) == path else { throw FolderIconError.unsafeTarget(path) }
         var iconInfo = stat()
         if lstat(path + "/Icon\r", &iconInfo) == 0, iconInfo.st_mode & S_IFMT == S_IFLNK {
             throw FolderIconError.unsafeTarget(path)

@@ -225,7 +225,12 @@ public struct SystemProcessRunner: ProcessRunning {
             }
         }
         let limit = 4 * 1024 * 1024
-        func read(_ url: URL) -> Data { ((try? Data(contentsOf: url)) ?? Data()).prefix(limit) }
+        // Only the first 4 MB are ever read into memory (security review L4).
+        func read(_ url: URL) -> Data {
+            guard let handle = try? FileHandle(forReadingFrom: url) else { return Data() }
+            defer { try? handle.close() }
+            return ((try? handle.read(upToCount: limit)) ?? nil) ?? Data()
+        }
         return ProcessOutput(exitCode: process.isRunning ? -1 : process.terminationStatus,
                              standardOutput: read(outURL), standardError: read(errURL), timedOut: timedOut)
     }

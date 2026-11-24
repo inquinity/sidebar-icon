@@ -13,6 +13,8 @@ final class AppModel {
     }
 
     private(set) var rows: [MappingRow] = []
+    /// The ledger records folder icons, so Reset All will put folders back (final review 6).
+    private(set) var folderIconsRecorded = false
     /// The owner's custom glyphs (004 Story 2).
     private(set) var glyphs: [CustomGlyph] = []
     /// Whether custom glyphs can be built here; nil until checked.
@@ -279,6 +281,7 @@ final class AppModel {
             }
             readOnlyReason = await manager.readOnlyReason
             favoritesUnavailable = !(await manager.favoritesReadable)
+            folderIconsRecorded = await manager.hasFolderIconRecords()
         }
     }
 
@@ -287,6 +290,7 @@ final class AppModel {
         glyphs = await manager.glyphs()
         readOnlyReason = await manager.readOnlyReason
         favoritesUnavailable = !(await manager.favoritesReadable)
+        folderIconsRecorded = await manager.hasFolderIconRecords()
     }
 
     static func summary(of result: ActionResult) -> String {

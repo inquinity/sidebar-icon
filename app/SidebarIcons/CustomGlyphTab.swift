@@ -251,7 +251,8 @@ enum GlyphPreviewCache {
 
     static func image(for template: URL) -> NSImage? {
         if let cached = cache.object(forKey: template as NSURL) { return cached }
-        guard let text = try? String(contentsOf: template, encoding: .utf8),
+        guard let data = try? ContainerFile.read(template, limit: SVGShapeReader.maximumFileSize),
+              let text = String(data: data, encoding: .utf8),
               let svg = SymbolTemplatePreview.svg(fromTemplate: text),
               let image = NSImage(data: Data(svg.utf8)) else { return nil }
         image.isTemplate = true

@@ -208,7 +208,7 @@ every entry will be marked **removed**.
   - Custom glyphs are cached per bundle path, so each change gets a new bundle path; codes stay
     stable, so the sidebar overrides (PA-02/PA-03) are not rewritten when only a style changes.
     An existing version is reused only if its `Info.plist`, `.icns` files and `Assets.car` match
-    the content exactly; otherwise it is rewritten before registering. A failed registration
+    the content exactly and it holds no other file; otherwise it is rewritten before registering. A failed registration
     deletes only a bundle that call created and no ledger entry records.
   - Before older versions are retired, any recorded override whose code the new version doesn't
     declare (icon unavailable, or code claimed elsewhere) is cleared, so no Favorite is left

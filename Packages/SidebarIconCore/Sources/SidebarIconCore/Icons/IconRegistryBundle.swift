@@ -151,7 +151,7 @@ public enum IconRegistryBundle {
     /// Writes the complete bundle to `bundleURL`, replacing any previous content in one step.
     /// `assetsCar`, when given, is copied to `Contents/Resources/Assets.car`.
     public static func write(_ entries: [Entry], assetsCar: URL? = nil, hash: String, to bundleURL: URL) throws {
-        try write(entries, assetsCarData: assetsCar.map { try Data(contentsOf: $0) }, hash: hash, to: bundleURL)
+        try write(entries, assetsCarData: assetsCar.map { try ContainerFile.read($0, limit: ContainerFile.carLimit) }, hash: hash, to: bundleURL)
     }
 
     /// True when the bundle at `bundleURL` holds exactly this content: the same `Info.plist`, the
@@ -162,14 +162,21 @@ public enum IconRegistryBundle {
         let contents = bundleURL.appending(path: "Contents", directoryHint: .isDirectory)
         let resources = contents.appending(path: "Resources", directoryHint: .isDirectory)
         guard let expected = try? infoPlist(for: entries, hash: hash),
-              (try? Data(contentsOf: contents.appending(path: "Info.plist"))) == expected,
+              (try? ContainerFile.read(contents.appending(path: "Info.plist"))) == expected,
               fileManager.fileExists(atPath: contents.appending(path: "PkgInfo").path) else { return false }
         for name in entries.compactMap(\.icnsFileName) where !fileManager.fileExists(atPath: resources.appending(path: name).path) {
             return false
         }
+        // Nothing else may be in the bundle (security review, info): a planted bundle at a
+        // version's path could add plug-ins that Launch Services would register with it.
+        var expectedPaths: Set<String> = ["Contents", "Contents/Info.plist", "Contents/PkgInfo", "Contents/Resources"]
+        expectedPaths.formUnion(entries.compactMap(\.icnsFileName).map { "Contents/Resources/\($0)" })
+        if assetsCarData != nil { expectedPaths.insert("Contents/Resources/Assets.car") }
+        guard let found = try? fileManager.subpathsOfDirectory(atPath: bundleURL.path),
+              Set(found.filter { ($0 as NSString).lastPathComponent != ".DS_Store" }) == expectedPaths else { return false }
         let car = resources.appending(path: "Assets.car")
         if let assetsCarData {
-            return (try? Data(contentsOf: car)) == assetsCarData
+            return (try? ContainerFile.read(car, limit: ContainerFile.carLimit)) == assetsCarData
         }
         return !fileManager.fileExists(atPath: car.path)
     }

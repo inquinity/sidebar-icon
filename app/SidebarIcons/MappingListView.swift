@@ -28,7 +28,7 @@ struct MappingListView: View {
                     .contextMenu {
                         Button("Change Icon…") { model.changeIcon(for: row) }
                         Button("Folder Icon…") { model.openFolderIcon(for: row) }
-                        if row.state == .folderMissing {
+                        if row.offersRepoint {
                             Button("Re-point…") { model.repoint(row) }
                         }
                         Divider()
@@ -77,10 +77,10 @@ struct MappingRowView: View {
             }
             Spacer()
             if row.folderIconOptedIn || row.folderIcon != .notSet {
-                FolderIconBadge(state: row.folderIcon)
+                FolderIconBadge(state: row.folderIcon, mappingOn: row.enabled)
             }
             StateBadge(state: row.state)
-            if row.state == .folderMissing {
+            if row.offersRepoint {
                 Button("Re-point…") { model.repoint(row) }
                     .disabled(!model.canChange)
             } else if row.state.offersApplyNow {
@@ -210,6 +210,7 @@ struct StateBadge: View {
 /// The folder icon's status next to the row's state (004 Story 4).
 struct FolderIconBadge: View {
     let state: FolderIconState
+    let mappingOn: Bool
 
     var body: some View {
         Image(systemName: symbol)
@@ -224,6 +225,7 @@ struct FolderIconBadge: View {
         case .notSet: "folder"
         case .changedElsewhere: "folder.badge.questionmark"
         case .failed: "exclamationmark.triangle.fill"
+        case .folderMissing: "folder.badge.minus"
         }
     }
 
@@ -233,15 +235,20 @@ struct FolderIconBadge: View {
         case .notSet: .secondary
         case .changedElsewhere: .orange
         case .failed: .red
+        case .folderMissing: .orange
         }
     }
 
     private var help: String {
         switch state {
         case .set: "Folder icon set"
-        case .notSet: "Folder icon on, not set (the mapping is off)"
+        case .notSet:
+            mappingOn
+                ? "Folder icon on, but not set. Use Folder Icon… to set it."
+                : "Folder icon on, not set (the mapping is off)"
         case .changedElsewhere: "This folder's icon was changed by something else, so it was left as it is."
         case .failed(let message): message
+        case .folderMissing: "The folder can't be found; its folder icon is put back when it's there again, or forgotten if you remove the mapping."
         }
     }
 }

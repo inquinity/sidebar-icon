@@ -330,6 +330,92 @@ by a separate process calling `NSWorkspace.setIcon`, as Get Info would.
 - Clean-up: mappings removed (only `dev` is left), the three Favorites removed, the test folders
   moved to the Trash.
 
+## T044 — final code and security reviews (2026-11-24)
+
+Two independent reviews of the whole feature (`087f257..6c94a28`): a cross-cutting code review and
+a security review. Neither found a high-severity defect. The security threat model: another process
+running as the user that can write into the App Group container, using the app as a confused
+deputy for folders it may write to (P-2: folders chosen in its open panel).
+
+**Security findings (all fixed, with tests in `SecurityReviewTests`)**
+- **M1: the data folder itself was never checked for a link.** If `SidebarIcons/`, or a folder
+  between the App Group container and it, was a link, Reset All could recursively delete
+  `Icons/`, `Glyphs/`, `Build/` and `FolderIconBackups/` inside a user folder. Fix:
+  `ContainerLocator.requireRealRoot()` checks with `lstat` that each of those folders is a real
+  directory, and with `realpath` that the root resolves inside the container. It runs before
+  every action, in `load()`, and again just before Reset All deletes anything. A failure gives
+  `containerLinked`.
+- **L1: asset file names from `config.json` weren't checked.** A name could make the folder-art
+  build read any image or PDF into a mapped folder's icon. They must now be `<id>.<ext>` and
+  `<id>.icns`, or the config is invalid.
+- **L2: folder-icon targets were checked only at the last path component.** Setting an icon now
+  refuses a path that standardizes to anything other than itself, meaning a link anywhere above
+  it. Undo acts on the real folder the path resolves to, never through the link, and still only
+  by the fingerprint rule. The first version refused there too, and the re-review found that a
+  moved parent or a case-only rename then deleted the owner's backup.
+- **L3: `apply` trusted override codes from the ledger.** It now acts only on codes in the
+  utility's own `S###` range, so it can't clear or overwrite another tool's override.
+- **L4: unbounded output.** `actool` output is read at most 4 MB at a time, and `lsregister` is
+  stopped after 120 s. A dump isn't capped, because it can be tens of MB.
+- **L5: container files were read without limits.** `ContainerFile.read` accepts only a regular
+  file, never through a link, non-blocking (a FIFO can't hang the app), and size-capped (16 MB,
+  or 64 MB for `Assets.car`). It is used for the config, the ledger, templates, `Assets.key`,
+  `Assets.car` and `Info.plist`.
+- **L6: no upper limit on folder art.** A master can be at most 8192 pixels square and 64 MB.
+- **L7 (from 0.2.0): the ledger's temp file was written through a planted link.** It is now a new,
+  uniquely named file opened with `O_CREAT|O_EXCL|O_NOFOLLOW`. A crash can leave
+  `.ledger.json.<uuid>.tmp`, which is harmless.
+- **Info: registry bundle contents.** `isIntact` requires exactly the expected files, so a planted
+  version with extra plug-ins is rewritten rather than registered.
+- **Open question: nested XML entities.** SVGs and templates that declare entities (`<!ENTITY`)
+  are refused before parsing; a plain DOCTYPE is still accepted. The check covers UTF-8 files
+  only.
+- Verified sound: the `actool` integration (fixed `xcrun`, developer directory from
+  `/var/db/xcode_select_link`, Apple-signed tool, minimal environment, name rules, timeout), and
+  no data leaves the Mac.
+
+**Code review findings (all fixed)**
+1. **Medium: new art dropped an earlier "Replace".** Adding small sizes after a confirmed
+   replacement made the next On refuse. The confirmation and its fingerprint are now carried
+   forward. On still checks that the folder shows the confirmed icon, and Re-point still clears
+   it (review M1). Test `newArtKeepsAConfirmedReplace`.
+2. **Medium: a mapped folder replaced by a link blocked Remove and Reset All.** Undo now puts back
+   the real folder behind the link. Only a path that no longer leads to a plain folder (for
+   example it resolves to a file) gives `folderUnsafe`, which is untouched: Off keeps the record,
+   while Remove, Turn Off and Reset All forget it with a note. Re-point… is also offered when the
+   path now resolves to another folder. Tests `removeOfAFolderReplacedByALinkPutsBackTheRealFolder`
+   and `removeWhenThePathIsNoLongerAFolderForgetsItsRecord`.
+3. **Misleading badges.** A recorded icon on a folder that can't be found shows "folder missing",
+   not "changed elsewhere". The not-set text depends on whether the mapping is on.
+4. **Silent drop.** The style picker's Apply is disabled while another action runs, such as a
+   glyph build.
+5. **Registry retirement.** A custom-glyph mapping that is off but whose override couldn't be
+   cleared keeps its glyph in the combined car. Its Favorite never points at an undeclared code.
+6. **Reset All wording.** It also checks the ledger's folder-icon records
+   (`hasFolderIconRecords`), so a read-only configuration still gets the "put back" text.
+7. **Re-point ordering.** If saving the config fails after the ledger record followed the folder,
+   the record is moved back (`FolderIconProvider.unfollow`).
+8. **Doc drift.** contracts/mapping-manager.md (types, `glyphs()`, Reset All) and ui.md (row).
+
+**Re-review of the fixes** (independent): every fix closes its finding, with no change for
+existing containers. Its findings, all fixed:
+- **Medium:** the L2 regression above.
+- **Low:** Reset All's second container check threw mid-reset and lost the folder notes. It is now
+  reported with the other failures, and nothing is deleted.
+- **Low:** a UTF-16 SVG hid `<!ENTITY` from the byte search. Drawings must be UTF-8 without NUL
+  bytes.
+- **Info:** the `lsregister` watchdog now signals only a process that is still running and not
+  reaped, escalates to SIGKILL after 5 s, and reports a timeout only when there was one.
+- **Info:** Reset All removes `.ledger.json.*.tmp` files left by a crash.
+
+Its open questions, not changed:
+- Re-point isn't offered for an Off mapping whose path resolves elsewhere; Remove handles it.
+- The 64 MB `Assets.car` cap limits how many custom glyphs there can be. A car over it makes
+  custom-glyph mappings unavailable. That is far beyond the expected few dozen glyphs.
+
+**Not covered by an automated test:** 5 and 7 (they need failure injection the fakes don't
+offer), the `lsregister` timeout, and the app-side changes 3, 4 and 6. Tests: 296 pass.
+
 ## D9 — UI
 
 - **Decision**: the row shows the style (system, custom or full colour) and a folder-icon badge.

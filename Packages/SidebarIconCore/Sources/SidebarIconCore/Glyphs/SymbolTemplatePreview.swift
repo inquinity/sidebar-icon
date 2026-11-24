@@ -6,8 +6,10 @@ import Foundation
 /// path, so a new version always previews correctly.
 public enum SymbolTemplatePreview {
     public static func svg(fromTemplate template: String) -> String? {
+        let data = Data(template.utf8)
+        guard data.count <= SVGShapeReader.maximumFileSize, !SVGShapeReader.declaresEntities(data) else { return nil }
         let collector = Collector()
-        let parser = XMLParser(data: Data(template.utf8))
+        let parser = XMLParser(data: data)
         parser.shouldResolveExternalEntities = false
         parser.delegate = collector
         guard parser.parse(), !collector.paths.isEmpty else { return nil }

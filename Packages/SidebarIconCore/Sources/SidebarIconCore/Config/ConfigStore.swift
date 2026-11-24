@@ -29,7 +29,7 @@ public struct ConfigStore: Sendable {
     public func load() throws -> AppConfiguration {
         let data: Data
         do {
-            data = try Data(contentsOf: url)
+            data = try ContainerFile.read(url)
         } catch CocoaError.fileReadNoSuchFile {
             return AppConfiguration()
         } catch {

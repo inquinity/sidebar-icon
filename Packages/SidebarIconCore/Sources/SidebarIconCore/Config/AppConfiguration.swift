@@ -35,6 +35,15 @@ public struct AppConfiguration: Codable, Sendable, Equatable {
                 problems.append("mapping for \(mapping.folderPath) has an invalid glyph name")
             }
         }
+        // Asset file names are derived from the ID, so a stored name can never point outside
+        // Icons/ (security review L1).
+        for asset in assets {
+            let id = asset.id.uuidString
+            if asset.fileName != "\(id).\(asset.sourceFormat.rawValue)"
+                || (asset.icnsFileName.map { $0 != "\(id).icns" } ?? false) {
+                problems.append("icon \(id) has unexpected file names")
+            }
+        }
         var names = Set<String>()
         for glyph in glyphs {
             if !CustomGlyph.isValidName(glyph.name) { problems.append("glyph name \"\(glyph.name)\" is not valid") }

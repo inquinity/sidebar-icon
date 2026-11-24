@@ -80,8 +80,22 @@ public enum SVGShapeReader {
         return data
     }
 
+    static let entityGuidance = "The drawing declares XML entities (<!ENTITY>); export it again as plain SVG."
+
+    /// Entity declarations are refused before parsing, so nested entities can't expand a small
+    /// file into gigabytes (security review, open question 2). A DOCTYPE alone is fine; editors
+    /// add one.
+    static func declaresEntities(_ data: Data) -> Bool {
+        data.range(of: Data("<!ENTITY".utf8)) != nil
+    }
+
     public static func read(_ data: Data) throws -> SVGShapes {
         guard data.count <= maximumFileSize else { throw SVGReadError.tooLarge }
+        // UTF-8 only, so the entity check sees what the parser sees (re-review 3).
+        guard !data.contains(0), String(data: data, encoding: .utf8) != nil else {
+            throw SVGReadError.unsupportedSVG("The drawing isn't UTF-8 text; export it again as plain SVG.")
+        }
+        guard !declaresEntities(data) else { throw SVGReadError.unsupportedSVG(entityGuidance) }
         let parser = XMLParser(data: data)
         parser.shouldResolveExternalEntities = false
         parser.shouldProcessNamespaces = false

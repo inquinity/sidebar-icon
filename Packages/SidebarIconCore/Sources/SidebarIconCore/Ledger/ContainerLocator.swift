@@ -5,6 +5,8 @@ public enum ContainerError: Error, Sendable, Equatable {
     /// The running binary has no App Group entitlement ending in `appGroupSuffix` (unsigned build?).
     case appGroupEntitlementMissing
     case containerUnavailable(String)
+    /// The data folder or a folder above it in the container is a link (see `requireRealRoot`).
+    case linkedRoot(String)
 }
 
 /// Locates the utility's storage: `<App Group container>/Library/Application Support/SidebarIcons/`
@@ -14,9 +16,50 @@ public struct ContainerLocator: Sendable {
     public static let appGroupSuffix = "com.altmansoftwaredesign.sidebaricons"
 
     public let root: URL
+    /// The App Group container the root lives in, when known. Every folder from it down to the
+    /// root must be a real directory (security review M1).
+    public let groupContainer: URL?
 
-    public init(root: URL) {
+    public init(root: URL, groupContainer: URL? = nil) {
         self.root = root
+        self.groupContainer = groupContainer
+    }
+
+    /// Throws `ContainerError.linkedRoot` when the root, or any folder between the App Group
+    /// container and it, is a symbolic link, or when the root resolves outside the container.
+    /// A link there would send every read, write and deletion (Reset All included) into another
+    /// folder, possibly one the app may write to only because the user chose it. A root that
+    /// doesn't exist yet is fine.
+    public func requireRealRoot() throws {
+        var chain: [URL] = [root]
+        if let groupContainer {
+            let base = groupContainer.standardizedFileURL.pathComponents
+            let parts = root.standardizedFileURL.pathComponents
+            guard parts.count >= base.count, Array(parts.prefix(base.count)) == base else {
+                throw ContainerError.linkedRoot(root.path)
+            }
+            chain = (base.count..<parts.count).map { end in
+                URL(fileURLWithPath: NSString.path(withComponents: Array(parts.prefix(end + 1))))
+            }
+        }
+        for folder in chain {
+            var info = stat()
+            guard lstat(folder.path, &info) == 0 else {
+                if errno == ENOENT { return }
+                throw ContainerError.linkedRoot(folder.path)
+            }
+            guard info.st_mode & S_IFMT == S_IFDIR else { throw ContainerError.linkedRoot(folder.path) }
+        }
+        if let groupContainer, let base = Self.realPath(groupContainer.path), let real = Self.realPath(root.path),
+           !(real == base || real.hasPrefix(base + "/")) {
+            throw ContainerError.linkedRoot(root.path)
+        }
+    }
+
+    static func realPath(_ path: String) -> String? {
+        guard let resolved = realpath(path, nil) else { return nil }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 
     public var iconsDirectory: URL { root.appending(path: "Icons", directoryHint: .isDirectory) }
@@ -84,6 +127,6 @@ public struct ContainerLocator: Sendable {
         }
         let root = container
             .appending(path: "Library/Application Support/SidebarIcons", directoryHint: .isDirectory)
-        return ContainerLocator(root: root)
+        return ContainerLocator(root: root, groupContainer: container)
     }
 }

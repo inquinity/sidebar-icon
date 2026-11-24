@@ -111,14 +111,19 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         }
         let favorites = try system.listFavorites()
         let assetsByID = Dictionary(assets.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let recordedOverrides = try ledger.entries().filter { $0.kind == .sidebarOverride }
+        // Only codes in this utility's own range count as its overrides (security review L3): a
+        // tampered ledger can't make apply clear or overwrite another tool's override.
+        func ownOverrides() throws -> [OutsideChange] {
+            try ledger.entries().filter { $0.kind == .sidebarOverride && $0.osType.map(OSTypeCode.isValid) == true }
+        }
+        let recordedOverrides = try ownOverrides()
         let ownCodes = Set(recordedOverrides.compactMap(\.osType))
 
         let glyphsByID = Dictionary(glyphs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         // The combined car, read once and only when a mapping needs it. An unreadable car makes
         // only the custom-glyph mappings unavailable; the other styles still apply.
         let usesGlyphs = mappings.contains { if case .customGlyph = $0.sidebarStyle { true } else { false } }
-        let carData: Data? = usesGlyphs ? assetsCar.flatMap { try? Data(contentsOf: $0) } : nil
+        let carData: Data? = usesGlyphs ? assetsCar.flatMap { try? ContainerFile.read($0, limit: ContainerFile.carLimit) } : nil
 
         func registryEntry(for mapping: SidebarMapping) -> IconRegistryBundle.Entry? {
             switch mapping.sidebarStyle {
@@ -173,7 +178,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         // override that no ledger entry records. A failure keeps that ledger entry, is noted, and
         // does not stop the other entries or lose the report.
         let enabledPaths = Set(mappings.filter(\.enabled).map(\.folderPath))
-        for entry in try ledger.entries() where entry.kind == .sidebarOverride && !enabledPaths.contains(entry.target) {
+        for entry in try ownOverrides() where !enabledPaths.contains(entry.target) {
             do {
                 try ledger.undo(entry) {
                     guard let code = entry.osType else { return }
@@ -194,7 +199,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         if !eligible.isEmpty {
             bundleEntries = eligible.map(\.entry)
             let eligibleIDs = Set(eligible.map(\.mapping.id))
-            let stillRecorded = Set(try ledger.entries().filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+            let stillRecorded = Set(try ownOverrides().compactMap(\.osType))
             for mapping in mappings where !eligibleIDs.contains(mapping.id) && stillRecorded.contains(mapping.osType) {
                 if let entry = registryEntry(for: mapping) { bundleEntries.append(entry) }
             }
@@ -223,7 +228,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
             // older versions are retired in step 4b: clear it now, so the Favorite shows its
             // normal folder glyph rather than a generic document.
             let declared = Set(bundleEntries.map(\.osType))
-            for entry in try ledger.entries() where entry.kind == .sidebarOverride {
+            for entry in try ownOverrides() {
                 guard let code = entry.osType, !declared.contains(code) else { continue }
                 do {
                     try ledger.undo(entry) { _ = try system.clearOverrideIcon(code) }
@@ -623,6 +628,8 @@ public struct SystemLaunchServices: LaunchServicesSystem {
             .contains { LaunchServicesOverrideProvider.samePath($0, url.path) }
     }
 
+    static let lsregisterTimeout: TimeInterval = 120
+
     private func runLSRegister(_ arguments: [String]) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: Self.lsregisterPath)
@@ -636,12 +643,48 @@ public struct SystemLaunchServices: LaunchServicesSystem {
         } catch {
             throw SidebarIconError.toolFailed("lsregister could not be started: \(error.localizedDescription)")
         }
+        // A hung lsregister is stopped after two minutes instead of blocking every action
+        // (security review L4). A dump can be tens of MB, so its output isn't capped.
+        let watchdog = Watchdog(process)
+        DispatchQueue.global().asyncAfter(deadline: .now() + Self.lsregisterTimeout) { watchdog.fire() }
         let data = output.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
+        watchdog.disarm()
         guard process.terminationStatus == 0 else {
+            if watchdog.timedOut {
+                throw SidebarIconError.toolFailed("lsregister \(arguments.first ?? "") didn't finish within \(Int(Self.lsregisterTimeout)) seconds")
+            }
             throw SidebarIconError.toolFailed("lsregister \(arguments.first ?? "") exited with \(process.terminationStatus)")
         }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Stops a hung `lsregister` (re-review 4): only while it is still running and not yet
+    /// reaped, so a reused process ID is never signalled; SIGKILL if SIGTERM is ignored.
+    private final class Watchdog: @unchecked Sendable {
+        private let lock = NSLock()
+        private let process: Process
+        private var armed = true
+        private var fired = false
+
+        init(_ process: Process) { self.process = process }
+
+        var timedOut: Bool { lock.withLock { fired } }
+
+        func disarm() { lock.withLock { armed = false } }
+
+        func fire() {
+            lock.withLock {
+                guard armed, process.isRunning else { return }
+                fired = true
+                process.terminate()
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 5) { [self] in
+                lock.withLock {
+                    if armed, process.isRunning { kill(process.processIdentifier, SIGKILL) }
+                }
+            }
+        }
     }
 
     static func fourCharacterCode(_ value: UInt32) -> String {

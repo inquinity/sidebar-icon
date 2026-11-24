@@ -18,6 +18,12 @@ public struct MappingRow: Sendable, Equatable, Identifiable {
     public var folderIcon: FolderIconState = .notSet
     /// Whether the owner opted in to a folder icon for this mapping.
     public var folderIconOptedIn = false
+    /// The stored path now resolves to another folder (renamed, or replaced by a link), so the
+    /// mapping no longer matches it; Re-point… fixes it (final review 2).
+    public var resolvesElsewhere = false
+
+    /// Re-point… helps: the folder is missing or now resolves elsewhere.
+    public var offersRepoint: Bool { state == .folderMissing || resolvesElsewhere }
 
     /// Remove or Reset All would touch the folder: its icon is opted in or still recorded.
     public var hasFolderIcon: Bool { folderIconOptedIn || folderIcon != .notSet }
@@ -117,6 +123,7 @@ public actor MappingManager {
     /// Reads `config.json`. On `configUnreadable` the manager becomes read-only and rethrows.
     public func load() throws {
         do {
+            try requireRealContainer()
             config = try store.load()
             readOnlyReason = nil
         } catch let error as ManagerError {
@@ -124,6 +131,12 @@ public actor MappingManager {
             readOnlyReason = error.message
             throw error
         }
+    }
+
+    /// Whether the ledger records any folder icon, for the Reset All confirmation (final review 6):
+    /// a read-only configuration shows no rows, but Reset All still puts those folders back.
+    public func hasFolderIconRecords() -> Bool {
+        ((try? provider.ledgerEntries()) ?? []).contains { $0.kind == .folderIcon }
     }
 
     /// Read-only status of every mapping (research D7). Makes no outside changes.
@@ -160,6 +173,7 @@ public actor MappingManager {
                 folderExists: FileManager.default.fileExists(atPath: mapping.folderPath),
                 favoriteCount: nil
             )
+            var resolvesElsewhere = false
             var state = MappingState.state(
                 for: mapping, status: status, bundleRegistered: registered,
                 lastFailure: lastFailures[mapping.id]
@@ -170,6 +184,7 @@ public actor MappingManager {
             if mapping.enabled, status.folderExists {
                 let now = PathStandardizer.standardize(mapping.folderPath)
                 if now != mapping.folderPath {
+                    resolvesElsewhere = true
                     state = .error(
                         "\(PathStandardizer.abbreviatingHome(mapping.folderPath)) now resolves to \(PathStandardizer.abbreviatingHome(now)), so this mapping no longer matches its folder."
                     )
@@ -185,7 +200,8 @@ public actor MappingManager {
                 osType: mapping.osType,
                 state: state,
                 folderIcon: folderIconState(for: mapping, entry: folderIconEntries[mapping.folderPath]),
-                folderIconOptedIn: mapping.folderIcon?.enabled == true
+                folderIconOptedIn: mapping.folderIcon?.enabled == true,
+                resolvesElsewhere: resolvesElsewhere
             )
         }
     }
@@ -193,6 +209,7 @@ public actor MappingManager {
     private func folderIconState(for mapping: SidebarMapping, entry: OutsideChange?) -> FolderIconState {
         if let entry {
             if entry.fingerprint == nil { return .failed(ManagerError.folderIconUnverified(entry.target).message) }
+            if !FileManager.default.fileExists(atPath: entry.target) { return .folderMissing }
             return folderIcons.isUnchanged(entry) ? .set : .changedElsewhere
         }
         if let failure = folderIconFailures[mapping.id] { return .failed(failure) }
@@ -541,6 +558,15 @@ public actor MappingManager {
         }
     }
 
+    /// Security review M1: refuses to touch a data folder reached through a link.
+    private func requireRealContainer() throws {
+        do {
+            try container.requireRealRoot()
+        } catch {
+            throw ManagerError.containerLinked(container.root.path)
+        }
+    }
+
     private func refuseLinkedGlyphFolders() throws {
         for folder in [container.glyphsDirectory, container.buildDirectory, container.folderIconBackupsDirectory]
         where container.isSymbolicLink(folder) {
@@ -554,7 +580,7 @@ public actor MappingManager {
 
     private func carKeyOnDisk() -> Set<String> {
         let url = container.glyphsDirectory.appending(path: "Assets.key")
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        guard let data = try? ContainerFile.read(url), let text = String(data: data, encoding: .utf8) else { return [] }
         return Set(text.split(separator: "\n").map(String.init))
     }
 
@@ -631,13 +657,19 @@ public actor MappingManager {
                 followed = try await self.followFolderIcon(from: oldPath, to: path)
                 if !followed { notes = try await self.undoFolderIconOrThrow(at: oldPath) }
             }
-            try await self.change(id) { config, index in
-                config.mappings[index].folderPath = path
-                // A yes to replace one folder's icon is not a yes for another folder (review M1).
-                if !followed {
-                    config.mappings[index].folderIcon?.replaceExisting = false
-                    config.mappings[index].folderIcon?.confirmedFingerprint = nil
+            do {
+                try await self.change(id) { config, index in
+                    config.mappings[index].folderPath = path
+                    // A yes to replace one folder's icon is not a yes for another folder (review M1).
+                    if !followed {
+                        config.mappings[index].folderIcon?.replaceExisting = false
+                        config.mappings[index].folderIcon?.confirmedFingerprint = nil
+                    }
                 }
+            } catch {
+                // The record goes back to the path the config still names (final review 7).
+                if followed, let oldPath { try? await self.folderIcons.unfollow(path, back: oldPath) }
+                throw error
             }
             var result = await self.applyAfterSave()
             if let mapping = await self.config.mappings.first(where: { $0.id == id }) {
@@ -713,9 +745,15 @@ public actor MappingManager {
             throw Self.managerError(error)
         }
         let wasOurs = (try? folderIcons.entry(for: mapping.folderPath)).flatMap { $0 }.map(folderIcons.isUnchanged) ?? false
+        // New art for the same folder keeps an earlier yes to replacing its icon (final review 1):
+        // the sheet asks again only for a foreign icon, and On still checks the confirmed icon is
+        // the one the folder shows.
+        let earlier = mapping.folderIcon.flatMap { $0.replaceExisting ? $0 : nil }
         let setting = FolderIconSetting(enabled: true, artAssetID: imported[0].id, overrideAssetIDs: overrideIDs,
-                                        replaceExisting: confirmReplace,
-                                        confirmedFingerprint: confirmReplace ? (folderIcons.currentFingerprint(of: mapping.folderPath) ?? Self.flagOnlyIcon) : nil)
+                                        replaceExisting: confirmReplace || earlier != nil,
+                                        confirmedFingerprint: confirmReplace
+                                            ? (folderIcons.currentFingerprint(of: mapping.folderPath) ?? Self.flagOnlyIcon)
+                                            : earlier?.confirmedFingerprint)
         var next = config
         next.mappings[index].folderIcon = setting
         next.assets += imported
@@ -776,7 +814,10 @@ public actor MappingManager {
         let build = container.buildDirectory.appending(path: UUID().uuidString.lowercased(), directoryHint: .isDirectory)
         defer { try? FileManager.default.removeItem(at: build) }
         func file(_ id: UUID) throws -> URL {
-            guard let asset = assets.first(where: { $0.id == id }) else { throw ManagerError.imageUnreadable("the folder art") }
+            guard let asset = assets.first(where: { $0.id == id }),
+                  LaunchServicesOverrideProvider.isPlainFileName(asset.fileName) else {
+                throw ManagerError.imageUnreadable("the folder art")
+            }
             return container.iconsDirectory.appending(path: asset.fileName)
         }
         let icns = build.appending(path: "folder.icns")
@@ -893,6 +934,14 @@ public actor MappingManager {
                     try folderIcons.forget(entry)
                     return (["\(name) can't be found, so its folder icon couldn't be put back. If the folder moved, it still shows that icon; remove it in Get Info."], outcome)
                 }
+            case .folderUnsafe:
+                switch missing {
+                case .keep:
+                    return (["\(name) isn't a plain folder now, so its folder icon was left as it is."], outcome)
+                case .forget:
+                    try folderIcons.forget(entry)
+                    return (["\(name) isn't a plain folder now, so its folder icon wasn't put back. If a folder there still shows that icon, remove it in Get Info."], outcome)
+                }
             }
         } catch {
             throw Self.managerError(error)
@@ -962,8 +1011,21 @@ public actor MappingManager {
         folderIconFailures = [:]
         var messages: [String] = folderNotes
 
-        if report.succeeded && folderFailures.isEmpty {
+        // Checked again just before anything is deleted (security review M1). A failure is
+        // reported with the rest, not thrown, so the folder notes above are kept (re-review 2).
+        var containerProblem: String?
+        do {
+            try requireRealContainer()
+        } catch {
+            containerProblem = (error as? ManagerError)?.message ?? String(describing: error)
+        }
+        if report.succeeded && folderFailures.isEmpty && containerProblem == nil {
             messages += provider.removeUnrecordedRegistryFiles()
+            // Temp files a crash left while saving the ledger (re-review 5).
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: container.root.path)) ?? []
+            where name.hasPrefix(".ledger.json.") && name.hasSuffix(".tmp") {
+                try? FileManager.default.removeItem(at: container.root.appending(path: name))
+            }
             try store.remove()
             if FileManager.default.fileExists(atPath: container.iconsDirectory.path) {
                 do {
@@ -989,7 +1051,7 @@ public actor MappingManager {
                 at: 0
             )
         } else {
-            messages += report.failed.map(\.reason.message) + folderFailures
+            messages += report.failed.map(\.reason.message) + folderFailures + [containerProblem].compactMap { $0 }
             if readOnlyReason == nil {
                 // Errors here are added to the messages so the list of failures above is kept.
                 do {
@@ -1016,6 +1078,7 @@ public actor MappingManager {
         guard !actionInProgress else { throw ManagerError.busy }
         actionInProgress = true
         defer { actionInProgress = false }
+        try requireRealContainer()
         return try await action()
     }
 
@@ -1042,7 +1105,12 @@ public actor MappingManager {
     /// that holds every glyph the enabled mappings use is still used.
     func currentAssetsCar() -> URL? {
         let car = container.glyphsDirectory.appending(path: "Assets.car")
-        let needed = Set(config.mappings.filter(\.enabled).compactMap(\.glyphID).compactMap { config.glyph($0) }
+        // A mapping that is off but whose override is still recorded (its clear failed) keeps its
+        // glyph declared, so its Favorite never points at a code the new version lacks (final
+        // review 5).
+        let recorded = Set(((try? provider.ledgerEntries()) ?? []).filter { $0.kind == .sidebarOverride }.compactMap(\.osType))
+        let needed = Set(config.mappings.filter { $0.enabled || recorded.contains($0.osType) }
+            .compactMap(\.glyphID).compactMap { config.glyph($0) }
             .map { $0.versionID.uuidString.lowercased() })
         guard !needed.isEmpty, !container.isSymbolicLink(container.glyphsDirectory) else { return nil }
         let all = Set(config.glyphs.map { $0.versionID.uuidString.lowercased() })

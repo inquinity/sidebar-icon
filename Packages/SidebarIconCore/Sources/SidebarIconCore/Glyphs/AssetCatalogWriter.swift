@@ -24,7 +24,10 @@ public enum AssetCatalogWriter {
         for item in items {
             let template: String
             do {
-                template = try String(contentsOf: item.template, encoding: .utf8)
+                guard let text = String(data: try ContainerFile.read(item.template, limit: SVGShapeReader.maximumFileSize), encoding: .utf8) else {
+                    throw GlyphBuildError.templateUnreadable(item.template.lastPathComponent)
+                }
+                template = text
             } catch {
                 throw GlyphBuildError.templateUnreadable(item.template.lastPathComponent)
             }
