@@ -3,6 +3,14 @@
 All notable changes to Sidebar Icons. Versions follow [Semantic Versioning](https://semver.org/);
 before 1.0.0, any release may change how the app stores its data.
 
+## [0.3.1] - 2026-11-24
+
+### Changed
+
+- A folder that can't be found at its stored path (renamed, moved or deleted) shows as a notice,
+  "Folder missing" with an orange folder icon, instead of an error. Mappings that are Off show it
+  too, and Re-point… is offered for both.
+
 ## [0.3.0] - 2026-11-24
 
 Icon groups (feature 004): sidebar Favorites can now look like the system's own, outline blue in
@@ -103,6 +111,7 @@ First usable version: feature 002, Sidebar Icons v1. Verified on macOS 27.2.1 (2
 - Open follow-ups are in [specs/002-mapping-manager-v1/tasks.md](specs/002-mapping-manager-v1/tasks.md);
   the ones required for 1.0.0 are listed there under "1.0.0 gate".
 
+[0.3.1]: https://github.com/inquinity/sidebar-icons/releases/tag/v0.3.1
 [0.3.0]: https://github.com/inquinity/sidebar-icons/releases/tag/v0.3.0
 [0.2.0]: https://github.com/inquinity/sidebar-icons/releases/tag/v0.2.0
 [0.1.0]: https://github.com/inquinity/sidebar-icons/releases/tag/v0.1.0
