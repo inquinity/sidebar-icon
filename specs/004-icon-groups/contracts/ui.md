@@ -9,6 +9,9 @@ Extends [002's UI contract](../../002-mapping-manager-v1/contracts/ui.md).
 The folder-icon badge shows for an opted-in or recorded folder icon: set, not set (worded for
 mapping on or off), changed elsewhere, failed (reason as help text), or folder missing.
 Re-point… is offered when the folder is missing or its path now resolves to another folder.
+A missing folder (renamed, moved or deleted) is a notice, not an error: the state reads "Folder
+missing" with an orange folder icon, for mappings that are Off as well as On; its help text says
+Re-point… updates the mapping. Errors keep the red triangle.
 
 Context menu: **Change Icon…** (style picker), **Folder Icon…** (opt-in sheet), Remove…, Re-point….
 

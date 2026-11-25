@@ -182,7 +182,7 @@ struct StateBadge: View {
         case .applied: "The Favorite shows this icon."
         case .off: "This mapping is turned off."
         case .notInSidebar: "Drag the folder into Finder's sidebar Favorites, then click Apply Now."
-        case .folderMissing: "The folder can't be found. If it moved, Re-point… finds it."
+        case .folderMissing: "The folder can't be found. If it was renamed or moved, Re-point… updates the mapping."
         case .notApplied: "Click Apply Now to give the Favorite this icon."
         case .error(let reason): reason
         }
@@ -193,7 +193,8 @@ struct StateBadge: View {
         case .applied: "checkmark.circle.fill"
         case .off: "circle"
         case .notInSidebar, .notApplied: "circle.dashed"
-        case .folderMissing, .error: "exclamationmark.triangle.fill"
+        case .folderMissing: "folder.badge.questionmark"
+        case .error: "exclamationmark.triangle.fill"
         }
     }
 
@@ -202,7 +203,8 @@ struct StateBadge: View {
         case .applied: .green
         case .off: .secondary
         case .notInSidebar, .notApplied: .orange
-        case .folderMissing, .error: .red
+        case .folderMissing: .orange
+        case .error: .red
         }
     }
 }

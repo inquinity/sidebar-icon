@@ -24,7 +24,8 @@ public enum MappingState: Sendable, Equatable {
     case off
     /// The folder exists but is not in Finder's sidebar Favorites.
     case notInSidebar
-    /// The folder does not exist.
+    /// The folder can't be found at the stored path (renamed, moved or deleted), whether the
+    /// mapping is on or off. A notice, not an error: Re-point… updates the mapping.
     case folderMissing
     /// The folder is in Favorites but the override is absent, or the bundle is not registered.
     case notApplied
@@ -47,7 +48,10 @@ public enum MappingState: Sendable, Equatable {
         lastFailure: String?
     ) -> MappingState {
         // A mapping turned off whose override could not be cleared is not really off.
-        guard mapping.enabled else { return lastFailure.map { .error($0) } ?? .off }
+        guard mapping.enabled else {
+            if let lastFailure { return .error(lastFailure) }
+            return status.folderExists ? .off : .folderMissing
+        }
         guard status.folderExists else { return .folderMissing }
         guard let count = status.favoriteCount else {
             return .error(SidebarIconError.favoritesUnavailable.message)

@@ -24,6 +24,16 @@ import Testing
         #expect(state(status(active: "S001"), enabled: false) == .off)
     }
 
+    /// A renamed or moved folder shows as missing whether the mapping is on or off, so Re-point…
+    /// is offered; an Off mapping whose override couldn't be cleared stays an error.
+    @Test func aMissingFolderShowsForOffMappingsToo() {
+        #expect(state(status(exists: false)) == .folderMissing)
+        #expect(state(status(exists: false), enabled: false) == .folderMissing)
+        #expect(state(status(exists: false), enabled: false, failure: "not cleared") == .error("not cleared"))
+        #expect(state(status(exists: true), enabled: false) == .off)
+        #expect(!MappingState.folderMissing.offersApplyNow)
+    }
+
     @Test func notInSidebar() {
         #expect(state(status(count: 0)) == .notInSidebar)
     }
