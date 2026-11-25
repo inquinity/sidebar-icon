@@ -103,6 +103,6 @@ First usable version: feature 002, Sidebar Icons v1. Verified on macOS 27.2.1 (2
 - Open follow-ups are in [specs/002-mapping-manager-v1/tasks.md](specs/002-mapping-manager-v1/tasks.md);
   the ones required for 1.0.0 are listed there under "1.0.0 gate".
 
-[0.3.0]: https://github.com/inquinity/sidebar-icon/releases/tag/v0.3.0
-[0.2.0]: https://github.com/inquinity/sidebar-icon/releases/tag/v0.2.0
-[0.1.0]: https://github.com/inquinity/sidebar-icon/releases/tag/v0.1.0
+[0.3.0]: https://github.com/inquinity/sidebar-icons/releases/tag/v0.3.0
+[0.2.0]: https://github.com/inquinity/sidebar-icons/releases/tag/v0.2.0
+[0.1.0]: https://github.com/inquinity/sidebar-icons/releases/tag/v0.1.0
