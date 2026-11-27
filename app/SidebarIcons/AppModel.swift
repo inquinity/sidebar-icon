@@ -95,8 +95,18 @@ final class AppModel {
     }
 
     /// Opens the style picker for a folder just picked in Add Folder….
+    /// Add Folder…: a folder that is already mapped (or isn't a folder) is refused here, before the
+    /// icon is chosen; otherwise the style picker opens.
     func chooseStyle(forNewFolder folder: URL) {
-        styleRequest = StyleRequest(purpose: .add(folder: folder))
+        guard let manager, canChange else { return }
+        Task {
+            do {
+                try await manager.checkNewFolder(folder)
+                styleRequest = StyleRequest(purpose: .add(folder: folder))
+            } catch {
+                alert = Alert(title: "Sidebar Icons", message: Self.message(for: error))
+            }
+        }
     }
 
     func applyStyle(_ choice: StyleChoice) {

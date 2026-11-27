@@ -203,6 +203,63 @@ import Testing
         #expect(retried.rows.first { $0.id == dev.id }?.state == .off)
     }
 
+    // 1.0.0 gate F015: when nothing is newly applicable, the registry still stops declaring removed
+    // icons; a code an override still points at stays declared.
+    @Test func registryDropsRemovedIconsWhenNothingElseCanBeApplied() async throws {
+        let fixture = try ManagerFixture()
+        let (manager, dev, docs) = try await twoMappings(fixture)
+        // docs stays enabled with its override recorded, but its folder leaves the sidebar, so
+        // nothing is newly applicable.
+        fixture.system.state.withLock { state in state.favorites.removeAll { $0.path == fixture.docs } }
+
+        _ = try await manager.remove(dev.id)
+
+        let plist = try String(contentsOf: try currentRegistryBundle(fixture.container).appending(path: "Contents/Info.plist"), encoding: .utf8)
+        #expect(plist.contains(">\(docs.osType)<"))
+        #expect(!plist.contains(">\(dev.osType)<"))
+    }
+
+    // F015 review: an older registry version stays while a recorded override's code is declared
+    // only by it (a removed mapping whose clear failed).
+    @Test func olderVersionStaysWhileAFailedClearStillNeedsItsCode() async throws {
+        let fixture = try ManagerFixture()
+        let (manager, dev, _) = try await twoMappings(fixture)
+        fixture.system.state.withLock { state in
+            state.favorites.removeAll { $0.path == fixture.docs }
+            state.failClearing = [dev.osType]
+        }
+
+        _ = try await manager.remove(dev.id)
+
+        let ledger = try LedgerStore(url: fixture.container.ledgerURL).entries()
+        #expect(ledger.contains { $0.kind == .sidebarOverride && $0.osType == dev.osType })
+        #expect(ledger.filter { $0.kind == .iconRegistration }.count == 2)
+
+        fixture.system.state.withLock { $0.failClearing = [] }
+        _ = try await manager.refreshFinder()
+        let after = try LedgerStore(url: fixture.container.ledgerURL).entries()
+        #expect(!after.contains { $0.kind == .sidebarOverride && $0.osType == dev.osType })
+        #expect(after.filter { $0.kind == .iconRegistration }.count == 1)
+    }
+
+    // 1.0.0 gate F003: after the last mapping is removed with a failed clear, Refresh Finder retries.
+    @Test func refreshFinderRetriesAClearLeftByTheLastRemovedMapping() async throws {
+        let fixture = try ManagerFixture()
+        let manager = try await fixture.manager()
+        let row = try await manager.add(folder: URL(fileURLWithPath: fixture.dev), image: fixture.png).rows[0]
+        fixture.system.state.withLock { $0.failClearing = ["S001"] }
+        _ = try await manager.remove(row.id)
+        #expect(override(fixture, fixture.dev) == "S001")
+        let ledger = LedgerStore(url: fixture.container.ledgerURL)
+        #expect(try !ledger.entries().filter { $0.kind == .sidebarOverride }.isEmpty)
+
+        fixture.system.state.withLock { $0.failClearing = [] }
+        _ = try await manager.refreshFinder()
+
+        #expect(override(fixture, fixture.dev) == nil)
+        #expect(try ledger.entries().filter { $0.kind == .sidebarOverride }.isEmpty)
+    }
+
     // #4: once saved, an apply failure is a message, not an error.
     @Test func storyTwoActionsReportPostSaveFailuresAsMessages() async throws {
         let fixture = try ManagerFixture()

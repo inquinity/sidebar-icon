@@ -121,16 +121,23 @@ public actor MappingManager {
     // MARK: - Reading
 
     /// Reads `config.json`. On `configUnreadable` the manager becomes read-only and rethrows.
-    public func load() throws {
+    /// Runs through `exclusive` (1.0.0 gate F017), so it can't replace the configuration while an
+    /// action is suspended part-way; it throws `busy` then.
+    public func load() async throws {
         do {
-            try requireRealContainer()
-            config = try store.load()
-            readOnlyReason = nil
+            try await exclusive { try self.readConfiguration() }
+        } catch ManagerError.busy {
+            throw ManagerError.busy
         } catch let error as ManagerError {
             config = AppConfiguration()
             readOnlyReason = error.message
             throw error
         }
+    }
+
+    private func readConfiguration() throws {
+        config = try store.load()
+        readOnlyReason = nil
     }
 
     /// Whether the ledger records any folder icon, for the Reset All confirmation (final review 6):
@@ -958,7 +965,10 @@ public actor MappingManager {
 
     private func performRefreshFinder() async throws -> ActionResult {
         var messages: [String] = []
-        if readOnlyReason == nil, !config.mappings.isEmpty {
+        // Also when no mapping is left but the ledger still records an override or registration
+        // (a clear failed when the last mapping was removed): Refresh Finder retries it (F003).
+        let recorded = ((try? provider.ledgerEntries()) ?? []).contains { $0.kind != .folderIcon }
+        if readOnlyReason == nil, !config.mappings.isEmpty || recorded {
             do {
                 messages += try await applyAll().messages
             } catch let error as ManagerError {
@@ -1084,6 +1094,16 @@ public actor MappingManager {
 
     /// The standardized path of `folder` if it is an existing directory that no other mapping
     /// (other than `excluding`) already uses, by any spelling (FR-004).
+    /// Add Folder… asks this right after the folder is picked (1.0.0 gate F001): a folder that is
+    /// already mapped, or isn't a folder, is refused before any icon is chosen. Read-only.
+    public func checkNewFolder(_ folder: URL) throws {
+        do {
+            _ = try validatedNewFolder(folder, excluding: nil)
+        } catch {
+            throw Self.managerError(error)
+        }
+    }
+
     private func validatedNewFolder(_ folder: URL, excluding id: UUID?) throws -> String {
         let path = PathStandardizer.standardize(folder.path)
         var isDirectory: ObjCBool = false

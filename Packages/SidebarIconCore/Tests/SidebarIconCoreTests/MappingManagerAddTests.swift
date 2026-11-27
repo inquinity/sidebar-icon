@@ -69,6 +69,24 @@ import Testing
         #expect(try fixture.snapshot() == before)
     }
 
+    /// 1.0.0 gate F001: the picked folder is checked before any icon is chosen, and nothing is saved.
+    @Test func checkNewFolderRefusesAMappedFolderAndAFile() async throws {
+        let fixture = try ManagerFixture()
+        let manager = try await fixture.manager()
+        try await manager.checkNewFolder(URL(fileURLWithPath: fixture.dev))
+        _ = try await manager.add(folder: URL(fileURLWithPath: fixture.dev), image: fixture.png)
+        let before = try fixture.snapshot()
+
+        await #expect(throws: ManagerError.duplicateFolder(existing: fixture.dev)) {
+            try await manager.checkNewFolder(URL(fileURLWithPath: fixture.dev + "/"))
+        }
+        await #expect(throws: ManagerError.notAFolder(PathStandardizer.standardize(fixture.png.path))) {
+            try await manager.checkNewFolder(fixture.png)
+        }
+        try await manager.checkNewFolder(URL(fileURLWithPath: fixture.docs))
+        #expect(try fixture.snapshot() == before)
+    }
+
     @Test func aFileIsNotAFolder() async throws {
         let fixture = try ManagerFixture()
         let manager = try await fixture.manager()

@@ -102,13 +102,25 @@ import Testing
         let (fixture, system, provider) = try setup()
         _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
         let bundle = try currentRegistryBundle(fixture.container)
-        system.state.withLock { $0.failRegister = true; $0.calls = [] }
+        // The bundle is no longer listed, so applying has to register it again, and that fails.
+        system.state.withLock { $0.registered = []; $0.failRegister = true; $0.calls = [] }
 
         await #expect(throws: (any Error).self) { try await provider.apply(fixture.mappings(), assets: [fixture.asset]) }
 
         #expect(FileManager.default.fileExists(atPath: bundle.path))
         #expect(!system.calls.contains("unregister"))
         #expect(try currentRegistryBundle(fixture.container) == bundle)
+    }
+
+    /// 1.0.0 gate F002: an unchanged bundle that is still listed isn't registered again.
+    @Test func anUnchangedListedBundleIsNotRegisteredAgain() async throws {
+        let (fixture, system, provider) = try setup()
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+        system.state.withLock { $0.calls = [] }
+
+        _ = try await provider.apply(fixture.mappings(), assets: [fixture.asset])
+
+        #expect(!system.calls.contains { $0.hasPrefix("register") })
     }
 
     @Test func failedFirstRegistrationRemovesTheNewBundle() async throws {

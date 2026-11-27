@@ -1,5 +1,6 @@
 @preconcurrency import CoreServices
 import Foundation
+import Synchronization
 
 // Path B: the Launch Services sidebar icon override (research R2, R3, R7, R8).
 //
@@ -196,13 +197,16 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
         // unregistered code. Each distinct content is its own versioned bundle (004 research D2).
         var bundleURL = container.registryBundleURL
         var bundleEntries: [IconRegistryBundle.Entry] = []
-        if !eligible.isEmpty {
-            bundleEntries = eligible.map(\.entry)
-            let eligibleIDs = Set(eligible.map(\.mapping.id))
-            let stillRecorded = Set(try ownOverrides().compactMap(\.osType))
-            for mapping in mappings where !eligibleIDs.contains(mapping.id) && stillRecorded.contains(mapping.osType) {
-                if let entry = registryEntry(for: mapping) { bundleEntries.append(entry) }
-            }
+        // Codes an override still points at stay declared, so a Favorite is never left on an
+        // undeclared code. When nothing is newly applicable but such overrides remain, the bundle
+        // is still rewritten, so it stops declaring icons that were removed or turned off (1.0.0
+        // gate F015).
+        let eligibleIDs = Set(eligible.map(\.mapping.id))
+        let stillRecorded = Set(try ownOverrides().compactMap(\.osType))
+        let keptEntries = mappings.filter { !eligibleIDs.contains($0.id) && stillRecorded.contains($0.osType) }
+            .compactMap { registryEntry(for: $0) }
+        if !eligible.isEmpty || !keptEntries.isEmpty {
+            bundleEntries = eligible.map(\.entry) + keptEntries
             // A code another bundle claims is left out, and only its mapping is skipped; the
             // others are still applied.
             let codes = Set(bundleEntries.map(\.osType))
@@ -239,7 +243,7 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
                 }
             }
         }
-        if !eligible.isEmpty {
+        if !bundleEntries.isEmpty {
             // The car is part of the content only when an entry uses it, so rebuilding the car
             // doesn't make new versions of registries without custom glyphs.
             let usesCar = bundleEntries.contains { if case .customGlyph = $0.style { true } else { false } }
@@ -258,9 +262,15 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
                 try IconRegistryBundle.write(bundleEntries, assetsCarData: bundleCar, hash: hash, to: bundleURL)
                 wroteBundle = true
             }
+            // A version already recorded, left as it was and listed by Launch Services (the dump
+            // the claims check just read) needs no new registration: registering again would only
+            // drop the shared dump and make every later read run `lsregister -dump` again (F002).
+            let alreadyListed = alreadyRecorded && !wroteBundle && ((try? system.isRegistered(bundleAt: bundleURL)) ?? false)
             do {
-                try ledger.record(OutsideChange(kind: .iconRegistration, target: bundleURL.path)) {
-                    try system.register(bundleAt: bundleURL)
+                if !alreadyListed {
+                    try ledger.record(OutsideChange(kind: .iconRegistration, target: bundleURL.path)) {
+                        try system.register(bundleAt: bundleURL)
+                    }
                 }
             } catch {
                 // Only a bundle this call created and that no ledger entry records would never be
@@ -294,7 +304,12 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
 
         // 4b. Retire every other registry version now that the Favorites point at the current one
         // (004 research D2). The codes don't change, so the current bundle takes over at once.
-        if !eligible.isEmpty {
+        // Only when every override still recorded points at a code the current bundle declares: a
+        // removed mapping whose clear failed keeps its code declared by the older version until it
+        // is cleared (Reset All or the next successful apply).
+        let currentCodes = Set(bundleEntries.map(\.osType))
+        let allRecordedDeclared = try ownOverrides().allSatisfy { $0.osType.map(currentCodes.contains) == true }
+        if !bundleEntries.isEmpty, allRecordedDeclared {
             for entry in try ledger.entries() where entry.kind == .iconRegistration && !Self.samePath(entry.target, bundleURL.path) {
                 do {
                     try undoRegistration(entry)
@@ -514,7 +529,32 @@ public struct LaunchServicesOverrideProvider: SidebarIconProvider {
 // MARK: - System calls (private and deprecated API)
 
 /// The real `LaunchServicesSystem`. Each member names its `PRIVATE_API.md` entry.
+/// One `lsregister -dump` (tens of MB, several seconds) shared by the reads of one action
+/// (1.0.0 gate F002). A dump stays valid for `lifetime` seconds and is dropped whenever this app
+/// registers or unregisters a bundle, so a read after a change always sees the change.
+final class LSDumpCache: Sendable {
+    private let state = Mutex<(text: String, at: Date)?>(nil)
+    let lifetime: TimeInterval
+
+    init(lifetime: TimeInterval = 5) {
+        self.lifetime = lifetime
+    }
+
+    func read(now: Date = Date(), load: () throws -> String) throws -> String {
+        if let cached = state.withLock({ $0 }), now.timeIntervalSince(cached.at) < lifetime { return cached.text }
+        let text = try load()
+        state.withLock { $0 = (text, now) }
+        return text
+    }
+
+    func invalidate() {
+        state.withLock { $0 = nil }
+    }
+}
+
 public struct SystemLaunchServices: LaunchServicesSystem {
+    private let dumps = LSDumpCache()
+
     /// PA-03. Undocumented key; the value is written as a four-character `CFString`.
     static let overrideIconKeyName = "com.apple.LSSharedFileList.OverrideIcon.OSType"
     static var overrideIconKey: CFString { overrideIconKeyName as CFString }
@@ -608,24 +648,32 @@ public struct SystemLaunchServices: LaunchServicesSystem {
 
     /// PA-04. `LSRegisterURL` itself is public; Finder using the registration for sidebar icons is not.
     public func register(bundleAt url: URL) throws {
+        dumps.invalidate()
         let status = LSRegisterURL(url as CFURL, true)
+        defer { dumps.invalidate() }
         guard status == noErr else { throw SidebarIconError.registrationFailed(status) }
     }
 
     /// PA-05. There is no public unregister call.
     public func unregister(bundleAt url: URL) throws {
+        dumps.invalidate()
+        defer { dumps.invalidate() }
         _ = try runLSRegister(["-u", url.path])
     }
 
     /// PA-05, read-only.
     public func claims(on codes: Set<String>) throws -> [String: [LSClaimOwner]] {
-        LSRegisterDumpParser.claims(on: codes, in: try runLSRegister(["-dump"]))
+        LSRegisterDumpParser.claims(on: codes, in: try dump())
     }
 
     /// PA-05, read-only.
     public func isRegistered(bundleAt url: URL) throws -> Bool {
-        LSRegisterDumpParser.registeredPaths(in: try runLSRegister(["-dump"]))
+        LSRegisterDumpParser.registeredPaths(in: try dump())
             .contains { LaunchServicesOverrideProvider.samePath($0, url.path) }
+    }
+
+    private func dump() throws -> String {
+        try dumps.read { try runLSRegister(["-dump"]) }
     }
 
     static let lsregisterTimeout: TimeInterval = 120

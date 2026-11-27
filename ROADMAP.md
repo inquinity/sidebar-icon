@@ -33,16 +33,13 @@ data format is one the app will keep reading. The gate comes from
 
 **Must be done**
 
-- [ ] F001 Refuse an already-mapped folder right after the folder is picked, before the image.
-- [ ] F002 Refresh Finder takes 15–20 s, mostly repeated `lsregister -dump` runs; share one per action.
-- [ ] F003 After removing the last mapping with a failed clear, let Refresh Finder retry it.
-- [ ] F015 The registry bundle keeps declaring a removed icon until the next rewrite; rewrite or
-      unregister whenever the needed codes change.
-- [ ] F017 Run `MappingManager.load()` through `exclusive`.
+- [x] F001 Refuse an already-mapped folder right after the folder is picked (after 0.3.1).
+- [x] F002 Share one `lsregister -dump` per action (after 0.3.1). *Measure Refresh Finder on a Developer ID build.*
+- [x] F003 After removing the last mapping with a failed clear, Refresh Finder retries it (after 0.3.1).
+- [x] F015 The registry bundle is rewritten whenever the needed codes change (after 0.3.1).
+- [x] F017 `MappingManager.load()` runs through `exclusive` (after 0.3.1).
 - [x] F005 Re-point… on Off rows and on rows whose path now resolves elsewhere (0.3.0, 0.3.1).
-      *Confirm and tick.*
 - [x] F014 Refuse a data folder reached through a link (0.3.0, final security review M1).
-      *Confirm and tick.*
 - [x] F016, F021 Developer ID release builds; lowercase bundle ID and App Group.
 
 **Decide: do, drop, or defer past 1.0.0** (record the reason in research.md)
